@@ -1,6 +1,42 @@
 @echo off
 setlocal enabledelayedexpansion
+chcp 65001 >nul 2>&1
 
+:: ============================================
+:: 版本选择 (Lite = Python only, Full = + Node.js + Web UI)
+:: ============================================
+set "INSTALL_MODE=lite"
+if /i "%~1"=="full"   set "INSTALL_MODE=full"
+if /i "%~1"=="--full" set "INSTALL_MODE=full"
+if /i "%~1"=="lite"   set "INSTALL_MODE=lite"
+if /i "%~1"=="--lite" set "INSTALL_MODE=lite"
+
+if not "%~1"=="" goto :mode_decided
+
+echo.
+echo ============================================
+echo   Hermes Agent - Windows Installer
+echo ============================================
+echo.
+echo   请选择安装版本 / Choose install edition:
+echo.
+echo     [1] 轻量版 Lite  (~150MB 下载)
+echo         Python 3.13 + AI 工具 + 桌面 GUI
+echo.
+echo     [2] 完整版 Full  (~350MB 下载, 推荐)
+echo         轻量版全部功能 + Node.js 23 + Web UI
+echo         安装后可用浏览器访问 http://localhost:8648
+echo.
+set /p "MODE_CHOICE=  请输入 1 或 2 (直接回车 = 轻量版): "
+if "%MODE_CHOICE%"=="2" set "INSTALL_MODE=full"
+
+:mode_decided
+echo.
+if "%INSTALL_MODE%"=="full" (
+    echo   [已选择] 完整版 Full  - Python + Node.js + Web UI
+) else (
+    echo   [已选择] 轻量版 Lite  - Python only
+)
 echo.
 echo ============================================
 echo   Hermes Agent - Windows Installer
@@ -16,6 +52,10 @@ echo   - Git submodules (mini-swe-agent)
 echo   - Skills sync (89+ skills)
 echo   - Environment configuration
 echo   - Default permissions
+if "%INSTALL_MODE%"=="full" (
+    echo   - Node.js 23 embedded ^(portable^)
+    echo   - hermes-web-ui ^(browser interface on :8648^)
+)
 echo.
 echo   No admin rights needed. No system changes.
 echo   Everything stays inside this folder.
@@ -271,6 +311,181 @@ if errorlevel 1 (
 echo [OK] Skills synced.
 
 :: ============================================
+:: Step 11/12: Node.js 便携包 (仅 Full 版)
+:: ============================================
+if not "%INSTALL_MODE%"=="full" goto :skip_nodejs
+
+set "NODE_DIR=%SCRIPT_DIR%node_embedded"
+set "NODE_EXE=%NODE_DIR%\node.exe"
+set "NODE_VER=23.11.0"
+set "NODE_ZIP=%SCRIPT_DIR%node_embedded.zip"
+
+if exist "%NODE_EXE%" (
+    for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do (
+        echo [OK] Node.js %%v already installed, skipping download.
+    )
+    goto :skip_nodejs_download
+)
+
+echo [STEP 11/12] Downloading Node.js v%NODE_VER% (~40MB)...
+echo              (中国用户预计 2-10 分钟，请耐心等待)
+
+:: 一级: npmmirror (中国最快)
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue';" ^
+    "try{Invoke-WebRequest -Uri 'https://registry.npmmirror.com/-/binary/node/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 300}catch{}" >nul 2>&1
+if exist "%NODE_ZIP%" echo [OK] Downloaded from npmmirror.com
+
+:: 二级: 自建 CDN
+if not exist "%NODE_ZIP%" (
+    echo [WARN] npmmirror failed, trying CDN...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference='SilentlyContinue';" ^
+        "try{Invoke-WebRequest -Uri 'http://121.40.165.216/hermes-cdn/files/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 300}catch{}" >nul 2>&1
+    if exist "%NODE_ZIP%" echo [OK] Downloaded from CDN.
+)
+
+:: 三级: 官方源
+if not exist "%NODE_ZIP%" (
+    echo [WARN] CDN failed, trying nodejs.org (may be slow)...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference='SilentlyContinue';" ^
+        "try{Invoke-WebRequest -Uri 'https://nodejs.org/dist/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 600}catch{}" >nul 2>&1
+    if exist "%NODE_ZIP%" echo [OK] Downloaded from nodejs.org.
+)
+
+if not exist "%NODE_ZIP%" (
+    echo [ERROR] Node.js download failed from all sources.
+    echo         Web UI will not be available.
+    echo         You can retry later by running: install.bat full
+    set "INSTALL_MODE=lite"
+    goto :skip_nodejs
+)
+
+echo [STEP 11/12] Extracting Node.js...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue';" ^
+    "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%SCRIPT_DIR%node_tmp' -Force"
+
+if exist "%SCRIPT_DIR%node_tmp\node-v%NODE_VER%-win-x64" (
+    move "%SCRIPT_DIR%node_tmp\node-v%NODE_VER%-win-x64" "%NODE_DIR%" >nul
+    rmdir /S /Q "%SCRIPT_DIR%node_tmp" 2>nul
+) else (
+    echo [ERROR] Node.js extraction produced unexpected structure.
+    set "INSTALL_MODE=lite"
+    goto :skip_nodejs
+)
+del "%NODE_ZIP%" 2>nul
+
+if exist "%NODE_EXE%" (
+    for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js %%v installed.
+) else (
+    echo [ERROR] Node.js extraction failed. Falling back to Lite.
+    set "INSTALL_MODE=lite"
+)
+
+:skip_nodejs_download
+:skip_nodejs
+
+:: ============================================
+:: Step 12/12: hermes-web-ui Bundle (仅 Full 版)
+:: ============================================
+if not "%INSTALL_MODE%"=="full" goto :skip_webui
+
+set "WEBUI_DIR=%SCRIPT_DIR%webui"
+set "WEBUI_SERVER=%WEBUI_DIR%\dist\server\index.js"
+set "SEVENZIP=%SCRIPT_DIR%tools\7za.exe"
+set "BUNDLE_VER=0.5.13"
+set "BUNDLE_FILE=%SCRIPT_DIR%hermes-webui-bundle.7z"
+set "BUNDLE_CDN=http://121.40.165.216/hermes-cdn/files/hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
+
+if exist "%WEBUI_SERVER%" (
+    echo [OK] hermes-web-ui v%BUNDLE_VER% already installed, skipping.
+    goto :skip_webui
+)
+
+:: 下载 7za.exe（如无）
+if not exist "%SEVENZIP%" (
+    if not exist "%SCRIPT_DIR%tools" mkdir "%SCRIPT_DIR%tools"
+    echo [INFO] Downloading 7za.exe...
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference='SilentlyContinue';" ^
+        "try{Invoke-WebRequest 'http://121.40.165.216/hermes-cdn/files/7za.exe' -OutFile '%SEVENZIP%' -TimeoutSec 60}catch{}" >nul 2>&1
+)
+
+echo [STEP 12/12] Downloading hermes-web-ui bundle (~50MB)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue';" ^
+    "try{Invoke-WebRequest '%BUNDLE_CDN%' -OutFile '%BUNDLE_FILE%' -TimeoutSec 300;exit 0}catch{exit 1}" >nul 2>&1
+
+if not exist "%BUNDLE_FILE%" (
+    echo [WARN] CDN bundle download failed, trying npm install...
+    goto :webui_npm_fallback
+)
+
+:: SHA256 校验（可选，CDN 可能无 .sha256 文件则跳过）
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "try{" ^
+    "  $sha=(Get-FileHash '%BUNDLE_FILE%' -Algorithm SHA256).Hash.ToLower();" ^
+    "  $exp=(Invoke-WebRequest '%BUNDLE_CDN%.sha256' -UseBasicParsing -TimeoutSec 10).Content.Trim().Split(' ')[0];" ^
+    "  if($sha -ne $exp){exit 1} else {exit 0}" ^
+    "}catch{exit 0}" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] SHA256 mismatch. Re-downloading via npm...
+    del "%BUNDLE_FILE%" 2>nul
+    goto :webui_npm_fallback
+)
+
+:: 解压 bundle
+echo [STEP 12/12] Extracting Web UI bundle...
+if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
+if exist "%SEVENZIP%" (
+    "%SEVENZIP%" x "%BUNDLE_FILE%" -o"%WEBUI_DIR%" -y >nul
+) else (
+    echo [ERROR] 7za.exe not available, cannot extract .7z bundle.
+    del "%BUNDLE_FILE%" 2>nul
+    goto :webui_npm_fallback
+)
+del "%BUNDLE_FILE%" 2>nul
+
+if exist "%WEBUI_SERVER%" (
+    echo [OK] hermes-web-ui v%BUNDLE_VER% installed.
+    goto :webui_done
+)
+
+:webui_npm_fallback
+echo [FALLBACK] Installing hermes-web-ui via npm (npmmirror)...
+if not exist "%NODE_EXE%" (
+    echo [ERROR] Node.js not available. Cannot install Web UI.
+    echo         Web UI will not be available in this installation.
+    goto :skip_webui
+)
+set "PATH=%NODE_DIR%;%PATH%"
+set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
+if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
+cd /d "%WEBUI_DIR%"
+"%NODE_DIR%\npm.cmd" install "hermes-web-ui@%BUNDLE_VER%" ^
+    --registry https://registry.npmmirror.com ^
+    --cache "%SCRIPT_DIR%.npm-cache" ^
+    --prefer-offline 2>nul
+if exist "%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js" (
+    echo [OK] hermes-web-ui installed via npm.
+    :: npm 模式下调整 WEBUI_SERVER 指向 node_modules 子目录
+    set "WEBUI_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
+) else (
+    echo [ERROR] npm install also failed. Web UI will not be available.
+)
+
+:webui_done
+cd /d "%SCRIPT_DIR%"
+
+:: 尝试启用长路径（避免 node_modules 嵌套超出 MAX_PATH）
+powershell -NoProfile -Command ^
+    "try{Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' LongPathsEnabled 1}catch{}" >nul 2>&1
+
+:skip_webui
+
+:: ============================================
 :: Done!
 :: ============================================
 echo.
@@ -285,10 +500,18 @@ echo     - 100 AI tools across 20+ toolsets
 echo     - 88+ skills
 echo     - LM Studio SDK
 echo     - Browser automation
+if "%INSTALL_MODE%"=="full" (
+    echo     - Node.js v23.11.0 ^(portable, in node_embedded/^)
+    echo     - hermes-web-ui v%BUNDLE_VER% ^(browser interface^)
+)
 echo.
 echo   To start:
 echo     hermes_gui.bat     Desktop GUI (recommended)
 echo     hermes.bat         Command-line interface
+if "%INSTALL_MODE%"=="full" (
+    echo     start_webui.bat    Launch Web UI in browser
+    echo                        ^(opens http://localhost:8648^)
+)
 echo.
 echo   First time? The app will guide you through
 echo   setting up your API keys on first launch.
