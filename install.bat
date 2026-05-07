@@ -148,7 +148,7 @@ if %errorlevel% neq 0 (
 :: Step 4: Install setuptools (needed for editable installs)
 :: ============================================
 echo [STEP 4/10] Installing build tools...
-"%PYTHON_EXE%" -m pip install setuptools wheel --quiet 2>nul
+"%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
 
 :: ============================================
 :: Step 5: Install Tkinter (GUI support)
@@ -227,7 +227,7 @@ echo        (this may take several minutes on first run)
 :: Main package
 "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." --quiet 2>nul
 if errorlevel 1 (
-    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" --quiet 2>nul
+    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
 )
 
 :: Guarantee the project root is on sys.path regardless of editable-install outcome.
@@ -240,15 +240,15 @@ echo [OK] hermes_project.pth created.
 :pth_done
 
 :: All optional extras
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" --quiet 2>nul
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
 
 :: Mini-swe-agent
 if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
-    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" --quiet 2>nul
+    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
 )
 
 :: Extra packages needed for Windows GUI
-"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio --quiet 2>nul
+"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
 
 echo [OK] Python dependencies installed.
 
