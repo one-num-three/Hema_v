@@ -58,3 +58,17 @@ mini-swe-agent/
 # Nix
 .direnv/
 result
+
+# Portable runtime (downloaded by install.bat, not committed)
+node_embedded/
+webui/
+python_embedded/
+_tcltk_temp/
+node_tmp/
+.npm-cache/
+
+# Temp install artifacts
+*.zip
+*.7z
+*.msi
+hermes-webui-bundle.7z

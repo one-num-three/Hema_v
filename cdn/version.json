@@ -1,0 +1,11 @@
+{
+  "webui_version": "0.5.13",
+  "webui_bundle": "hermes-webui-bundle-v0.5.13-win-x64.7z",
+  "webui_bundle_sha256": "hermes-webui-bundle-v0.5.13-win-x64.7z.sha256",
+  "node_version": "23.11.0",
+  "node_zip": "node-v23.11.0-win-x64.zip",
+  "node_zip_url": "https://registry.npmmirror.com/-/binary/node/v23.11.0/node-v23.11.0-win-x64.zip",
+  "hermes_agent_version": "2026.5.2",
+  "cdn_base": "http://121.40.165.216/hermes-cdn/files/",
+  "updated": "2026-05-07"
+}
