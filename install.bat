@@ -158,13 +158,14 @@ if not exist "%PYTHON_DIR%\Lib\tkinter" (
     set "TCLTK_MSI=%SCRIPT_DIR%\tcltk.msi"
     set "TCLTK_TEMP=%SCRIPT_DIR%\_tcltk_temp"
 
-    if not exist "!TCLTK_MSI!" (
-        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-            "$ProgressPreference = 'SilentlyContinue';" ^
-            "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '!TCLTK_MSI!'"
-    ) else (
-        echo [OK] Found local tcltk.msi, using offline copy.
-    )
+    if exist "!TCLTK_MSI!" goto :tk_skip_dl
+    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+        "$ProgressPreference = 'SilentlyContinue';" ^
+        "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '!TCLTK_MSI!'"
+    goto :tk_dl_done
+    :tk_skip_dl
+    echo [OK] Found local tcltk.msi, using offline copy.
+    :tk_dl_done
 
     if exist "!TCLTK_MSI!" (
         :: Use PowerShell Start-Process -Wait for reliable synchronous extraction.
@@ -233,10 +234,10 @@ if errorlevel 1 (
 :: Embedded Python does not create .egg-link / .pth files the same way as regular
 :: Python, so pip install -e . may succeed (exit 0) but leave hermes_cli unreachable.
 set "PTH_FILE=%PYTHON_DIR%\Lib\site-packages\hermes_project.pth"
-if not exist "!PTH_FILE!" (
-    "%PYTHON_EXE%" -c "f=open(r'%PYTHON_DIR%\Lib\site-packages\hermes_project.pth','w');f.write(r'%SCRIPT_DIR%');f.close()"
-    echo [OK] hermes_project.pth created.
-)
+if exist "!PTH_FILE!" goto :pth_done
+"%PYTHON_EXE%" -c "f=open(r'%PYTHON_DIR%\Lib\site-packages\hermes_project.pth','w');f.write(r'%SCRIPT_DIR%');f.close()"
+echo [OK] hermes_project.pth created.
+:pth_done
 
 :: All optional extras
 "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" --quiet 2>nul
