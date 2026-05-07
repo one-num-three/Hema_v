@@ -165,14 +165,13 @@ if not exist "%PYTHON_DIR%\Lib\tkinter" (
     set "TCLTK_MSI=%SCRIPT_DIR%\tcltk.msi"
     set "TCLTK_TEMP=%SCRIPT_DIR%\_tcltk_temp"
 
-    if exist "!TCLTK_MSI!" goto :tk_skip_dl
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference = 'SilentlyContinue';" ^
-        "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '!TCLTK_MSI!'"
-    goto :tk_dl_done
-    :tk_skip_dl
-    echo [OK] Found local tcltk.msi, using offline copy.
-    :tk_dl_done
+    if exist "!TCLTK_MSI!" (
+        echo [OK] Found local tcltk.msi, using offline copy.
+    ) else (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+            "$ProgressPreference = 'SilentlyContinue';" ^
+            "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '!TCLTK_MSI!'"
+    )
 
     if exist "!TCLTK_MSI!" (
         :: Use PowerShell Start-Process -Wait for reliable synchronous extraction.
