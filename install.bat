@@ -224,10 +224,12 @@ echo [OK] run_py.sh created.
 echo [STEP 7/10] Installing Python dependencies...
 echo        (this may take several minutes on first run)
 
-:: Main package
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." --quiet 2>nul
+:: Main package (清华镜像 + 显示进度，避免用户以为卡住)
+echo        Installing core package...
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet
 if errorlevel 1 (
-    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
+    echo [WARN] Editable install failed, trying requirements.txt...
+    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet
 )
 
 :: Guarantee the project root is on sys.path regardless of editable-install outcome.
@@ -240,7 +242,8 @@ echo [OK] hermes_project.pth created.
 :pth_done
 
 :: All optional extras
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet 2>nul
+echo        Installing optional extras (messaging, cron, mcp...)
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet
 
 :: Mini-swe-agent
 if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
@@ -371,7 +374,7 @@ if not exist "%NODE_ZIP%" (
 echo [STEP 11/12] Extracting Node.js...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference='SilentlyContinue';" ^
-    "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%SCRIPT_DIR%node_tmp' -Force"
+    "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%SCRIPT_DIR%\node_tmp' -Force"
 
 if exist "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" (
     move "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" "%NODE_DIR%" >nul
@@ -412,7 +415,7 @@ if exist "%WEBUI_SERVER%" (
 
 :: 下载 7za.exe（如无）
 if not exist "%SEVENZIP%" (
-    if not exist "%SCRIPT_DIR%tools" mkdir "%SCRIPT_DIR%tools"
+    if not exist "%SCRIPT_DIR%\tools" mkdir "%SCRIPT_DIR%\tools"
     echo [INFO] Downloading 7za.exe...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "$ProgressPreference='SilentlyContinue';" ^
@@ -467,7 +470,7 @@ if not exist "%NODE_EXE%" (
     goto :skip_webui
 )
 set "PATH=%NODE_DIR%;%PATH%"
-set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
+set "NPM_CONFIG_CACHE=%SCRIPT_DIR%\.npm-cache"
 if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
 cd /d "%WEBUI_DIR%"
 "%NODE_DIR%\npm.cmd" install "hermes-web-ui@%BUNDLE_VER%" ^
