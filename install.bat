@@ -62,7 +62,8 @@ echo   Everything stays inside this folder.
 echo.
 
 set "SCRIPT_DIR=%~dp0"
-set "PYTHON_DIR=%SCRIPT_DIR%python_embedded"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set "PYTHON_DIR=%SCRIPT_DIR%\python_embedded"
 set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 
 set "PYTHON_VERSION=3.13.12"
@@ -154,12 +155,16 @@ echo [STEP 4/10] Installing build tools...
 :: ============================================
 if not exist "%PYTHON_DIR%\Lib\tkinter" (
     echo [STEP 5/10] Installing Tkinter GUI support...
-    set "TCLTK_MSI=%SCRIPT_DIR%tcltk.msi"
-    set "TCLTK_TEMP=%SCRIPT_DIR%_tcltk_temp"
+    set "TCLTK_MSI=%SCRIPT_DIR%\tcltk.msi"
+    set "TCLTK_TEMP=%SCRIPT_DIR%\_tcltk_temp"
 
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference = 'SilentlyContinue';" ^
-        "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '%TCLTK_MSI%'"
+    if not exist "!TCLTK_MSI!" (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+            "$ProgressPreference = 'SilentlyContinue';" ^
+            "Invoke-WebRequest -Uri '%TCLTK_URL%' -OutFile '!TCLTK_MSI!'"
+    ) else (
+        echo [OK] Found local tcltk.msi, using offline copy.
+    )
 
     if exist "!TCLTK_MSI!" (
         :: Use PowerShell Start-Process -Wait for reliable synchronous extraction.
@@ -196,7 +201,7 @@ where git >nul 2>&1
 if %errorlevel% equ 0 (
     cd /d "%SCRIPT_DIR%"
     git submodule update --init --recursive --quiet 2>nul
-    if exist "%SCRIPT_DIR%mini-swe-agent\pyproject.toml" (
+    if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
         echo [OK] Submodules initialized.
     ) else (
         echo [INFO] Submodules not available - some features may be limited.
@@ -219,9 +224,9 @@ echo [STEP 7/10] Installing Python dependencies...
 echo        (this may take several minutes on first run)
 
 :: Main package
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%." --quiet 2>nul
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." --quiet 2>nul
 if errorlevel 1 (
-    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%requirements.txt" --quiet 2>nul
+    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" --quiet 2>nul
 )
 
 :: Guarantee the project root is on sys.path regardless of editable-install outcome.
@@ -229,16 +234,16 @@ if errorlevel 1 (
 :: Python, so pip install -e . may succeed (exit 0) but leave hermes_cli unreachable.
 set "PTH_FILE=%PYTHON_DIR%\Lib\site-packages\hermes_project.pth"
 if not exist "!PTH_FILE!" (
-    echo %SCRIPT_DIR%> "!PTH_FILE!"
+    > "!PTH_FILE!" echo %SCRIPT_DIR%
     echo [OK] hermes_project.pth created.
 )
 
 :: All optional extras
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" --quiet 2>nul
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" --quiet 2>nul
 
 :: Mini-swe-agent
-if exist "%SCRIPT_DIR%mini-swe-agent\pyproject.toml" (
-    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%mini-swe-agent" --quiet 2>nul
+if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
+    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" --quiet 2>nul
 )
 
 :: Extra packages needed for Windows GUI
@@ -252,7 +257,7 @@ echo [OK] Python dependencies installed.
 echo [STEP 8/10] Installing Node.js dependencies...
 where node >nul 2>&1
 if %errorlevel% equ 0 (
-    if exist "%SCRIPT_DIR%package.json" (
+    if exist "%SCRIPT_DIR%\package.json" (
         cd /d "%SCRIPT_DIR%"
         npm install --quiet 2>nul
         echo [OK] Node.js dependencies installed.
@@ -268,9 +273,9 @@ if %errorlevel% equ 0 (
 echo [STEP 9/10] Setting up configuration...
 
 :: .env
-if not exist "%SCRIPT_DIR%.env" (
-    if exist "%SCRIPT_DIR%.env.example" (
-        copy "%SCRIPT_DIR%.env.example" "%SCRIPT_DIR%.env" >nul
+if not exist "%SCRIPT_DIR%\.env" (
+    if exist "%SCRIPT_DIR%\.env.example" (
+        copy "%SCRIPT_DIR%\.env.example" "%SCRIPT_DIR%\.env" >nul
         echo [OK] Created .env from template.
     )
 ) else (
@@ -278,9 +283,9 @@ if not exist "%SCRIPT_DIR%.env" (
 )
 
 :: cli-config.yaml
-if not exist "%SCRIPT_DIR%cli-config.yaml" (
-    if exist "%SCRIPT_DIR%cli-config.yaml.example" (
-        copy "%SCRIPT_DIR%cli-config.yaml.example" "%SCRIPT_DIR%cli-config.yaml" >nul
+if not exist "%SCRIPT_DIR%\cli-config.yaml" (
+    if exist "%SCRIPT_DIR%\cli-config.yaml.example" (
+        copy "%SCRIPT_DIR%\cli-config.yaml.example" "%SCRIPT_DIR%\cli-config.yaml" >nul
         :: Fix Unicode chars that break on Windows
         "%PYTHON_EXE%" -c "p=r'%SCRIPT_DIR%cli-config.yaml';f=open(p,'r',encoding='utf-8');c=f.read();f.close();c=c.replace('\u2014','--').replace('\u2192','->');f=open(p,'w',encoding='utf-8');f.write(c);f.close()" 2>nul
         echo [OK] Created cli-config.yaml.
@@ -301,11 +306,11 @@ if not exist "%USERPROFILE%\.hermes\permissions.json" (
 :: ============================================
 echo [STEP 10/10] Syncing skills...
 cd /d "%SCRIPT_DIR%"
-"%PYTHON_EXE%" "%SCRIPT_DIR%tools\skills_sync.py" 2>nul
+"%PYTHON_EXE%" "%SCRIPT_DIR%\tools\skills_sync.py" 2>nul
 if errorlevel 1 (
     :: Fallback: manual copy
     if exist "%SCRIPT_DIR%skills" (
-        xcopy /E /Y /Q "%SCRIPT_DIR%skills\*" "%USERPROFILE%\.hermes\skills\" >nul 2>nul
+        xcopy /E /Y /Q "%SCRIPT_DIR%\skills\*" "%USERPROFILE%\.hermes\skills\" >nul 2>nul
     )
 )
 echo [OK] Skills synced.
@@ -315,10 +320,10 @@ echo [OK] Skills synced.
 :: ============================================
 if not "%INSTALL_MODE%"=="full" goto :skip_nodejs
 
-set "NODE_DIR=%SCRIPT_DIR%node_embedded"
+set "NODE_DIR=%SCRIPT_DIR%\node_embedded"
 set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NODE_VER=23.11.0"
-set "NODE_ZIP=%SCRIPT_DIR%node_embedded.zip"
+set "NODE_ZIP=%SCRIPT_DIR%\node_embedded.zip"
 
 if exist "%NODE_EXE%" (
     for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do (
@@ -367,9 +372,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference='SilentlyContinue';" ^
     "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%SCRIPT_DIR%node_tmp' -Force"
 
-if exist "%SCRIPT_DIR%node_tmp\node-v%NODE_VER%-win-x64" (
-    move "%SCRIPT_DIR%node_tmp\node-v%NODE_VER%-win-x64" "%NODE_DIR%" >nul
-    rmdir /S /Q "%SCRIPT_DIR%node_tmp" 2>nul
+if exist "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" (
+    move "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" "%NODE_DIR%" >nul
+    rmdir /S /Q "%SCRIPT_DIR%\node_tmp" 2>nul
 ) else (
     echo [ERROR] Node.js extraction produced unexpected structure.
     set "INSTALL_MODE=lite"
@@ -392,11 +397,11 @@ if exist "%NODE_EXE%" (
 :: ============================================
 if not "%INSTALL_MODE%"=="full" goto :skip_webui
 
-set "WEBUI_DIR=%SCRIPT_DIR%webui"
+set "WEBUI_DIR=%SCRIPT_DIR%\webui"
 set "WEBUI_SERVER=%WEBUI_DIR%\dist\server\index.js"
-set "SEVENZIP=%SCRIPT_DIR%tools\7za.exe"
+set "SEVENZIP=%SCRIPT_DIR%\tools\7za.exe"
 set "BUNDLE_VER=0.5.13"
-set "BUNDLE_FILE=%SCRIPT_DIR%hermes-webui-bundle.7z"
+set "BUNDLE_FILE=%SCRIPT_DIR%\hermes-webui-bundle.7z"
 set "BUNDLE_CDN=http://121.40.165.216/hermes-cdn/files/hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 
 if exist "%WEBUI_SERVER%" (
@@ -466,7 +471,7 @@ if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
 cd /d "%WEBUI_DIR%"
 "%NODE_DIR%\npm.cmd" install "hermes-web-ui@%BUNDLE_VER%" ^
     --registry https://registry.npmmirror.com ^
-    --cache "%SCRIPT_DIR%.npm-cache" ^
+    --cache "%SCRIPT_DIR%\.npm-cache" ^
     --prefer-offline 2>nul
 if exist "%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js" (
     echo [OK] hermes-web-ui installed via npm.
