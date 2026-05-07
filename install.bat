@@ -148,14 +148,7 @@ if %errorlevel% neq 0 (
 :: Step 4: Install setuptools (needed for editable installs)
 :: ============================================
 echo [STEP 4/10] Installing build tools...
-if not exist "%PYTHON_EXE%" (
-    echo [ERROR] python.exe not found: %PYTHON_EXE%
-    pause & exit /b 1
-)
 "%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet
-if errorlevel 1 (
-    echo [WARN] setuptools/wheel install had errors, continuing...
-)
 
 :: ============================================
 :: Step 5: Install Tkinter (GUI support)
