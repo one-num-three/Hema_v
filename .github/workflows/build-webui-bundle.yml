@@ -1,0 +1,185 @@
+name: Build hermes-web-ui Windows Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      webui_version:
+        description: 'hermes-web-ui version tag (e.g. v0.5.13)'
+        required: true
+        default: 'v0.5.13'
+      upload_to_cdn:
+        description: 'Upload to CDN after build'
+        required: true
+        type: boolean
+        default: true
+
+  push:
+    paths:
+      - 'cdn/version.json'
+
+env:
+  WEBUI_VERSION: ${{ github.event.inputs.webui_version || 'v0.5.13' }}
+  NODE_VERSION: '23'
+
+jobs:
+  build-bundle:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout Hema_v repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify Node.js version >= 23
+        shell: pwsh
+        run: |
+          $ver = node --version
+          Write-Host "Node.js: $ver"
+          $major = [int]($ver.TrimStart('v').Split('.')[0])
+          if ($major -lt 23) { throw "Need Node.js 23+, got $ver" }
+
+      - name: Read bundle version from cdn/version.json
+        id: versions
+        shell: pwsh
+        run: |
+          $json = Get-Content cdn/version.json | ConvertFrom-Json
+          $webuiVer = $json.webui_version
+          $bundleName = "hermes-webui-bundle-v${webuiVer}-win-x64.7z"
+          Write-Host "webui_version=$webuiVer"
+          Write-Host "bundle_name=$bundleName"
+          echo "webui_ver=$webuiVer" >> $env:GITHUB_OUTPUT
+          echo "bundle_name=$bundleName" >> $env:GITHUB_OUTPUT
+
+      - name: Clone hermes-web-ui
+        shell: pwsh
+        run: |
+          $tag = $env:WEBUI_VERSION
+          Write-Host "Cloning hermes-web-ui $tag ..."
+          git clone https://github.com/EKKOLearnAI/hermes-web-ui.git hermes-web-ui-src --depth 1 --branch $tag
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Tag not found, cloning main branch..."
+            git clone https://github.com/EKKOLearnAI/hermes-web-ui.git hermes-web-ui-src --depth 1
+          }
+
+      - name: Install dependencies (with npmmirror fallback)
+        shell: pwsh
+        working-directory: hermes-web-ui-src
+        run: |
+          Write-Host "Installing via npmmirror..."
+          npm install --registry https://registry.npmmirror.com
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "npmmirror failed, trying npmjs.com..."
+            npm install
+            if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
+          }
+          Write-Host "Dependencies installed."
+
+      - name: Build (vue-tsc + vite + esbuild)
+        shell: pwsh
+        working-directory: hermes-web-ui-src
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+          if (-not (Test-Path "dist\server\index.js")) {
+            throw "dist\server\index.js not found after build"
+          }
+          Write-Host "Build complete."
+
+      - name: Prune devDependencies
+        shell: pwsh
+        working-directory: hermes-web-ui-src
+        run: |
+          npm prune --production
+          Write-Host "Pruned to production deps."
+
+      - name: Verify node-pty Windows prebuild exists
+        shell: pwsh
+        working-directory: hermes-web-ui-src
+        run: |
+          $prebuildDir = "node_modules\node-pty\prebuilds\win32-x64"
+          if (Test-Path $prebuildDir) {
+            $files = Get-ChildItem $prebuildDir -Filter "*.node"
+            Write-Host "node-pty prebuild found: $($files.Count) .node file(s)"
+            $files | ForEach-Object { Write-Host "  $_" }
+          } else {
+            Write-Warning "node-pty prebuilds not found at $prebuildDir"
+            Write-Warning "Terminal feature may not work on Windows"
+          }
+
+      - name: Package bundle with 7-Zip
+        shell: pwsh
+        run: |
+          $bundleName = "${{ steps.versions.outputs.bundle_name }}"
+          Write-Host "Creating $bundleName ..."
+          & "7z" a -t7z -mx=9 -mmt=on $bundleName `
+            hermes-web-ui-src\dist `
+            hermes-web-ui-src\node_modules `
+            hermes-web-ui-src\bin `
+            hermes-web-ui-src\package.json
+          if ($LASTEXITCODE -ne 0) { throw "7z packaging failed" }
+          $size = [math]::Round((Get-Item $bundleName).Length / 1MB, 1)
+          Write-Host "Bundle created: $bundleName ($size MB)"
+
+      - name: Generate SHA256 checksum
+        shell: pwsh
+        run: |
+          $bundleName = "${{ steps.versions.outputs.bundle_name }}"
+          $hash = (Get-FileHash $bundleName -Algorithm SHA256).Hash.ToLower()
+          "$hash  $bundleName" | Set-Content "$bundleName.sha256" -Encoding ASCII
+          Write-Host "SHA256: $hash"
+
+      - name: Upload bundle as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermes-webui-bundle-win-x64
+          path: |
+            ${{ steps.versions.outputs.bundle_name }}
+            ${{ steps.versions.outputs.bundle_name }}.sha256
+          retention-days: 30
+
+      - name: Upload to CDN via SCP
+        if: ${{ github.event.inputs.upload_to_cdn == 'true' || github.event_name == 'push' }}
+        shell: pwsh
+        env:
+          CDN_SSH_KEY: ${{ secrets.CDN_SSH_KEY }}
+          CDN_USER: ${{ secrets.CDN_USER }}
+          CDN_HOST: ${{ secrets.CDN_HOST }}
+        run: |
+          $bundleName = "${{ steps.versions.outputs.bundle_name }}"
+          $cdnPath = "/var/www/hermes-cdn/files"
+
+          # Write SSH key to temp file
+          $keyFile = "$env:TEMP\cdn_key"
+          $env:CDN_SSH_KEY | Set-Content $keyFile -Encoding ASCII
+          icacls $keyFile /inheritance:r /grant:r "$env:USERNAME:(R)" | Out-Null
+
+          $sshOpts = "-o StrictHostKeyChecking=no -i $keyFile"
+
+          Write-Host "Uploading $bundleName ..."
+          & scp $sshOpts.Split(' ') $bundleName "${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/"
+          & scp $sshOpts.Split(' ') "$bundleName.sha256" "${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/"
+
+          # Update version.json on CDN
+          $versionJson = Get-Content cdn/version.json -Raw
+          $escapedJson = $versionJson -replace "'", "'\''"
+          & ssh $sshOpts.Split(' ') "${env:CDN_USER}@${env:CDN_HOST}" `
+            "echo '$escapedJson' > ${cdnPath}/version.json"
+
+          Remove-Item $keyFile -Force
+          Write-Host "CDN upload complete."
+
+      - name: Print download instructions
+        shell: pwsh
+        run: |
+          $bundleName = "${{ steps.versions.outputs.bundle_name }}"
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "  Bundle ready: $bundleName"
+          Write-Host "  Download from GitHub Actions artifacts"
+          Write-Host "  or CDN: http://121.40.165.216/hermes-cdn/files/$bundleName"
+          Write-Host "========================================"
