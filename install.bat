@@ -234,7 +234,7 @@ if errorlevel 1 (
 :: Python, so pip install -e . may succeed (exit 0) but leave hermes_cli unreachable.
 set "PTH_FILE=%PYTHON_DIR%\Lib\site-packages\hermes_project.pth"
 if not exist "!PTH_FILE!" (
-    > "!PTH_FILE!" echo %SCRIPT_DIR%
+    "%PYTHON_EXE%" -c "f=open(r'%PYTHON_DIR%\Lib\site-packages\hermes_project.pth','w');f.write(r'%SCRIPT_DIR%');f.close()"
     echo [OK] hermes_project.pth created.
 )
 
