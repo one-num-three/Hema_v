@@ -1,0 +1,114 @@
+name: Build HermesSetup.exe
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_cdn:
+        description: 'Upload to CDN after build'
+        required: true
+        type: boolean
+        default: true
+  push:
+    paths:
+      - 'gui/HermesSetup.c'
+      - '.github/workflows/build-hermes-setup.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Compile HermesSetup.exe
+        shell: cmd
+        working-directory: gui
+        run: |
+          cl HermesSetup.c ^
+            /Fe:HermesSetup.exe ^
+            /O2 /MT ^
+            /DUNICODE /D_UNICODE /D_CRT_SECURE_NO_WARNINGS ^
+            /W3 /nologo ^
+            /link ^
+            comctl32.lib winhttp.lib shell32.lib shlwapi.lib ^
+            user32.lib gdi32.lib advapi32.lib ^
+            /SUBSYSTEM:WINDOWS
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $exe = "gui\HermesSetup.exe"
+          if (-not (Test-Path $exe)) { throw "Build failed - HermesSetup.exe not produced" }
+          $size = [math]::Round((Get-Item $exe).Length / 1KB, 1)
+          Write-Host "HermesSetup.exe built: $size KB"
+          # Quick sanity: exe should be at least 30KB and at most 200KB
+          $bytes = (Get-Item $exe).Length
+          if ($bytes -lt 20000) { throw "exe suspiciously small: $bytes bytes" }
+          if ($bytes -gt 500000) { throw "exe suspiciously large: $bytes bytes" }
+
+      - name: Generate SHA256 checksum
+        shell: pwsh
+        run: |
+          $exe = "gui\HermesSetup.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  HermesSetup.exe" | Set-Content "gui\HermesSetup.exe.sha256" -Encoding ASCII
+          Write-Host "SHA256: $hash"
+
+      - name: Upload as GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HermesSetup-win-x64
+          path: |
+            gui/HermesSetup.exe
+            gui/HermesSetup.exe.sha256
+          retention-days: 90
+
+      - name: Upload to CDN via SCP
+        if: ${{ github.event.inputs.upload_to_cdn == 'true' || github.event_name == 'push' }}
+        shell: pwsh
+        env:
+          CDN_SSH_KEY: ${{ secrets.CDN_SSH_KEY }}
+          CDN_USER: ${{ secrets.CDN_USER }}
+          CDN_HOST: ${{ secrets.CDN_HOST }}
+        run: |
+          if (-not $env:CDN_SSH_KEY) {
+            Write-Warning "CDN_SSH_KEY secret not set, skipping upload."
+            exit 0
+          }
+
+          $cdnPath = "/var/www/hermes-cdn/files"
+          $keyFile = "$env:TEMP\cdn_key"
+          $env:CDN_SSH_KEY | Set-Content $keyFile -Encoding ASCII -NoNewline
+          icacls $keyFile /inheritance:r /grant:r "$($env:USERNAME):(R)" | Out-Null
+
+          $sshOpts = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=NUL -i `"$keyFile`""
+
+          Write-Host "Uploading HermesSetup.exe to ${env:CDN_HOST}:${cdnPath}/ ..."
+          $scpCmd = "scp $sshOpts gui/HermesSetup.exe `"${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/`""
+          Invoke-Expression $scpCmd
+          if ($LASTEXITCODE -ne 0) { throw "scp HermesSetup.exe failed" }
+
+          $scpCmd = "scp $sshOpts gui/HermesSetup.exe.sha256 `"${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/`""
+          Invoke-Expression $scpCmd
+
+          Remove-Item $keyFile -Force
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "  Uploaded to CDN. Download URL:"
+          Write-Host "  http://121.40.165.216/hermes-cdn/files/HermesSetup.exe"
+          Write-Host "========================================"
+
+      - name: Print download instructions
+        shell: pwsh
+        run: |
+          Write-Host ""
+          Write-Host "HermesSetup.exe is ready."
+          Write-Host "Download from: GitHub Actions artifacts (HermesSetup-win-x64)"
+          Write-Host "Or from CDN:    http://121.40.165.216/hermes-cdn/files/HermesSetup.exe"
