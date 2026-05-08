@@ -371,26 +371,28 @@ if not exist "%NODE_ZIP%" (
 )
 
 echo [STEP 11/12] Extracting Node.js...
+set "NODE_TMP=%SCRIPT_DIR%\node_tmp"
+set "NODE_SRC=%NODE_TMP%\node-v%NODE_VER%-win-x64"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference='SilentlyContinue';" ^
-    "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%SCRIPT_DIR%\node_tmp' -Force"
+    "Expand-Archive -Path '%NODE_ZIP%' -DestinationPath '%NODE_TMP%' -Force"
 
-if exist "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" (
-    move "%SCRIPT_DIR%\node_tmp\node-v%NODE_VER%-win-x64" "%NODE_DIR%" >nul
-    rmdir /S /Q "%SCRIPT_DIR%\node_tmp" 2>nul
-) else (
-    echo [ERROR] Node.js extraction produced unexpected structure.
-    set "INSTALL_MODE=lite"
-    goto :skip_nodejs
-)
+if not exist "%NODE_SRC%" goto :node_bad_structure
+move "%NODE_SRC%" "%NODE_DIR%" >nul
+rmdir /S /Q "%NODE_TMP%" 2>nul
 del "%NODE_ZIP%" 2>nul
+if not exist "%NODE_EXE%" goto :node_exe_missing
+for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js %%v installed.
+goto :skip_nodejs_download
 
-if exist "%NODE_EXE%" (
-    for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js %%v installed.
-) else (
-    echo [ERROR] Node.js extraction failed. Falling back to Lite.
-    set "INSTALL_MODE=lite"
-)
+:node_bad_structure
+echo [ERROR] Node.js extraction produced unexpected structure.
+set "INSTALL_MODE=lite"
+goto :skip_nodejs
+
+:node_exe_missing
+echo [ERROR] Node.js extraction failed. Falling back to Lite.
+set "INSTALL_MODE=lite"
 
 :skip_nodejs_download
 :skip_nodejs
@@ -447,27 +449,19 @@ if errorlevel 1 (
 :: 解压 bundle
 echo [STEP 12/12] Extracting Web UI bundle...
 if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
-if exist "%SEVENZIP%" (
-    "%SEVENZIP%" x "%BUNDLE_FILE%" -o"%WEBUI_DIR%" -y >nul
-) else (
-    echo [ERROR] 7za.exe not available, cannot extract .7z bundle.
-    del "%BUNDLE_FILE%" 2>nul
-    goto :webui_npm_fallback
-)
+if not exist "%SEVENZIP%" goto :webui_no_7za
+"%SEVENZIP%" x "%BUNDLE_FILE%" -o"%WEBUI_DIR%" -y >nul
 del "%BUNDLE_FILE%" 2>nul
+if exist "%WEBUI_SERVER%" goto :webui_done
+goto :webui_npm_fallback
 
-if exist "%WEBUI_SERVER%" (
-    echo [OK] hermes-web-ui v%BUNDLE_VER% installed.
-    goto :webui_done
-)
+:webui_no_7za
+echo [ERROR] 7za.exe not available, cannot extract .7z bundle.
+del "%BUNDLE_FILE%" 2>nul
 
 :webui_npm_fallback
 echo [FALLBACK] Installing hermes-web-ui via npm (npmmirror)...
-if not exist "%NODE_EXE%" (
-    echo [ERROR] Node.js not available. Cannot install Web UI.
-    echo         Web UI will not be available in this installation.
-    goto :skip_webui
-)
+if not exist "%NODE_EXE%" goto :webui_no_node
 set "PATH=%NODE_DIR%;%PATH%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%\.npm-cache"
 if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
@@ -476,13 +470,18 @@ cd /d "%WEBUI_DIR%"
     --registry https://registry.npmmirror.com ^
     --cache "%SCRIPT_DIR%\.npm-cache" ^
     --prefer-offline 2>nul
-if exist "%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js" (
-    echo [OK] hermes-web-ui installed via npm.
-    :: npm 模式下调整 WEBUI_SERVER 指向 node_modules 子目录
-    set "WEBUI_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
-) else (
-    echo [ERROR] npm install also failed. Web UI will not be available.
-)
+set "NPM_WEBUI=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
+if not exist "%NPM_WEBUI%" goto :webui_npm_fail
+echo [OK] hermes-web-ui installed via npm.
+set "WEBUI_SERVER=%NPM_WEBUI%"
+goto :webui_done
+
+:webui_no_node
+echo [ERROR] Node.js not available. Cannot install Web UI.
+goto :skip_webui
+
+:webui_npm_fail
+echo [ERROR] npm install also failed. Web UI will not be available.
 
 :webui_done
 cd /d "%SCRIPT_DIR%"
