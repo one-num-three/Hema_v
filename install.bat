@@ -148,7 +148,7 @@ if %errorlevel% neq 0 (
 :: Step 4: Install setuptools (needed for editable installs)
 :: ============================================
 echo [STEP 4/10] Installing build tools...
-"%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location
+"%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 
 :: ============================================
 :: Step 5: Install Tkinter (GUI support)
@@ -230,10 +230,10 @@ echo        (this may take several minutes on first run)
 
 :: Main package (清华镜像 + 显示进度，避免用户以为卡住)
 echo        Installing core package...
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 if errorlevel 1 (
     echo [WARN] Editable install failed, trying requirements.txt...
-    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 )
 
 :: Guarantee the project root is on sys.path regardless of editable-install outcome.
@@ -247,15 +247,15 @@ echo [OK] hermes_project.pth created.
 
 :: All optional extras
 echo        Installing optional extras (messaging, cron, mcp...)
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 
 :: Mini-swe-agent
 if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
-    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location 2>nul
+    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 )
 
 :: Extra packages needed for Windows GUI
-"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio -i https://pypi.tuna.tsinghua.edu.cn/simple --quiet --no-warn-script-location 2>nul
+"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 
 echo [OK] Python dependencies installed.
 
@@ -333,12 +333,10 @@ set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NODE_VER=23.11.0"
 set "NODE_ZIP=%SCRIPT_DIR%\node_embedded.zip"
 
-if exist "%NODE_EXE%" (
-    for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do (
-        echo [OK] Node.js %%v already installed, skipping download.
-    )
-    goto :skip_nodejs_download
-)
+if not exist "%NODE_EXE%" goto :node_need_download
+for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js %%v already installed, skipping download.
+goto :skip_nodejs_download
+:node_need_download
 
 echo [STEP 11/12] Downloading Node.js v%NODE_VER% (~40MB)...
 echo              (中国用户预计 2-10 分钟，请耐心等待)
@@ -347,33 +345,36 @@ echo              (中国用户预计 2-10 分钟，请耐心等待)
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference='SilentlyContinue';" ^
     "try{Invoke-WebRequest -Uri 'https://registry.npmmirror.com/-/binary/node/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 300}catch{}" >nul 2>&1
-if exist "%NODE_ZIP%" echo [OK] Downloaded from npmmirror.com
+if not exist "%NODE_ZIP%" goto :node_dl_cdn
+echo [OK] Downloaded from npmmirror.com
+goto :node_dl_done
 
-:: 二级: 自建 CDN
-if not exist "%NODE_ZIP%" (
-    echo [WARN] npmmirror failed, trying CDN...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference='SilentlyContinue';" ^
-        "try{Invoke-WebRequest -Uri 'http://121.40.165.216/hermes-cdn/files/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 300}catch{}" >nul 2>&1
-    if exist "%NODE_ZIP%" echo [OK] Downloaded from CDN.
-)
+:node_dl_cdn
+echo [WARN] npmmirror failed, trying CDN...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue';" ^
+    "try{Invoke-WebRequest -Uri 'http://121.40.165.216/hermes-cdn/files/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 300}catch{}" >nul 2>&1
+if not exist "%NODE_ZIP%" goto :node_dl_official
+echo [OK] Downloaded from CDN.
+goto :node_dl_done
 
-:: 三级: 官方源
-if not exist "%NODE_ZIP%" (
-    echo [WARN] CDN failed, trying nodejs.org (may be slow)...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-        "$ProgressPreference='SilentlyContinue';" ^
-        "try{Invoke-WebRequest -Uri 'https://nodejs.org/dist/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 600}catch{}" >nul 2>&1
-    if exist "%NODE_ZIP%" echo [OK] Downloaded from nodejs.org.
-)
+:node_dl_official
+echo [WARN] CDN failed, trying nodejs.org (may be slow)...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue';" ^
+    "try{Invoke-WebRequest -Uri 'https://nodejs.org/dist/v%NODE_VER%/node-v%NODE_VER%-win-x64.zip' -OutFile '%NODE_ZIP%' -TimeoutSec 600}catch{}" >nul 2>&1
+if not exist "%NODE_ZIP%" goto :node_dl_failed
+echo [OK] Downloaded from nodejs.org.
+goto :node_dl_done
 
-if not exist "%NODE_ZIP%" (
-    echo [ERROR] Node.js download failed from all sources.
-    echo         Web UI will not be available.
-    echo         You can retry later by running: install.bat full
-    set "INSTALL_MODE=lite"
-    goto :skip_nodejs
-)
+:node_dl_failed
+echo [ERROR] Node.js download failed from all sources.
+echo         Web UI will not be available.
+echo         You can retry later by running: install.bat full
+set "INSTALL_MODE=lite"
+goto :skip_nodejs
+
+:node_dl_done
 
 echo [STEP 11/12] Extracting Node.js...
 set "NODE_TMP=%SCRIPT_DIR%\node_tmp"
@@ -414,10 +415,10 @@ set "BUNDLE_VER=0.5.13"
 set "BUNDLE_FILE=%SCRIPT_DIR%\hermes-webui-bundle.7z"
 set "BUNDLE_CDN=http://121.40.165.216/hermes-cdn/files/hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 
-if exist "%WEBUI_SERVER%" (
-    echo [OK] hermes-web-ui v%BUNDLE_VER% already installed, skipping.
-    goto :skip_webui
-)
+if not exist "%WEBUI_SERVER%" goto :webui_need_install
+echo [OK] hermes-web-ui v%BUNDLE_VER% already installed, skipping.
+goto :skip_webui
+:webui_need_install
 
 :: 下载 7za.exe（如无）
 if not exist "%SEVENZIP%" (
