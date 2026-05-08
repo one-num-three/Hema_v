@@ -264,16 +264,18 @@ echo [OK] Python dependencies installed.
 :: ============================================
 echo [STEP 8/10] Installing Node.js dependencies...
 where node >nul 2>&1
-if %errorlevel% equ 0 (
-    if exist "%SCRIPT_DIR%\package.json" (
-        cd /d "%SCRIPT_DIR%"
-        npm install --quiet 2>nul
-        echo [OK] Node.js dependencies installed.
-    )
-) else (
-    echo [INFO] Node.js not found - browser tools and WhatsApp bridge won't be available.
-    echo        Install Node.js from https://nodejs.org/ and re-run this installer.
-)
+if errorlevel 1 goto :step8_no_node
+if not exist "%SCRIPT_DIR%\package.json" goto :step8_done
+cd /d "%SCRIPT_DIR%"
+call npm install --quiet 2>nul
+echo [OK] Node.js dependencies installed.
+goto :step8_done
+
+:step8_no_node
+echo [INFO] Node.js not found - browser tools and WhatsApp bridge won't be available.
+echo        Install Node.js from https://nodejs.org/ and re-run this installer.
+
+:step8_done
 
 :: ============================================
 :: Step 9: Environment and config files
@@ -472,7 +474,7 @@ set "PATH=%NODE_DIR%;%PATH%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%\.npm-cache"
 if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
 cd /d "%WEBUI_DIR%"
-"%NODE_DIR%\npm.cmd" install "hermes-web-ui@%BUNDLE_VER%" ^
+call "%NODE_DIR%\npm.cmd" install "hermes-web-ui@%BUNDLE_VER%" ^
     --registry https://registry.npmmirror.com ^
     --cache "%SCRIPT_DIR%\.npm-cache" ^
     --prefer-offline 2>nul
