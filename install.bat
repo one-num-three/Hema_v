@@ -526,5 +526,33 @@ echo   First time? The app will guide you through
 echo   setting up your API keys on first launch.
 echo.
 
+:: ============================================
+:: 状态总结：明确告诉用户 Web UI 装没装上
+:: ============================================
+echo ============================================
+echo   实际安装状态:
+if exist "%SCRIPT_DIR%\python_embedded\python.exe" (
+    echo     [OK]  Python 便携版
+) else (
+    echo     [FAIL] Python 便携版
+)
+if exist "%SCRIPT_DIR%\node_embedded\node.exe" (
+    echo     [OK]  Node.js 便携版
+) else (
+    echo     [SKIP] Node.js 便携版 ^(轻量版未安装^)
+)
+if exist "%SCRIPT_DIR%\webui\dist\server\index.js" (
+    echo     [OK]  hermes-web-ui ^(可双击 start_webui.bat 打开^)
+) else if exist "%SCRIPT_DIR%\webui\node_modules\hermes-web-ui\dist\server\index.js" (
+    echo     [OK]  hermes-web-ui ^(npm 模式^)
+) else (
+    echo     [SKIP] hermes-web-ui ^(未安装^)
+)
+echo ============================================
+echo.
+
+:: 标记安装已完成（HermesSetup.exe 用此判断是否需要进入安装界面）
+echo %INSTALL_MODE%>"%SCRIPT_DIR%\.install-complete"
+
 pause
 endlocal
