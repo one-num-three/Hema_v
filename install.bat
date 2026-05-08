@@ -335,6 +335,19 @@ for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js 
 goto :skip_nodejs_download
 :node_need_download
 
+:: 优先使用本地预放的 Node.js zip（离线场景）
+:: 支持的本地文件名：
+::   node_embedded.zip（脚本里的标准名）
+::   node-v23.11.0-win-x64.zip（npmmirror/CDN 上的完整名）
+set "LOCAL_NODE_ALT=%SCRIPT_DIR%\node-v%NODE_VER%-win-x64.zip"
+if exist "%NODE_ZIP%" goto :node_local_found
+if not exist "%LOCAL_NODE_ALT%" goto :node_need_dl
+copy "%LOCAL_NODE_ALT%" "%NODE_ZIP%" >nul
+:node_local_found
+echo [OK] Using local Node.js zip: %NODE_ZIP%
+goto :node_dl_done
+
+:node_need_dl
 echo [STEP 11/12] Downloading Node.js v%NODE_VER% (~40MB)...
 echo              (中国用户预计 2-10 分钟，请耐心等待)
 
@@ -426,6 +439,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "try{Invoke-WebRequest 'http://121.40.165.216/hermes-cdn/files/7za.exe' -OutFile '%SEVENZIP%' -TimeoutSec 60}catch{}" >nul 2>&1
 :sevenzip_ready
 
+:: 优先使用本地预放的 bundle（开发/离线场景），找不到再去 CDN 下载
+:: 支持的本地文件名：
+::   hermes-webui-bundle.7z（脚本里的标准名）
+::   hermes-webui-bundle-v0.5.13-win-x64.7z（CDN 上的完整名）
+set "LOCAL_BUNDLE_ALT=%SCRIPT_DIR%\hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
+if exist "%BUNDLE_FILE%" goto :bundle_local_found
+if not exist "%LOCAL_BUNDLE_ALT%" goto :bundle_need_download
+copy "%LOCAL_BUNDLE_ALT%" "%BUNDLE_FILE%" >nul
+:bundle_local_found
+echo [OK] Using local bundle: %BUNDLE_FILE%
+goto :bundle_downloaded
+
+:bundle_need_download
 echo [STEP 12/12] Downloading hermes-web-ui bundle (~50MB)...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$ProgressPreference='SilentlyContinue';" ^
