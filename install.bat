@@ -220,6 +220,11 @@ echo [OK] run_py.sh created.
 :: ============================================
 :: Step 7: Install ALL Python dependencies
 :: ============================================
+:: 启用 Windows 长路径支持，避免某些深嵌套包（如 elevenlabs）解压失败
+:: 该改动需要管理员权限；若失败则自动跳过（用户可能仍会看到长路径错误，但不影响核心功能）
+powershell -NoProfile -Command ^
+    "try{Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' LongPathsEnabled 1 -ErrorAction Stop}catch{}" >nul 2>&1
+
 echo [STEP 7/10] Installing Python dependencies...
 echo        (this may take several minutes on first run)
 
@@ -485,10 +490,6 @@ echo [ERROR] npm install also failed. Web UI will not be available.
 
 :webui_done
 cd /d "%SCRIPT_DIR%"
-
-:: 尝试启用长路径（避免 node_modules 嵌套超出 MAX_PATH）
-powershell -NoProfile -Command ^
-    "try{Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' LongPathsEnabled 1}catch{}" >nul 2>&1
 
 :skip_webui
 
