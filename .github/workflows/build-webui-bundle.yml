@@ -115,13 +115,15 @@ jobs:
         shell: pwsh
         run: |
           $bundleName = "${{ steps.versions.outputs.bundle_name }}"
+          $bundlePath = (Resolve-Path .).Path + "\$bundleName"
           Write-Host "Creating $bundleName ..."
-          & "7z" a -t7z -mx=9 -mmt=on $bundleName `
-            hermes-web-ui-src\dist `
-            hermes-web-ui-src\node_modules `
-            hermes-web-ui-src\bin `
-            hermes-web-ui-src\package.json
-          if ($LASTEXITCODE -ne 0) { throw "7z packaging failed" }
+          # cd into source dir so paths inside .7z are flat (dist/, node_modules/, bin/, package.json)
+          # — install.bat extracts to webui/ and expects webui/dist/server/index.js directly
+          Push-Location hermes-web-ui-src
+          & "7z" a -t7z -mx=9 -mmt=on $bundlePath dist node_modules bin package.json
+          $exitCode = $LASTEXITCODE
+          Pop-Location
+          if ($exitCode -ne 0) { throw "7z packaging failed" }
           $size = [math]::Round((Get-Item $bundleName).Length / 1MB, 1)
           Write-Host "Bundle created: $bundleName ($size MB)"
 
