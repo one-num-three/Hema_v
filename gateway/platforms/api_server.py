@@ -24,6 +24,7 @@ import os
 import sqlite3
 import time
 import uuid
+import threading
 from typing import Any, Dict, List, Optional
 
 try:
@@ -300,6 +301,8 @@ class APIServerAdapter(BasePlatformAdapter):
         self._runner: Optional["web.AppRunner"] = None
         self._site: Optional["web.TCPSite"] = None
         self._response_store = ResponseStore()
+        self._runs: Dict[str, Dict[str, Any]] = {}
+        self._runs_lock = threading.Lock()
 
     @staticmethod
     def _parse_cors_origins(value: Any) -> tuple[str, ...]:
@@ -863,6 +866,206 @@ class APIServerAdapter(BasePlatformAdapter):
         return web.json_response(response_data)
 
     # ------------------------------------------------------------------
+    # Runs API compatibility layer
+    # ------------------------------------------------------------------
+
+    def _normalize_run_history(self, conversation_history: Any) -> List[Dict[str, str]]:
+        """Convert Web UI conversation history into agent-compatible messages."""
+        normalized: List[Dict[str, str]] = []
+        if not isinstance(conversation_history, list):
+            return normalized
+
+        for item in conversation_history:
+            if not isinstance(item, dict):
+                continue
+            role = item.get("role")
+            if role not in ("user", "assistant", "tool"):
+                continue
+            content = item.get("content", "")
+            if isinstance(content, list):
+                text_parts = []
+                for part in content:
+                    if isinstance(part, dict):
+                        text = part.get("text") or part.get("content") or ""
+                        if text:
+                            text_parts.append(str(text))
+                    elif isinstance(part, str):
+                        text_parts.append(part)
+                content = "\n".join(text_parts)
+            if content is None:
+                content = ""
+            normalized.append({"role": role, "content": str(content)})
+
+        return normalized
+
+    async def _handle_runs_create(self, request: "web.Request") -> "web.Response":
+        """POST /v1/runs — compatibility endpoint expected by hermes-web-ui."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        try:
+            body = await request.json()
+        except (json.JSONDecodeError, Exception):
+            return web.json_response(_openai_error("Invalid JSON in request body"), status=400)
+
+        user_message = body.get("input")
+        if user_message is None or not isinstance(user_message, str) or not user_message.strip():
+            return web.json_response(_openai_error("Missing or invalid 'input' field"), status=400)
+
+        session_id = body.get("session_id")
+        if not isinstance(session_id, str) or not session_id.strip():
+            session_id = str(uuid.uuid4())
+
+        instructions = body.get("instructions")
+        if instructions is not None and not isinstance(instructions, str):
+            instructions = str(instructions)
+
+        conversation_history = self._normalize_run_history(body.get("conversation_history", []))
+        run_id = f"run_{uuid.uuid4().hex[:24]}"
+
+        import queue as _q
+        stream_q: _q.Queue = _q.Queue()
+        agent_ref: list[Any] = [None]
+
+        def _on_delta(delta):
+            if delta is not None:
+                stream_q.put({"event": "message.delta", "delta": delta})
+
+        agent_task = asyncio.ensure_future(self._run_agent(
+            user_message=user_message,
+            conversation_history=conversation_history,
+            ephemeral_system_prompt=instructions,
+            session_id=session_id,
+            stream_delta_callback=_on_delta,
+            agent_ref=agent_ref,
+        ))
+
+        with self._runs_lock:
+            self._runs[run_id] = {
+                "run_id": run_id,
+                "session_id": session_id,
+                "status": "queued",
+                "created_at": int(time.time()),
+                "stream_q": stream_q,
+                "task": agent_task,
+                "agent_ref": agent_ref,
+            }
+
+        def _finalize_run(task: "asyncio.Task") -> None:
+            try:
+                result, _usage = task.result()
+                final_response = result.get("final_response", "") or result.get("error", "")
+                stream_q.put({"event": "run.completed", "run_id": run_id, "session_id": session_id, "output": final_response})
+                with self._runs_lock:
+                    run = self._runs.get(run_id)
+                    if run is not None:
+                        run["status"] = "completed"
+                        run["result"] = result
+            except asyncio.CancelledError:
+                stream_q.put({"event": "run.failed", "run_id": run_id, "session_id": session_id, "error": "Run cancelled"})
+                with self._runs_lock:
+                    run = self._runs.get(run_id)
+                    if run is not None:
+                        run["status"] = "cancelled"
+            except Exception as e:
+                stream_q.put({"event": "run.failed", "run_id": run_id, "session_id": session_id, "error": str(e)})
+                with self._runs_lock:
+                    run = self._runs.get(run_id)
+                    if run is not None:
+                        run["status"] = "failed"
+                        run["error"] = str(e)
+
+        agent_task.add_done_callback(_finalize_run)
+
+        with self._runs_lock:
+            self._runs[run_id]["status"] = "in_progress"
+
+        return web.json_response({
+            "run_id": run_id,
+            "session_id": session_id,
+            "status": "in_progress",
+        })
+
+    async def _handle_runs_events(self, request: "web.Request") -> "web.StreamResponse":
+        """GET /v1/runs/{run_id}/events — SSE stream for run events."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        run_id = request.match_info["run_id"]
+        with self._runs_lock:
+            run = self._runs.get(run_id)
+        if run is None:
+            return web.json_response(_openai_error(f"Run not found: {run_id}"), status=404)
+
+        sse_headers = {"Content-Type": "text/event-stream", "Cache-Control": "no-cache"}
+        origin = request.headers.get("Origin", "")
+        cors = self._cors_headers_for_origin(origin) if origin else None
+        if cors:
+            sse_headers.update(cors)
+        response = web.StreamResponse(status=200, headers=sse_headers)
+        await response.prepare(request)
+
+        stream_q = run["stream_q"]
+        task = run["task"]
+        loop = asyncio.get_event_loop()
+
+        try:
+            await response.write(f"data: {json.dumps({'event': 'run.started', 'run_id': run_id, 'session_id': run['session_id'], 'status': 'in_progress'})}\n\n".encode())
+
+            while True:
+                event = await loop.run_in_executor(None, stream_q.get)
+                await response.write(f"data: {json.dumps(event)}\n\n".encode())
+
+                if event.get("event") in ("run.completed", "run.failed"):
+                    break
+
+            await task
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
+            agent = run["agent_ref"][0] if run.get("agent_ref") else None
+            if agent is not None:
+                try:
+                    agent.interrupt("Runs SSE client disconnected")
+                except Exception:
+                    pass
+        finally:
+            try:
+                await response.write_eof()
+            except Exception:
+                pass
+
+        return response
+
+    async def _handle_runs_stop(self, request: "web.Request") -> "web.Response":
+        """POST /v1/runs/{run_id}/stop — best-effort interrupt support."""
+        auth_err = self._check_auth(request)
+        if auth_err:
+            return auth_err
+
+        run_id = request.match_info["run_id"]
+        with self._runs_lock:
+            run = self._runs.get(run_id)
+        if run is None:
+            return web.json_response(_openai_error(f"Run not found: {run_id}"), status=404)
+
+        agent = run["agent_ref"][0] if run.get("agent_ref") else None
+        if agent is not None:
+            try:
+                agent.interrupt("Run stopped by client")
+            except Exception:
+                pass
+
+        task = run.get("task")
+        if task is not None and not task.done():
+            task.cancel()
+
+        return web.json_response({
+            "run_id": run_id,
+            "status": "stopping",
+        })
+
+    # ------------------------------------------------------------------
     # GET / DELETE response endpoints
     # ------------------------------------------------------------------
 
@@ -1249,6 +1452,9 @@ class APIServerAdapter(BasePlatformAdapter):
             self._app.router.add_get("/v1/models", self._handle_models)
             self._app.router.add_post("/v1/chat/completions", self._handle_chat_completions)
             self._app.router.add_post("/v1/responses", self._handle_responses)
+            self._app.router.add_post("/v1/runs", self._handle_runs_create)
+            self._app.router.add_get("/v1/runs/{run_id}/events", self._handle_runs_events)
+            self._app.router.add_post("/v1/runs/{run_id}/stop", self._handle_runs_stop)
             self._app.router.add_get("/v1/responses/{response_id}", self._handle_get_response)
             self._app.router.add_delete("/v1/responses/{response_id}", self._handle_delete_response)
             # Cron jobs management API

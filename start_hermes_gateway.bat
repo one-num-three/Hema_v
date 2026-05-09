@@ -2,12 +2,37 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
+set "ENV_FILE=%SCRIPT_DIR%.env"
+set "ENV_LOAD_SCRIPT=%TEMP%\hermes_env_%RANDOM%_%RANDOM%.cmd"
 
 :: Load .env first so user vars are available, then set local vars after
-:: (so local vars are not accidentally overridden by .env content)
-if not exist "%SCRIPT_DIR%.env" goto :env_loaded
-for /f "usebackq tokens=1,* delims==" %%a in ("%SCRIPT_DIR%.env") do call :load_env_line "%%a" "%%b"
-:env_loaded
+:: (so local vars are not accidentally overridden by .env content).
+:: Use PowerShell to generate a temporary .cmd file because plain FOR/CALL
+:: parsing breaks easily when .env values contain characters like (), %, &.
+if exist "%ENV_FILE%" (
+    powershell -NoProfile -Command ^
+        "$envFile = [IO.Path]::GetFullPath('%ENV_FILE%');" ^
+        "$outFile = [IO.Path]::GetFullPath('%ENV_LOAD_SCRIPT%');" ^
+        "Remove-Item -LiteralPath $outFile -ErrorAction SilentlyContinue;" ^
+        "foreach($line in Get-Content -LiteralPath $envFile){" ^
+        "  if($line -match '^\s*(#|$)'){ continue }" ^
+        "  $parts = $line.Split('=', 2);" ^
+        "  if($parts.Count -lt 2){ continue }" ^
+        "  $key = $parts[0].Trim();" ^
+        "  if([string]::IsNullOrWhiteSpace($key)){ continue }" ^
+        "  $value = $parts[1];" ^
+        "  $value = $value.Replace('^^','^^^^').Replace('%%','%%%%').Replace('(','^^(').Replace(')','^^)');" ^
+        "  Add-Content -LiteralPath $outFile -Value ('set ""{0}={1}""' -f $key, $value);" ^
+        "}"
+    if errorlevel 1 (
+        echo [ERROR] Failed to parse "%ENV_FILE%".
+        exit /b 1
+    )
+    if exist "%ENV_LOAD_SCRIPT%" (
+        call "%ENV_LOAD_SCRIPT%"
+        del "%ENV_LOAD_SCRIPT%" 2>nul
+    )
+)
 
 :: Local script vars
 set "PYTHON_EXE=%SCRIPT_DIR%python_embedded\python.exe"
@@ -23,16 +48,14 @@ if not exist "%PYTHON_EXE%" (
     exit /b 1
 )
 
-:: If gateway already running, exit 0
-if exist "%GATEWAY_PID_FILE%" (
-    set /p EXISTING_PID=<"%GATEWAY_PID_FILE%"
-    tasklist /FI "PID eq !EXISTING_PID!" 2>nul | find "python" >nul
-    if !errorlevel! equ 0 (
-        echo [OK] Hermes gateway already running (PID: !EXISTING_PID!, port: %GATEWAY_PORT%)
-        exit /b 0
-    )
-    del "%GATEWAY_PID_FILE%" 2>nul
+:: If the health endpoint answers, the gateway is already running.
+powershell -NoProfile -Command ^
+    "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
+    exit /b 0
 )
+if exist "%GATEWAY_PID_FILE%" del "%GATEWAY_PID_FILE%" 2>nul
 
 :: Env vars for the gateway process
 set "PATH=%SCRIPT_DIR%python_embedded;%SCRIPT_DIR%python_embedded\Scripts;%PATH%"
@@ -46,17 +69,16 @@ set "HERMES_ROOT=%SCRIPT_DIR%"
 :: Ensure ~/.hermes exists
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
-:: Start gateway in background
+:: Start gateway in background. Use Start-Process so the gateway stays alive
+:: after this batch file exits; "start /b" is not reliable for detached
+:: Python processes on Windows.
 echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"
 
-start /b "" "%PYTHON_EXE%" -m hermes_cli.main gateway >> "%GATEWAY_LOG%" 2>&1
-
-:: Capture PID after a 1s delay (process needs time to start)
-timeout /t 1 /nobreak >nul
-
-:: Find newest python.exe whose command line includes "gateway"
-for /f "tokens=2" %%p in ('wmic process where "name='python.exe' and commandline like '%%gateway%%'" get ProcessId /format:value 2^>nul ^| find "="') do (
+for /f %%p in ('powershell -NoProfile -Command ^
+    "$p = Start-Process -FilePath '%PYTHON_EXE%' -ArgumentList '-m','hermes_cli.main','gateway' -WorkingDirectory '%SCRIPT_DIR%' -WindowStyle Hidden -PassThru;" ^
+    "Start-Sleep -Seconds 1;" ^
+    "Write-Output $p.Id"') do (
     if not defined GATEWAY_PID set "GATEWAY_PID=%%p"
 )
 if defined GATEWAY_PID (
@@ -81,11 +103,3 @@ if %WAITED% LSS %MAX_WAIT% goto :wait_gateway
 echo [WARN] Gateway did not respond in %MAX_WAIT%s.
 echo        Check log: %GATEWAY_LOG%
 exit /b 0
-
-:: Subroutine: load one .env line (skip blanks and # comments)
-:load_env_line
-set "_K=%~1"
-if "%_K%"=="" goto :eof
-if "%_K:~0,1%"=="#" goto :eof
-set "%~1=%~2"
-goto :eof
