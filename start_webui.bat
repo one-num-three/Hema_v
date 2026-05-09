@@ -88,7 +88,13 @@ set "PORT=%WEBUI_PORT%"
 set "NODE_ENV=production"
 set "UPSTREAM=http://127.0.0.1:%GATEWAY_PORT%"
 set "HERMES_HOME=%USERPROFILE%\.hermes"
-set "HERMES_BIN=%SCRIPT_DIR%hermes.bat"
+:: HERMES_BIN: 优先用 pip 装的 hermes.exe（Node 23 因 CVE-2024-27980 不能直接 spawn .bat）
+:: 回退到 hermes.bat（旧 Node 兼容）
+if exist "%SCRIPT_DIR%python_embedded\Scripts\hermes.exe" (
+    set "HERMES_BIN=%SCRIPT_DIR%python_embedded\Scripts\hermes.exe"
+) else (
+    set "HERMES_BIN=%SCRIPT_DIR%hermes.bat"
+)
 set "AUTH_TOKEN=%WEBUI_TOKEN%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
 set "npm_config_ignore_scripts=true"
