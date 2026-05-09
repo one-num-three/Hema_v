@@ -3,26 +3,27 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 
-:: ── 先加载 .env（避免后续覆盖本地变量） ─────────────────────────────
+:: Load .env first so user vars are available, then set local vars after
+:: (so local vars are not accidentally overridden by .env content)
 if not exist "%SCRIPT_DIR%.env" goto :env_loaded
 for /f "usebackq tokens=1,* delims==" %%a in ("%SCRIPT_DIR%.env") do call :load_env_line "%%a" "%%b"
 :env_loaded
 
-:: ── 设置本地变量（在 .env 加载之后，确保不被覆盖） ──────────────────
+:: Local script vars
 set "PYTHON_EXE=%SCRIPT_DIR%python_embedded\python.exe"
 set "GATEWAY_PORT=8642"
 set "GATEWAY_HOST=127.0.0.1"
 set "GATEWAY_PID_FILE=%USERPROFILE%\.hermes\gateway.pid"
 set "GATEWAY_LOG=%USERPROFILE%\.hermes\gateway.log"
 
-:: ── 检查 Python 环境 ────────────────────────────────────────────────
+:: Verify Python exists
 if not exist "%PYTHON_EXE%" (
     echo [ERROR] Python not found at %PYTHON_EXE%
     echo         Please run install.bat first.
     exit /b 1
 )
 
-:: ── 检查 Gateway 是否已在运行 ───────────────────────────────────────
+:: If gateway already running, exit 0
 if exist "%GATEWAY_PID_FILE%" (
     set /p EXISTING_PID=<"%GATEWAY_PID_FILE%"
     tasklist /FI "PID eq !EXISTING_PID!" 2>nul | find "python" >nul
@@ -33,7 +34,7 @@ if exist "%GATEWAY_PID_FILE%" (
     del "%GATEWAY_PID_FILE%" 2>nul
 )
 
-:: ── 环境变量配置 ────────────────────────────────────────────────────
+:: Env vars for the gateway process
 set "PATH=%SCRIPT_DIR%python_embedded;%SCRIPT_DIR%python_embedded\Scripts;%PATH%"
 set "PYTHONIOENCODING=utf-8"
 set "PYTHONUTF8=1"
@@ -42,19 +43,19 @@ set "API_SERVER_HOST=%GATEWAY_HOST%"
 set "HERMES_PYTHON=%PYTHON_EXE%"
 set "HERMES_ROOT=%SCRIPT_DIR%"
 
-:: ── 创建必要目录 ────────────────────────────────────────────────────
+:: Ensure ~/.hermes exists
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
-:: ── 后台启动 Gateway ────────────────────────────────────────────────
+:: Start gateway in background
 echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"
 
 start /b "" "%PYTHON_EXE%" -m hermes_cli.main gateway >> "%GATEWAY_LOG%" 2>&1
 
-:: 等 1 秒再抓 PID（进程需要时间启动）
+:: Capture PID after a 1s delay (process needs time to start)
 timeout /t 1 /nobreak >nul
 
-:: 查找最新启动的 python.exe 含 gateway 的 PID
+:: Find newest python.exe whose command line includes "gateway"
 for /f "tokens=2" %%p in ('wmic process where "name='python.exe' and commandline like '%%gateway%%'" get ProcessId /format:value 2^>nul ^| find "="') do (
     if not defined GATEWAY_PID set "GATEWAY_PID=%%p"
 )
@@ -63,7 +64,7 @@ if defined GATEWAY_PID (
     echo [INFO] Gateway PID: !GATEWAY_PID!
 )
 
-:: ── 轮询等待 Gateway 就绪（最多 15 秒）────────────────────────────
+:: Poll /health up to 15 seconds
 set "MAX_WAIT=15"
 set "WAITED=0"
 :wait_gateway
@@ -81,7 +82,7 @@ echo [WARN] Gateway did not respond in %MAX_WAIT%s.
 echo        Check log: %GATEWAY_LOG%
 exit /b 0
 
-:: ── 子函数：加载 .env 单行（跳过空行和 # 注释）──────────────────────
+:: Subroutine: load one .env line (skip blanks and # comments)
 :load_env_line
 set "_K=%~1"
 if "%_K%"=="" goto :eof
