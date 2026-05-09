@@ -335,10 +335,8 @@ for /f "tokens=*" %%v in ('"%NODE_EXE%" --version 2^>nul') do echo [OK] Node.js 
 goto :skip_nodejs_download
 :node_need_download
 
-:: 优先使用本地预放的 Node.js zip（离线场景）
-:: 支持的本地文件名：
-::   node_embedded.zip（脚本里的标准名）
-::   node-v23.11.0-win-x64.zip（npmmirror/CDN 上的完整名）
+:: Use local pre-staged Node.js zip if available (offline scenarios)
+:: Accepted local filenames: node_embedded.zip OR node-v23.11.0-win-x64.zip
 set "LOCAL_NODE_ALT=%SCRIPT_DIR%\node-v%NODE_VER%-win-x64.zip"
 if exist "%NODE_ZIP%" goto :node_local_found
 if not exist "%LOCAL_NODE_ALT%" goto :node_need_dl
@@ -439,10 +437,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "try{Invoke-WebRequest 'http://121.40.165.216/hermes-cdn/files/7za.exe' -OutFile '%SEVENZIP%' -TimeoutSec 60}catch{}" >nul 2>&1
 :sevenzip_ready
 
-:: 优先使用本地预放的 bundle（开发/离线场景），找不到再去 CDN 下载
-:: 支持的本地文件名：
-::   hermes-webui-bundle.7z（脚本里的标准名）
-::   hermes-webui-bundle-v0.5.13-win-x64.7z（CDN 上的完整名）
+:: Use local pre-staged bundle if available (offline/dev scenarios)
+:: Accepted local filenames: hermes-webui-bundle.7z OR hermes-webui-bundle-v0.5.13-win-x64.7z
 set "LOCAL_BUNDLE_ALT=%SCRIPT_DIR%\hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 if exist "%BUNDLE_FILE%" goto :bundle_local_found
 if not exist "%LOCAL_BUNDLE_ALT%" goto :bundle_need_download
@@ -532,18 +528,15 @@ echo     - 100 AI tools across 20+ toolsets
 echo     - 88+ skills
 echo     - LM Studio SDK
 echo     - Browser automation
-if "%INSTALL_MODE%"=="full" (
-    echo     - Node.js v23.11.0 ^(portable, in node_embedded/^)
-    echo     - hermes-web-ui v%BUNDLE_VER% ^(browser interface^)
-)
+if exist "%SCRIPT_DIR%\node_embedded\node.exe" echo     - Node.js v23.11.0 (portable, in node_embedded/)
+if exist "%SCRIPT_DIR%\webui\dist\server\index.js" echo     - hermes-web-ui v%BUNDLE_VER% (browser interface, bundle mode)
+if exist "%SCRIPT_DIR%\webui\node_modules\hermes-web-ui\dist\server\index.js" echo     - hermes-web-ui v%BUNDLE_VER% (browser interface, npm mode)
 echo.
 echo   To start:
 echo     hermes_gui.bat     Desktop GUI (recommended)
 echo     hermes.bat         Command-line interface
-if "%INSTALL_MODE%"=="full" (
-    echo     start_webui.bat    Launch Web UI in browser
-    echo                        ^(opens http://localhost:8648^)
-)
+if exist "%SCRIPT_DIR%\webui\dist\server\index.js" echo     start_webui.bat    Launch Web UI (http://localhost:8648)
+if exist "%SCRIPT_DIR%\webui\node_modules\hermes-web-ui\dist\server\index.js" echo     start_webui.bat    Launch Web UI (http://localhost:8648)
 echo.
 echo   First time? The app will guide you through
 echo   setting up your API keys on first launch.
