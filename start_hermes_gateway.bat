@@ -2,6 +2,13 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
+
+:: ── 先加载 .env（避免后续覆盖本地变量） ─────────────────────────────
+if not exist "%SCRIPT_DIR%.env" goto :env_loaded
+for /f "usebackq tokens=1,* delims==" %%a in ("%SCRIPT_DIR%.env") do call :load_env_line "%%a" "%%b"
+:env_loaded
+
+:: ── 设置本地变量（在 .env 加载之后，确保不被覆盖） ──────────────────
 set "PYTHON_EXE=%SCRIPT_DIR%python_embedded\python.exe"
 set "GATEWAY_PORT=8642"
 set "GATEWAY_HOST=127.0.0.1"
@@ -34,16 +41,6 @@ set "API_SERVER_PORT=%GATEWAY_PORT%"
 set "API_SERVER_HOST=%GATEWAY_HOST%"
 set "HERMES_PYTHON=%PYTHON_EXE%"
 set "HERMES_ROOT=%SCRIPT_DIR%"
-
-:: 加载 .env 文件中的用户配置（如 API_KEY 等）
-if exist "%SCRIPT_DIR%.env" (
-    for /f "usebackq tokens=1,* delims==" %%a in ("%SCRIPT_DIR%.env") do (
-        set "_K=%%a"
-        if not "!_K!"=="" if not "!_K:~0,1!"=="#" (
-            set "%%a=%%b"
-        )
-    )
-)
 
 :: ── 创建必要目录 ────────────────────────────────────────────────────
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
@@ -83,3 +80,11 @@ if %WAITED% LSS %MAX_WAIT% goto :wait_gateway
 echo [WARN] Gateway did not respond in %MAX_WAIT%s.
 echo        Check log: %GATEWAY_LOG%
 exit /b 0
+
+:: ── 子函数：加载 .env 单行（跳过空行和 # 注释）──────────────────────
+:load_env_line
+set "_K=%~1"
+if "%_K%"=="" goto :eof
+if "%_K:~0,1%"=="#" goto :eof
+set "%~1=%~2"
+goto :eof

@@ -62,18 +62,24 @@ if not exist "%WEBUI_TOKEN_FILE%" (
 )
 set /p WEBUI_TOKEN=<"%WEBUI_TOKEN_FILE%"
 
-:: ── 检测并处理端口冲突 ─────────────────────────────────────────────
+:: ── 检测并处理端口冲突（强力版：杀掉占用 %WEBUI_PORT% 的所有进程，不只是 node） ─
 netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [WARN] Port %WEBUI_PORT% already in use. Attempting to free it...
+    echo [WARN] Port %WEBUI_PORT% in use, freeing it...
     for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
-        tasklist /FI "PID eq %%p" 2>nul | find "node" >nul
-        if !errorlevel! equ 0 (
-            taskkill /F /PID %%p >nul 2>&1
-            echo [INFO] Stopped old node.exe process (PID: %%p)
-        )
+        taskkill /F /PID %%p >nul 2>&1
+        echo [INFO] Killed PID %%p that held port %WEBUI_PORT%
     )
     timeout /t 2 /nobreak >nul
+)
+
+:: 二次确认端口已释放
+netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [ERROR] Port %WEBUI_PORT% still in use after cleanup. Aborting.
+    echo         Run manually: netstat -ano ^| findstr :%WEBUI_PORT%
+    pause
+    exit /b 1
 )
 
 :: ── 环境变量配置（hermes-web-ui server 读取这些）───────────────────
