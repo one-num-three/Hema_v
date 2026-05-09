@@ -93,6 +93,15 @@ set "AUTH_TOKEN=%WEBUI_TOKEN%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
 set "npm_config_ignore_scripts=true"
 
+:: hermes-web-ui terminal 功能要用绝对路径的 shell（它的 findShell() 里
+:: existsSync('cmd.exe') 在 Windows 上返回 false，会 fallback 到 /bin/bash）
+:: 优先 PowerShell，没有就用 cmd
+if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (
+    set "SHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+) else (
+    set "SHELL=%SystemRoot%\System32\cmd.exe"
+)
+
 :: ── 后台启动 Web UI 服务器 ──────────────────────────────────────────
 echo [INFO] Starting hermes-web-ui on port %WEBUI_PORT%...
 cd /d "%WEBUI_DIR%"
