@@ -477,7 +477,20 @@ if not exist "%WEBUI_DIR%" mkdir "%WEBUI_DIR%"
 if not exist "%SEVENZIP%" goto :webui_no_7za
 "%SEVENZIP%" x "%BUNDLE_FILE%" -o"%WEBUI_DIR%" -y >nul
 del "%BUNDLE_FILE%" 2>nul
+
+:: Check if files extracted correctly (direct layout)
 if exist "%WEBUI_SERVER%" goto :webui_done
+
+:: Check if bundle had extra "hermes-web-ui-src" wrapper folder (old build format)
+:: If so, flatten by moving inner contents up one level.
+if not exist "%WEBUI_DIR%\hermes-web-ui-src\dist\server\index.js" goto :webui_extract_failed
+echo [INFO] Detected legacy bundle layout, flattening...
+xcopy /E /Y /Q "%WEBUI_DIR%\hermes-web-ui-src\*" "%WEBUI_DIR%\" >nul
+rmdir /S /Q "%WEBUI_DIR%\hermes-web-ui-src" 2>nul
+if exist "%WEBUI_SERVER%" goto :webui_done
+
+:webui_extract_failed
+echo [WARN] Bundle extraction did not produce expected files. Trying npm fallback...
 goto :webui_npm_fallback
 
 :webui_no_7za
