@@ -1,0 +1,44 @@
+name: Build Hermes Installer EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'installer_gui.ps1'
+      - 'assets/installer/**'
+      - '.github/workflows/build-installer-exe.yml'
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Convert PS1 to EXE
+        shell: pwsh
+        run: |
+          Install-Module -Name ps2exe -Force -Scope CurrentUser
+          Invoke-ps2exe -inputFile installer_gui.ps1 -outputFile 安装Hermes.exe -title "Hermes 安装器" -noConsole
+          $size = [math]::Round((Get-Item 安装Hermes.exe).Length / 1KB, 1)
+          Write-Host "Built: 安装Hermes.exe ($size KB)"
+
+      - name: Upload to CDN
+        shell: pwsh
+        env:
+          CDN_SSH_KEY: ${{ secrets.CDN_SSH_KEY }}
+          CDN_USER: ${{ secrets.CDN_USER }}
+          CDN_HOST: ${{ secrets.CDN_HOST }}
+        run: |
+          $keyFile = "$env:TEMP\cdn_key"
+          $env:CDN_SSH_KEY | Set-Content $keyFile -Encoding ASCII
+          icacls $keyFile /inheritance:r /grant:r "$env:USERNAME:(R)" 2>$null
+          
+          $sshOpts = "-o StrictHostKeyChecking=no -i $keyFile"
+          $cdnPath = "/var/www/hermes-cdn/files"
+          
+          scp $sshOpts.Split(' ') 安装Hermes.exe "${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/"
+          Remove-Item $keyFile -Force
+          Write-Host "Uploaded to CDN"
