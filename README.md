@@ -497,6 +497,35 @@ _PLATFORM_DESC = "Windows (Git Bash)"
 
 **待办:** 触发 workflow 编译 `安装Hermes.exe`。
 
+### 5. Web UI 升级到 v0.5.16
+
+**日期:** 2026-05-10
+
+v0.5.16 修复了"中断时消息丢失"问题，与我们的持久化补丁互补。
+- `cdn/version.json` → `webui_version: "0.5.16"`
+- `install.bat` → `BUNDLE_VER=0.5.16`
+- 需触发 workflow 编译新 bundle
+
+### 6. Windows 终端 Shell 依赖问题
+
+**日期:** 2026-05-10
+
+`tools/environments/local.py` 的 `_find_bash()` 硬依赖 Git Bash，未安装时**直接崩溃**，
+所有 terminal 工具不可用。原版 aivrar/portable-hermes-agent 存在同样问题。
+
+**评估的解决方案:**
+
+| 方案 | 复杂度 | 体积 | 说明 |
+|------|--------|------|------|
+| A: 完整 Git | 低 | +66MB | CDN 已有 Git-2.46.0-64-bit.exe，install.bat 静默安装 |
+| B: 提取 bash 最小集 | 高 | +5MB | 从 Git 包提取 bash.exe + msys-2.0.dll，维护成本高 |
+| C: busybox-w32 | 中 | +600KB | 单文件 exe，ash shell (bash 兼容子集) |
+| D: cmd.exe 兜底 | 低 | 0 | 改一行代码，没 bash 就用 cmd |
+
+**推荐:** A + D 组合 — 优先 Git Bash，没装降级 cmd.exe。用户可选装 Git 获得完整 bash。
+
+**待办:** 实装 cmd.exe 兜底方案。
+
 ---
 
 ## 版本历史
@@ -509,6 +538,7 @@ _PLATFORM_DESC = "Windows (Git Bash)"
 | v6.0.3 | 2026-05-09 | fix 分支完整打包 |
 | v6.0.4 | 2026-05-09 | gateway status.py OSError 修复 |
 | v7.0.0 | 2026-05-09 | Windows gateway + Web UI 启动修复 |
+| — | 2026-05-10 | Web UI v0.5.16 bump + 持久化 workflow patch + cmd.exe 方案评估 |
 
 ---
 
@@ -517,8 +547,9 @@ _PLATFORM_DESC = "Windows (Git Bash)"
 ### 短期
 
 - [ ] 编译 `安装Hermes.exe` (触发 build-installer-exe workflow)
-- [ ] 测试 installer_gui.bat → 快捷方式 → Web UI 完整流程
-- [ ] 为 `hermes-web-ui` assistant message 持久化准备 patch
+- [ ] 触发 build-webui-bundle workflow (v0.5.16 + 持久化 patch)
+- [ ] **实装 cmd.exe 兜底方案**（`_find_bash()` 降级逻辑）
+- [ ] 评估是否需要 bundle Git Bash / busybox
 
 ### 中期
 
@@ -532,3 +563,4 @@ _PLATFORM_DESC = "Windows (Git Bash)"
 - [ ] NSIS/Inno Setup 完整安装包
 - [ ] 多语言安装界面
 - [ ] 模块化安装（可以选择不装 Web UI / TTS / ComfyUI）
+- [ ] 解决上游 hermes-web-ui 持久化 Bug（等 EKKOLearnAI 合并后移除我们的 patch）
