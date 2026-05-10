@@ -4,8 +4,11 @@ setlocal enabledelayedexpansion
 set "SCRIPT_DIR=%~dp0"
 set "NODE_DIR=%SCRIPT_DIR%node_embedded"
 set "NODE_EXE=%NODE_DIR%\node.exe"
+set "NPM_CMD=%NODE_DIR%\npm.cmd"
 set "WEBUI_DIR=%SCRIPT_DIR%webui"
 set "WEBUI_SERVER=%WEBUI_DIR%\dist\server\index.js"
+set "WEBUI_NPM_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
+set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
 set "WEBUI_PORT=8648"
 set "GATEWAY_PORT=8642"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
@@ -20,40 +23,25 @@ if not exist "%NODE_EXE%" (
     pause
     exit /b 1
 )
-if not exist "%WEBUI_SERVER%" (
+if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
     echo [ERROR] Web UI server not found at "%WEBUI_SERVER%"
     echo         Run: install.bat full
     pause
     exit /b 1
 )
+if exist "%WEBUI_NPM_SERVER%" set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
 
-:: Check if Web UI is already running
-if exist "%WEBUI_PID_FILE%" (
-    set /p EXISTING_PID=<"%WEBUI_PID_FILE%"
-    tasklist /FI "PID eq !EXISTING_PID!" 2>nul | find "node" >nul
-    if !errorlevel! equ 0 (
-        echo [OK] Web UI already running (PID: !EXISTING_PID!, port: %WEBUI_PORT%)
-        goto :open_browser
-    )
-    del "%WEBUI_PID_FILE%" 2>nul
-)
-
-:: Make sure Hermes gateway is running
+:: Make sure the gateway belongs to this install before opening Web UI.
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
-powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [INFO] Gateway not running, starting it now...
-    call "%SCRIPT_DIR%start_hermes_gateway.bat"
-    if errorlevel 1 (
-        echo [ERROR] Failed to start Hermes gateway.
-        echo         Web UI requires gateway on port %GATEWAY_PORT%.
-        pause
-        exit /b 1
-    )
+call "%SCRIPT_DIR%start_hermes_gateway.bat"
+if errorlevel 1 (
+    echo [ERROR] Failed to start Hermes gateway.
+    echo         Web UI requires gateway on port %GATEWAY_PORT%.
+    pause
+    exit /b 1
 )
 
-:: Read or generate auth token
+:: Read or generate auth token before any branch can open the browser.
 if not exist "%USERPROFILE%\.hermes-web-ui" mkdir "%USERPROFILE%\.hermes-web-ui"
 if not exist "%WEBUI_TOKEN_FILE%" (
     powershell -NoProfile -Command ^
@@ -61,6 +49,28 @@ if not exist "%WEBUI_TOKEN_FILE%" (
         "Set-Content -Path '%WEBUI_TOKEN_FILE%' -Value $t.ToLower() -Encoding ASCII" >nul 2>&1
 )
 set /p WEBUI_TOKEN=<"%WEBUI_TOKEN_FILE%"
+
+:: Check if Web UI is already running
+if exist "%WEBUI_PID_FILE%" (
+    set /p EXISTING_PID=<"%WEBUI_PID_FILE%"
+    tasklist /FI "PID eq !EXISTING_PID!" 2>nul | find "node" >nul
+    if !errorlevel! equ 0 (
+        call :is_current_webui
+        if !errorlevel! equ 0 (
+            powershell -NoProfile -Command ^
+                "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+            if !errorlevel! equ 0 (
+                echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
+                goto :open_browser
+            )
+        ) else (
+            echo [WARN] Existing Web UI PID belongs to another install, restarting it...
+            taskkill /F /PID !EXISTING_PID! >nul 2>&1
+            powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+        )
+    )
+    del "%WEBUI_PID_FILE%" 2>nul
+)
 
 :: Force-free the port: kill ANY process holding port 8648 (not just node)
 netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
@@ -70,7 +80,7 @@ if %errorlevel% equ 0 (
         taskkill /F /PID %%p >nul 2>&1
         echo [INFO] Killed PID %%p that held port %WEBUI_PORT%
     )
-    timeout /t 2 /nobreak >nul
+    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
 )
 
 :: Verify port is now free
@@ -80,6 +90,11 @@ if %errorlevel% equ 0 (
     echo         Run manually: netstat -ano ^| findstr :%WEBUI_PORT%
     pause
     exit /b 1
+)
+
+:: Backfill old Web UI databases where assistant messages were not persisted.
+if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
+    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
 )
 
 :: Env vars consumed by hermes-web-ui server
@@ -101,6 +116,32 @@ set "AUTH_TOKEN=%WEBUI_TOKEN%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
 set "npm_config_ignore_scripts=true"
 
+if /i "%WEBUI_SERVER%"=="%WEBUI_DIR%\dist\server\index.js" (
+    if not exist "%WEBUI_SOCKETIO%" (
+        echo [INFO] Web UI dependencies missing, attempting auto-repair...
+        if exist "%NPM_CMD%" (
+            cd /d "%WEBUI_DIR%"
+            call "%NPM_CMD%" install --omit=dev --registry https://registry.npmmirror.com --cache "%SCRIPT_DIR%\.npm-cache" --no-fund --no-audit
+            if errorlevel 1 (
+                echo [ERROR] Auto-repair failed. Please rerun full install.
+                pause
+                exit /b 1
+            )
+            if not exist "%WEBUI_SOCKETIO%" (
+                echo [ERROR] Auto-repair failed. Please rerun full install.
+                pause
+                exit /b 1
+            )
+            echo [OK] Auto-repair completed, continuing startup...
+        ) else (
+            echo [ERROR] Web UI dependencies missing and npm is unavailable.
+            echo         Please rerun full install.
+            pause
+            exit /b 1
+        )
+    )
+)
+
 :: hermes-web-ui terminal feature uses findShell() which calls existsSync()
 :: on bare names like 'cmd.exe' / 'powershell.exe' -- those return false on
 :: Windows because no PATH lookup happens. Workaround: provide an absolute
@@ -117,8 +158,10 @@ cd /d "%WEBUI_DIR%"
 start /b "" "%NODE_EXE%" "%WEBUI_SERVER%" >> "%WEBUI_LOG%" 2>&1
 
 :: Capture PID after 1s
-timeout /t 1 /nobreak >nul
-for /f "tokens=2" %%p in ('wmic process where "name='node.exe'" get ProcessId /format:value 2^>nul ^| find "=" ^| sort /r') do (
+powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
+for /f %%p in ('powershell -NoProfile -Command ^
+    "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
+    "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -and $_.CommandLine.Contains($server) } | Sort-Object CreationDate -Descending | Select-Object -First 1 -ExpandProperty ProcessId"') do (
     if not defined WEBUI_PID set "WEBUI_PID=%%p"
 )
 if defined WEBUI_PID (
@@ -130,24 +173,49 @@ if defined WEBUI_PID (
 set "MAX_WAIT=30"
 set "WAITED=0"
 :wait_webui
-timeout /t 1 /nobreak >nul
+powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
 set /a WAITED+=1
-<nul set /p =""
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (
+    if not defined WEBUI_PID (
+        for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
+            if not defined WEBUI_PID set "WEBUI_PID=%%p"
+        )
+        if defined WEBUI_PID (
+            echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
+            echo [INFO] Web UI PID: !WEBUI_PID!
+        )
+    )
     echo [OK] hermes-web-ui ready.
     goto :open_browser
 )
 if %WAITED% LSS %MAX_WAIT% goto :wait_webui
 echo [WARN] Web UI did not respond in %MAX_WAIT%s.
 echo        Check log: %WEBUI_LOG%
+echo [ERROR] Web UI failed to start, browser will not be opened.
+pause
+exit /b 1
 
 :open_browser
 :: Open browser with token in URL fragment (Vue Router hash mode)
 set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/?token=%WEBUI_TOKEN%"
 echo [INFO] Opening browser: %BROWSER_URL%
-start "" "%BROWSER_URL%"
+powershell -NoProfile -Command ^
+    "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
+if %errorlevel% neq 0 (
+    start "" "%BROWSER_URL%"
+)
 echo [OK] Web UI is running at http://localhost:%WEBUI_PORT%
 echo.
 endlocal
+exit /b 0
+
+:is_current_webui
+if "%EXISTING_PID%"=="" exit /b 1
+powershell -NoProfile -Command ^
+    "$pidText='%EXISTING_PID%';" ^
+    "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
+    "try{$p=Get-CimInstance Win32_Process -Filter ('ProcessId=' + [int]$pidText)}catch{$p=$null};" ^
+    "if($p -and $p.CommandLine -and $p.CommandLine.Contains($server)){exit 0}else{exit 1}" >nul 2>&1
+exit /b %errorlevel%

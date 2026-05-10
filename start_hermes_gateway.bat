@@ -3,7 +3,7 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 set "ENV_FILE=%SCRIPT_DIR%.env"
-set "ENV_LOAD_SCRIPT=%TEMP%\hermes_env_%RANDOM%_%RANDOM%.cmd"
+for /f %%g in ('powershell -NoProfile -Command "[guid]::NewGuid().ToString()"') do set "ENV_LOAD_SCRIPT=%TEMP%\hermes_env_%%g.cmd"
 
 :: Load .env first so user vars are available, then set local vars after
 :: (so local vars are not accidentally overridden by .env content).
@@ -52,8 +52,13 @@ if not exist "%PYTHON_EXE%" (
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
-    exit /b 0
+    call :is_current_gateway
+    if !errorlevel! equ 0 (
+        echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
+        exit /b 0
+    )
+    echo [WARN] Gateway on port %GATEWAY_PORT% belongs to another install, restarting it...
+    call :free_gateway_port
 )
 if exist "%GATEWAY_PID_FILE%" del "%GATEWAY_PID_FILE%" 2>nul
 
@@ -72,7 +77,7 @@ if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 :: Start gateway in background. Use Start-Process so the gateway stays alive
 :: after this batch file exits; "start /b" is not reliable for detached
 :: Python processes on Windows.
-echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT% (may take 10-15s)...
+echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"
 
 for /f %%p in ('powershell -NoProfile -Command ^
@@ -90,9 +95,8 @@ if defined GATEWAY_PID (
 set "MAX_WAIT=15"
 set "WAITED=0"
 :wait_gateway
-timeout /t 1 /nobreak >nul
+powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
 set /a WAITED+=1
-<nul set /p =""
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (
@@ -103,4 +107,23 @@ if %WAITED% LSS %MAX_WAIT% goto :wait_gateway
 
 echo [WARN] Gateway did not respond in %MAX_WAIT%s.
 echo        Check log: %GATEWAY_LOG%
+exit /b 0
+
+:is_current_gateway
+if not exist "%GATEWAY_PID_FILE%" exit /b 1
+powershell -NoProfile -Command ^
+    "$raw=Get-Content -LiteralPath '%GATEWAY_PID_FILE%' -Raw;" ^
+    "try{$pidValue=[int](($raw|ConvertFrom-Json).pid)}catch{if($raw -match '\d+'){$pidValue=[int]$matches[0]}else{exit 1}};" ^
+    "$root=[IO.Path]::GetFullPath('%SCRIPT_DIR%').TrimEnd('\');" ^
+    "$python=[IO.Path]::GetFullPath('%PYTHON_EXE%');" ^
+    "try{$p=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $pidValue)}catch{$p=$null};" ^
+    "if($p -and (($p.ExecutablePath -and ([IO.Path]::GetFullPath($p.ExecutablePath) -ieq $python)) -or ($p.CommandLine -and $p.CommandLine.Contains($root)))){exit 0}else{exit 1}" >nul 2>&1
+exit /b %errorlevel%
+
+:free_gateway_port
+for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%GATEWAY_PORT% " ^| findstr "LISTENING"') do (
+    taskkill /F /PID %%p >nul 2>&1
+    echo [INFO] Killed PID %%p that held port %GATEWAY_PORT%
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
 exit /b 0

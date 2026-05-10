@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       webui_version:
-        description: 'hermes-web-ui version tag (e.g. v0.5.13)'
+        description: 'hermes-web-ui version tag (e.g. v0.5.16)'
         required: true
-        default: 'v0.5.13'
+        default: 'v0.5.16'
       upload_to_cdn:
         description: 'Upload to CDN after build'
         required: true
@@ -18,7 +18,7 @@ on:
       - 'cdn/version.json'
 
 env:
-  WEBUI_VERSION: ${{ github.event.inputs.webui_version || 'v0.5.13' }}
+  WEBUI_VERSION: ${{ github.event.inputs.webui_version || 'v0.5.16' }}
   NODE_VERSION: '23'
 
 jobs:

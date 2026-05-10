@@ -1,38 +1,37 @@
 """
-Post-build patch for hermes-web-ui dist/server/index.js
+Post-build patch for hermes-web-ui dist/server/index.js.
 
-Fixes: Assistant messages lost on page refresh — 
-addMessage() is never called for AI responses, only for user messages.
-This patch adds local SQLite persistence for assistant messages in the
-run.completed handler, before markCompleted/syncFromHermes is called.
+The upstream Web UI can finish a run without persisting assistant messages to
+the local SQLite store. This patch injects persistence before markCompleted()
+is called in the bundled server file.
 """
-import sys, re
+import sys
+
 
 def patch_webui(filepath: str) -> bool:
-    with open(filepath, 'rb') as f:
-        content = f.read().decode('utf-8', errors='replace')
-    
+    with open(filepath, "rb") as f:
+        content = f.read().decode("utf-8", errors="replace")
+
+    if "failed to persist assistant message to local DB" in content:
+        print("Already patched; no change needed")
+        return True
+
+    if "flushResponseRunToDb" in content:
+        print("Upstream already persists response runs; no patch needed")
+        return True
+
     original_size = len(content)
-    
-    # Target: inject addMessage() persistence right before markCompleted is called
-    # Find: W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id})
-    marker = 'W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id})'
-    
+    marker = "W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id})"
+
     if marker not in content:
-        # Try alternative pattern (may differ between versions)
-        alt = 'this.markCompleted(G,W,{event:w.event,run_id:w.run_id})'
+        alt = "this.markCompleted(G,W,{event:w.event,run_id:w.run_id})"
         if alt in content:
             marker = alt
         else:
             print("ERROR: Could not find markCompleted call site")
             return False
-    
-    # Find the 'this' context variable - it's 'this' in the class method
-    # The storage reference should be available as this.storage
-    
-    # Inject before markCompleted: persist assistant messages to local DB
+
     inject = (
-        # Get all assistant messages for this session and persist them
         'let P=E.filter(b=>b.hermesSessionId===Y&&b.role==="assistant"&&b.content&&!b._dbPersisted)'
         ';for(let b of P){try{this.storage.addMessage({'
         'id:b.id||("a"+Date.now()+Math.random().toString(36).slice(2)),'
@@ -42,20 +41,20 @@ def patch_webui(filepath: str) -> bool:
         's.warn(e,"[chat-run-socket] failed to persist assistant message to local DB")'
         '}};'
     )
-    
+
     content = content.replace(marker, inject + marker)
-    
+
     if len(content) == original_size:
-        print("WARNING: No change made — marker replacement had no effect")
+        print("WARNING: No change made; marker replacement had no effect")
         return False
-    
-    with open(filepath, 'wb') as f:
-        f.write(content.encode('utf-8'))
-    
-    print(f"Patched: {original_size} -> {len(content)} bytes ({len(content)-original_size:+d})")
+
+    with open(filepath, "wb") as f:
+        f.write(content.encode("utf-8"))
+
+    print(f"Patched: {original_size} -> {len(content)} bytes ({len(content) - original_size:+d})")
     return True
 
-if __name__ == '__main__':
-    target = sys.argv[1] if len(sys.argv) > 1 else 'dist/server/index.js'
-    ok = patch_webui(target)
-    sys.exit(0 if ok else 1)
+
+if __name__ == "__main__":
+    target = sys.argv[1] if len(sys.argv) > 1 else "dist/server/index.js"
+    sys.exit(0 if patch_webui(target) else 1)

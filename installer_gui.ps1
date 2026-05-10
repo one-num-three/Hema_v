@@ -59,6 +59,9 @@ function New-DesktopShortcut {
 
     $desktop = [Environment]::GetFolderPath('DesktopDirectory')
     $shortcutPath = Join-Path $desktop ($Name + '.lnk')
+    if (Test-Path -LiteralPath $shortcutPath) {
+        Remove-Item -LiteralPath $shortcutPath -Force
+    }
     $shell = New-Object -ComObject WScript.Shell
     $shortcut = $shell.CreateShortcut($shortcutPath)
     $shortcut.TargetPath = $TargetPath
@@ -67,9 +70,25 @@ function New-DesktopShortcut {
         $shortcut.Arguments = $Arguments
     }
     if ($IconLocation -and (Test-Path -LiteralPath $IconLocation)) {
-        $shortcut.IconLocation = $IconLocation
+        $shortcut.IconLocation = ($IconLocation + ',0')
     }
     $shortcut.Save()
+}
+
+function Remove-DesktopShortcut {
+    param([string]$Name)
+
+    $shortcutPath = Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) ($Name + '.lnk')
+    if (Test-Path -LiteralPath $shortcutPath) {
+        Remove-Item -LiteralPath $shortcutPath -Force
+    }
+}
+
+function Refresh-ShellIconCache {
+    $ie4uinit = Join-Path $env:SystemRoot 'System32\ie4uinit.exe'
+    if (Test-Path -LiteralPath $ie4uinit) {
+        Start-Process -FilePath $ie4uinit -ArgumentList '-show' -WindowStyle Hidden -ErrorAction SilentlyContinue
+    }
 }
 
 function Update-InstallModeUi {
@@ -421,6 +440,7 @@ function Complete-InstallSuccess {
     }
 
     if ($result.CreateGatewayShortcut) {
+        Remove-DesktopShortcut -Name 'Hema Gateway'
         $gatewayBat = Join-Path $result.InstallPath 'start_hermes_gateway.bat'
         if (Test-Path -LiteralPath $gatewayBat) {
             New-DesktopShortcut -Name (Z('5rKz6ams572R5YWz')) -TargetPath $env:ComSpec -Arguments ("/c `"$gatewayBat`"") -WorkingDirectory $result.InstallPath -IconLocation $iconPath
@@ -428,11 +448,14 @@ function Complete-InstallSuccess {
     }
 
     if ($result.Mode -eq 'full' -and $result.CreateWebUiShortcut) {
+        Remove-DesktopShortcut -Name 'Hema Web UI'
         $webuiBat = Join-Path $result.InstallPath 'start_webui.bat'
         if (Test-Path -LiteralPath $webuiBat) {
             New-DesktopShortcut -Name (Z('5rKz6amsIFdlYiDnrqHnkIbnlYzpnaI=')) -TargetPath $env:ComSpec -Arguments ("/c `"$webuiBat`"") -WorkingDirectory $result.InstallPath -IconLocation $iconPath
         }
     }
+
+    Refresh-ShellIconCache
 
     $appendLogAction.Invoke(@{
         Progress = 100
