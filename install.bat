@@ -433,7 +433,7 @@ set "WEBUI_SERVER=%WEBUI_DIR%\dist\server\index.js"
 set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
 set "WEBUI_NPM_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
 set "SEVENZIP=%SCRIPT_DIR%\tools\7za.exe"
-set "BUNDLE_VER=0.5.13"
+set "BUNDLE_VER=0.5.16"
 set "BUNDLE_FILE=%SCRIPT_DIR%\hermes-webui-bundle.7z"
 set "BUNDLE_CDN=http://121.40.165.216/hermes-cdn/files/hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 
@@ -460,7 +460,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 :sevenzip_ready
 
 :: Use local pre-staged bundle if available (offline/dev scenarios)
-:: Accepted local filenames: hermes-webui-bundle.7z OR hermes-webui-bundle-v0.5.13-win-x64.7z
+:: Accepted local filenames: hermes-webui-bundle.7z OR hermes-webui-bundle-v0.5.16-win-x64.7z
 set "LOCAL_BUNDLE_ALT=%SCRIPT_DIR%\hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 if exist "%BUNDLE_FILE%" goto :bundle_local_found
 if not exist "%LOCAL_BUNDLE_ALT%" goto :bundle_need_download
