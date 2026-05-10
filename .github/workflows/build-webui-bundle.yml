@@ -90,6 +90,15 @@ jobs:
           }
           Write-Host "Build complete."
 
+      - name: Patch: persist assistant messages to local SQLite
+        shell: pwsh
+        working-directory: hermes-web-ui-src
+        run: |
+          Write-Host "Patching dist/server/index.js for message persistence..."
+          python ..\scripts\patch-webui-persistence.py dist\server\index.js
+          if ($LASTEXITCODE -ne 0) { throw "Patch failed" }
+          Write-Host "Patch applied successfully."
+
       - name: Prune devDependencies
         shell: pwsh
         working-directory: hermes-web-ui-src
