@@ -90,6 +90,11 @@ jobs:
           }
           Write-Host "Build complete."
 
+      - name: Setup Python for patching
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Patch: persist assistant messages to local SQLite
         shell: pwsh
         working-directory: hermes-web-ui-src
