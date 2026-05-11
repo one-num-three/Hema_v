@@ -1,5 +1,5 @@
 """
-Post-build patch for hermes-web-ui dist/server/index.js.
+Post-build patch for hermes-web-ui bundled files.
 
 The upstream Web UI can finish a run without persisting assistant messages to
 the local SQLite store. This patch injects persistence before markCompleted()
@@ -8,8 +8,20 @@ is called in the bundled server file.
 It also forwards the Web UI session_id to the Hermes gateway when the bundled
 server calls /v1/responses. Without this, each browser turn can become a fresh
 backend session even though the visible Web UI session is the same.
+
+Finally, it patches the bundled client sidebar "API relay" / "中转站" external
+link to Hema's current relay login URL.
 """
+from __future__ import annotations
+
+from pathlib import Path
 import sys
+
+
+RELAY_LOGIN_URL = "https://ai.opcstore.com/login?expired=true"
+OLD_RELAY_URLS = (
+    "https://apikey.fun/register?aff=LIBAPI",
+)
 
 
 def patch_webui(filepath: str) -> bool:
@@ -73,6 +85,59 @@ def patch_webui(filepath: str) -> bool:
     return True
 
 
+def patch_client(filepath: str) -> bool:
+    path = Path(filepath)
+    if not path.exists():
+        print(f"Client bundle not found, skipping: {path}")
+        return True
+
+    content = path.read_text(encoding="utf-8", errors="replace")
+    changed = False
+
+    if RELAY_LOGIN_URL in content:
+        print("Relay link patch already applied")
+        return True
+
+    for old_url in OLD_RELAY_URLS:
+        if old_url in content:
+            content = content.replace(old_url, RELAY_LOGIN_URL)
+            changed = True
+
+    if not changed:
+        print("ERROR: Could not find sidebar relay link in client bundle")
+        return False
+
+    path.write_text(content, encoding="utf-8")
+    print(f"Patched relay link: {path}")
+    return True
+
+
+def patch_install(root: Path) -> bool:
+    candidates = [
+        root / "dist" / "server" / "index.js",
+        root / "node_modules" / "hermes-web-ui" / "dist" / "server" / "index.js",
+    ]
+    server_targets = [path for path in candidates if path.exists()]
+    if not server_targets:
+        print("ERROR: Could not find hermes-web-ui server bundle")
+        return False
+
+    ok = True
+    for server_target in server_targets:
+        ok = patch_webui(str(server_target)) and ok
+        client_root = server_target.parents[1] / "client" / "assets" / "js"
+        for client_target in client_root.glob("index-*.js"):
+            ok = patch_client(str(client_target)) and ok
+    return ok
+
+
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "dist/server/index.js"
-    sys.exit(0 if patch_webui(target) else 1)
+    target = Path(sys.argv[1] if len(sys.argv) > 1 else "dist/server/index.js")
+    if target.is_dir():
+        ok = patch_install(target)
+    else:
+        ok = patch_webui(str(target))
+        client_arg = Path(sys.argv[2]) if len(sys.argv) > 2 else None
+        if client_arg is not None:
+            ok = patch_client(str(client_arg)) and ok
+    sys.exit(0 if ok else 1)

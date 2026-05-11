@@ -111,6 +111,11 @@ if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" if exist "%SCR
     "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
 )
 
+:: Apply local Web UI compatibility patches after npm/CDN installs or updates.
+if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
+    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
+)
+
 :: Env vars consumed by hermes-web-ui server
 set "PATH=%NODE_DIR%;%PATH%"
 set "PORT=%WEBUI_PORT%"

@@ -545,6 +545,9 @@ echo [ERROR] npm install also failed. Web UI will not be available.
 
 :webui_done
 cd /d "%SCRIPT_DIR%"
+if exist "%SCRIPT_DIR%\scripts\patch-webui-persistence.py" if exist "%PY_EXE%" (
+    "%PY_EXE%" "%SCRIPT_DIR%\scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
+)
 
 :skip_webui
 
