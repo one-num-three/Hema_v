@@ -61,8 +61,15 @@ if exist "%WEBUI_PID_FILE%" (
             if !errorlevel! equ 0 (
                 call :is_expected_webui_mode
                 if !errorlevel! equ 0 (
-                    echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
-                    goto :open_browser
+                    call :is_webui_gateway_connected
+                    if !errorlevel! equ 0 (
+                        echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
+                        goto :open_browser
+                    ) else (
+                        echo [WARN] Existing Web UI is running but reports gateway disconnected, restarting it...
+                        taskkill /F /PID !EXISTING_PID! >nul 2>&1
+                        powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+                    )
                 ) else (
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
                     taskkill /F /PID !EXISTING_PID! >nul 2>&1
@@ -199,7 +206,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
 )
 if defined WEBUI_PID (
     echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
-    echo auth-disabled:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
+    echo auth-disabled:%GATEWAY_PORT%:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
     echo [INFO] Web UI PID: !WEBUI_PID!
 )
 
@@ -218,7 +225,7 @@ if %errorlevel% equ 0 (
         )
         if defined WEBUI_PID (
             echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
-            echo auth-disabled:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
+            echo auth-disabled:%GATEWAY_PORT%:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
             echo [INFO] Web UI PID: !WEBUI_PID!
         )
     )
@@ -246,6 +253,32 @@ pause
 exit /b 1
 
 :open_browser
+call "%SCRIPT_DIR%start_hermes_gateway.bat"
+if errorlevel 1 (
+    echo [ERROR] Gateway is not running, browser will not be opened.
+    echo         Web UI would show "not connected" without the gateway.
+    pause
+    exit /b 1
+)
+call :is_webui_gateway_connected
+if errorlevel 1 (
+    echo [WARN] Web UI is up but still reports gateway disconnected; waiting briefly...
+    set "CONNECT_WAITED=0"
+:wait_webui_gateway
+    powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
+    set /a CONNECT_WAITED+=1
+    call :is_webui_gateway_connected
+    if !errorlevel! equ 0 goto :open_browser_ready
+    if !CONNECT_WAITED! LSS 10 goto :wait_webui_gateway
+    echo [ERROR] Web UI still reports gateway disconnected after !CONNECT_WAITED!s.
+    echo         Gateway health:
+    powershell -NoProfile -Command "try{(Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing).Content}catch{$_.Exception.Message}" 2>nul
+    echo         Web UI health:
+    powershell -NoProfile -Command "try{(Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing).Content}catch{$_.Exception.Message}" 2>nul
+    pause
+    exit /b 1
+)
+:open_browser_ready
 :: Open local Web UI. Auth is disabled for localhost in this launcher.
 set "BROWSER_URL=http://localhost:%WEBUI_PORT%/"
 echo [INFO] Opening browser: %BROWSER_URL%
@@ -273,5 +306,10 @@ if "%EXISTING_PID%"=="" exit /b 1
 if not exist "%WEBUI_MODE_FILE%" exit /b 1
 set "WEBUI_MODE="
 set /p WEBUI_MODE=<"%WEBUI_MODE_FILE%"
-if /i "%WEBUI_MODE%"=="auth-disabled:%EXISTING_PID%" exit /b 0
+if /i "%WEBUI_MODE%"=="auth-disabled:%GATEWAY_PORT%:%EXISTING_PID%" exit /b 0
 exit /b 1
+
+:is_webui_gateway_connected
+powershell -NoProfile -Command ^
+    "try{$h=Invoke-RestMethod 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2; if($h.gateway -eq 'running'){exit 0}else{exit 1}}catch{exit 1}" >nul 2>&1
+exit /b %errorlevel%

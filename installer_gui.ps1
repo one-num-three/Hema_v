@@ -3,6 +3,16 @@ param()
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+if (-not ('Win32Icon' -as [type])) {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class Win32Icon {
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyIcon(IntPtr hIcon);
+}
+"@
+}
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -34,18 +44,105 @@ function Convert-BrandImageToIcon {
     }
 
     try {
-        $bitmap = New-Object System.Drawing.Bitmap $ImagePath
-        $icon = [System.Drawing.Icon]::FromHandle($bitmap.GetHicon())
+        $sourceBitmap = New-Object System.Drawing.Bitmap $ImagePath
+        $iconBitmap = New-Object System.Drawing.Bitmap 256, 256
+        $graphics = [System.Drawing.Graphics]::FromImage($iconBitmap)
+        $graphics.Clear([System.Drawing.Color]::White)
+        $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.DrawImage($sourceBitmap, 0, 0, 256, 256)
+        $graphics.Dispose()
+
+        $hIcon = $iconBitmap.GetHicon()
+        $icon = [System.Drawing.Icon]::FromHandle($hIcon)
         $stream = [System.IO.File]::Open($IconPath, [System.IO.FileMode]::Create)
-        $icon.Save($stream)
-        $stream.Close()
+        try {
+            $icon.Save($stream)
+        } finally {
+            $stream.Close()
+        }
         $clonedIcon = New-Object System.Drawing.Icon $IconPath
         $icon.Dispose()
-        $bitmap.Dispose()
+        [void][Win32Icon]::DestroyIcon($hIcon)
+        $iconBitmap.Dispose()
+        $sourceBitmap.Dispose()
         return $clonedIcon
     } catch {
         return $null
     }
+}
+
+function Test-UsableIcon {
+    param([string]$IconPath)
+
+    if (-not (Test-Path -LiteralPath $IconPath)) {
+        return $false
+    }
+    try {
+        $icon = New-Object System.Drawing.Icon $IconPath
+        $icon.Dispose()
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Get-BrandIcon {
+    param(
+        [string]$IconPath,
+        [string]$ImagePath,
+        [string]$TempIconPath
+    )
+
+    if ((Test-UsableIcon -IconPath $IconPath)) {
+        try {
+            Copy-Item -LiteralPath $IconPath -Destination $TempIconPath -Force
+            return (New-Object System.Drawing.Icon $TempIconPath)
+        } catch {
+            # Fall through to image conversion.
+        }
+    }
+
+    return Convert-BrandImageToIcon -ImagePath $ImagePath -IconPath $TempIconPath
+}
+
+function Ensure-UsableBrandIconFile {
+    param(
+        [string]$IconPath,
+        [string]$ImagePath,
+        [string]$FallbackIconPath,
+        [string]$FallbackImagePath
+    )
+
+    if ((Test-UsableIcon -IconPath $IconPath)) {
+        return $IconPath
+    }
+
+    $iconDir = Split-Path -Parent $IconPath
+    if ($iconDir -and -not (Test-Path -LiteralPath $iconDir)) {
+        New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
+    }
+
+    if ((Test-UsableIcon -IconPath $FallbackIconPath)) {
+        Copy-Item -LiteralPath $FallbackIconPath -Destination $IconPath -Force
+        if ((Test-UsableIcon -IconPath $IconPath)) {
+            return $IconPath
+        }
+    }
+
+    $sourceImage = $ImagePath
+    if (-not (Test-Path -LiteralPath $sourceImage)) {
+        $sourceImage = $FallbackImagePath
+    }
+    $generatedIcon = Convert-BrandImageToIcon -ImagePath $sourceImage -IconPath $IconPath
+    if ($generatedIcon) {
+        $generatedIcon.Dispose()
+    }
+    if ((Test-UsableIcon -IconPath $IconPath)) {
+        return $IconPath
+    }
+    return $null
 }
 
 function New-DesktopShortcut {
