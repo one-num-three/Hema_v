@@ -803,6 +803,58 @@ class APIServerAdapter(BasePlatformAdapter):
                 session_id=session_id,
             )
 
+        def _build_response_data(
+            result: Dict[str, Any],
+            usage: Dict[str, Any],
+            response_id: Optional[str] = None,
+        ) -> Dict[str, Any]:
+            final_response = result.get("final_response", "")
+            if not final_response:
+                final_response = result.get("error", "(No response generated)")
+
+            response_id = response_id or f"resp_{uuid.uuid4().hex[:28]}"
+            created_at = int(time.time())
+
+            full_history = list(conversation_history)
+            full_history.append({"role": "user", "content": user_message})
+            agent_messages = result.get("messages", [])
+            if agent_messages:
+                full_history.extend(agent_messages)
+            else:
+                full_history.append({"role": "assistant", "content": final_response})
+
+            response_data = {
+                "id": response_id,
+                "object": "response",
+                "status": "completed",
+                "created_at": created_at,
+                "model": body.get("model", "hermes-agent"),
+                "output": self._extract_output_items(result),
+                "usage": {
+                    "input_tokens": usage.get("input_tokens", 0),
+                    "output_tokens": usage.get("output_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
+                },
+            }
+
+            if store:
+                self._response_store.put(response_id, {
+                    "response": response_data,
+                    "conversation_history": full_history,
+                    "instructions": instructions,
+                })
+                if conversation:
+                    self._response_store.set_conversation(conversation, response_id)
+
+            return response_data
+
+        if body.get("stream"):
+            return await self._write_sse_response(
+                request=request,
+                compute_response=_compute_response,
+                build_response_data=_build_response_data,
+            )
+
         idempotency_key = request.headers.get("Idempotency-Key")
         if idempotency_key:
             fp = _make_request_fingerprint(
@@ -836,54 +888,74 @@ class APIServerAdapter(BasePlatformAdapter):
                     status=500,
                 )
 
-        final_response = result.get("final_response", "")
-        if not final_response:
-            final_response = result.get("error", "(No response generated)")
+        return web.json_response(_build_response_data(result, usage))
+
+    async def _write_sse_response(
+        self,
+        request: "web.Request",
+        compute_response,
+        build_response_data,
+    ) -> "web.StreamResponse":
+        """Write OpenAI Responses API SSE events for stream=true clients."""
+        sse_headers = {"Content-Type": "text/event-stream", "Cache-Control": "no-cache"}
+        origin = request.headers.get("Origin", "")
+        cors = self._cors_headers_for_origin(origin) if origin else None
+        if cors:
+            sse_headers.update(cors)
+
+        response = web.StreamResponse(status=200, headers=sse_headers)
+        await response.prepare(request)
+
+        async def _send(payload: Dict[str, Any]) -> None:
+            data = json.dumps(payload, ensure_ascii=False)
+            await response.write(f"data: {data}\n\n".encode("utf-8"))
 
         response_id = f"resp_{uuid.uuid4().hex[:28]}"
-        created_at = int(time.time())
-
-        # Build the full conversation history for storage
-        # (includes tool calls from the agent run)
-        full_history = list(conversation_history)
-        full_history.append({"role": "user", "content": user_message})
-        # Add agent's internal messages if available
-        agent_messages = result.get("messages", [])
-        if agent_messages:
-            full_history.extend(agent_messages)
-        else:
-            full_history.append({"role": "assistant", "content": final_response})
-
-        # Build output items (includes tool calls + final message)
-        output_items = self._extract_output_items(result)
-
-        response_data = {
-            "id": response_id,
-            "object": "response",
-            "status": "completed",
-            "created_at": created_at,
-            "model": body.get("model", "hermes-agent"),
-            "output": output_items,
-            "usage": {
-                "input_tokens": usage.get("input_tokens", 0),
-                "output_tokens": usage.get("output_tokens", 0),
-                "total_tokens": usage.get("total_tokens", 0),
-            },
-        }
-
-        # Store the complete response object for future chaining / GET retrieval
-        if store:
-            self._response_store.put(response_id, {
-                "response": response_data,
-                "conversation_history": full_history,
-                "instructions": instructions,
+        try:
+            await _send({
+                "type": "response.created",
+                "response": {
+                    "id": response_id,
+                    "object": "response",
+                    "status": "in_progress",
+                    "created_at": int(time.time()),
+                },
             })
-            # Update conversation mapping so the next request with the same
-            # conversation name automatically chains to this response
-            if conversation:
-                self._response_store.set_conversation(conversation, response_id)
 
-        return web.json_response(response_data)
+            result, usage = await compute_response()
+            final_response = result.get("final_response", "")
+            if not final_response:
+                final_response = result.get("error", "(No response generated)")
+
+            if final_response:
+                await _send({
+                    "type": "response.output_text.delta",
+                    "delta": final_response,
+                    "output_index": 0,
+                    "content_index": 0,
+                })
+
+            response_data = build_response_data(result, usage or {}, response_id=response_id)
+            await _send({"type": "response.completed", "response": response_data})
+            await response.write(b"data: [DONE]\n\n")
+            await response.write_eof()
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, OSError):
+            logger.info("Responses SSE client disconnected")
+        except Exception as e:
+            logger.error("Error running agent for responses stream: %s", e, exc_info=True)
+            try:
+                await _send({
+                    "type": "response.failed",
+                    "error": {
+                        "message": f"Internal server error: {e}",
+                        "type": "server_error",
+                    },
+                })
+                await response.write(b"data: [DONE]\n\n")
+                await response.write_eof()
+            except Exception:
+                pass
+        return response
 
     # ------------------------------------------------------------------
     # Runs API compatibility layer

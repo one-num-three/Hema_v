@@ -664,6 +664,36 @@ class TestResponsesEndpoint:
             assert call_kwargs["session_id"] == "webui-session-1"
 
     @pytest.mark.asyncio
+    async def test_stream_true_returns_responses_sse(self, adapter):
+        """Responses stream=true returns events hermes-web-ui can persist."""
+        mock_result = {"final_response": "Hello from Hermes.", "messages": [], "api_calls": 1}
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+                )
+                resp = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "model": "hermes-agent",
+                        "input": "Hello",
+                        "stream": True,
+                        "store": False,
+                    },
+                )
+
+            assert resp.status == 200
+            assert "text/event-stream" in resp.headers.get("Content-Type", "")
+            body = await resp.text()
+            assert "response.output_text.delta" in body
+            assert "Hello from Hermes." in body
+            assert "response.completed" in body
+            assert "data: [DONE]" in body
+
+    @pytest.mark.asyncio
     async def test_instructions_as_ephemeral_prompt(self, adapter):
         """The instructions field maps to ephemeral_system_prompt."""
         mock_result = {"final_response": "Ahoy!", "messages": [], "api_calls": 1}
