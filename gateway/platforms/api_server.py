@@ -383,6 +383,7 @@ class APIServerAdapter(BasePlatformAdapter):
         ephemeral_system_prompt: Optional[str] = None,
         session_id: Optional[str] = None,
         stream_delta_callback=None,
+        tool_event_callback=None,
     ) -> Any:
         """
         Create an AIAgent instance using the gateway's runtime config.
@@ -415,6 +416,7 @@ class APIServerAdapter(BasePlatformAdapter):
             session_id=session_id,
             platform="api_server",
             stream_delta_callback=stream_delta_callback,
+            tool_event_callback=tool_event_callback,
         )
         return agent
 
@@ -803,6 +805,16 @@ class APIServerAdapter(BasePlatformAdapter):
                 session_id=session_id,
             )
 
+        async def _compute_response_stream(stream_delta_callback=None, tool_event_callback=None):
+            return await self._run_agent(
+                user_message=user_message,
+                conversation_history=conversation_history,
+                ephemeral_system_prompt=instructions,
+                session_id=session_id,
+                stream_delta_callback=stream_delta_callback,
+                tool_event_callback=tool_event_callback,
+            )
+
         def _build_response_data(
             result: Dict[str, Any],
             usage: Dict[str, Any],
@@ -851,7 +863,7 @@ class APIServerAdapter(BasePlatformAdapter):
         if body.get("stream"):
             return await self._write_sse_response(
                 request=request,
-                compute_response=_compute_response,
+                compute_response=_compute_response_stream,
                 build_response_data=_build_response_data,
             )
 
@@ -897,6 +909,8 @@ class APIServerAdapter(BasePlatformAdapter):
         build_response_data,
     ) -> "web.StreamResponse":
         """Write OpenAI Responses API SSE events for stream=true clients."""
+        import queue as _q
+
         sse_headers = {"Content-Type": "text/event-stream", "Cache-Control": "no-cache"}
         origin = request.headers.get("Origin", "")
         cors = self._cors_headers_for_origin(origin) if origin else None
@@ -911,6 +925,60 @@ class APIServerAdapter(BasePlatformAdapter):
             await response.write(f"data: {data}\n\n".encode("utf-8"))
 
         response_id = f"resp_{uuid.uuid4().hex[:28]}"
+        event_q = _q.Queue()
+        text_sent = False
+
+        def _on_delta(delta):
+            if delta is not None:
+                event_q.put(("text", delta))
+
+        def _on_tool_event(event, payload):
+            event_q.put(("tool", event, payload))
+
+        async def _send_queued_event(queued) -> bool:
+            kind = queued[0]
+            if kind == "text":
+                delta = queued[1]
+                if not delta:
+                    return False
+                await _send({
+                    "type": "response.output_text.delta",
+                    "delta": delta,
+                    "output_index": 0,
+                    "content_index": 0,
+                })
+                return True
+            if kind == "tool":
+                event, payload = queued[1], queued[2]
+                call_id = payload.get("tool_call_id") or f"call_{uuid.uuid4().hex[:16]}"
+                tool_name = payload.get("tool_name") or "unknown"
+                if event == "started":
+                    arguments = payload.get("arguments") or {}
+                    if not isinstance(arguments, str):
+                        arguments = json.dumps(arguments, ensure_ascii=False)
+                    await _send({
+                        "type": "response.output_item.done",
+                        "item": {
+                            "type": "function_call",
+                            "call_id": call_id,
+                            "name": tool_name,
+                            "arguments": arguments,
+                        },
+                    })
+                elif event == "completed":
+                    output = payload.get("result")
+                    if not isinstance(output, str):
+                        output = json.dumps(output, ensure_ascii=False)
+                    await _send({
+                        "type": "response.output_item.done",
+                        "item": {
+                            "type": "function_call_output",
+                            "call_id": call_id,
+                            "output": output,
+                        },
+                    })
+            return False
+
         try:
             await _send({
                 "type": "response.created",
@@ -922,12 +990,32 @@ class APIServerAdapter(BasePlatformAdapter):
                 },
             })
 
-            result, usage = await compute_response()
+            agent_task = asyncio.ensure_future(compute_response(
+                stream_delta_callback=_on_delta,
+                tool_event_callback=_on_tool_event,
+            ))
+            loop = asyncio.get_event_loop()
+            while True:
+                try:
+                    queued = await loop.run_in_executor(None, lambda: event_q.get(timeout=0.2))
+                except _q.Empty:
+                    if agent_task.done():
+                        while True:
+                            try:
+                                queued = event_q.get_nowait()
+                            except _q.Empty:
+                                break
+                            text_sent = await _send_queued_event(queued) or text_sent
+                        break
+                    continue
+                text_sent = await _send_queued_event(queued) or text_sent
+
+            result, usage = await agent_task
             final_response = result.get("final_response", "")
             if not final_response:
                 final_response = result.get("error", "(No response generated)")
 
-            if final_response:
+            if final_response and not text_sent:
                 await _send({
                     "type": "response.output_text.delta",
                     "delta": final_response,
@@ -1489,6 +1577,7 @@ class APIServerAdapter(BasePlatformAdapter):
         ephemeral_system_prompt: Optional[str] = None,
         session_id: Optional[str] = None,
         stream_delta_callback=None,
+        tool_event_callback=None,
         agent_ref: Optional[list] = None,
     ) -> tuple:
         """
@@ -1509,6 +1598,7 @@ class APIServerAdapter(BasePlatformAdapter):
                 ephemeral_system_prompt=ephemeral_system_prompt,
                 session_id=session_id,
                 stream_delta_callback=stream_delta_callback,
+                tool_event_callback=tool_event_callback,
             )
             if agent_ref is not None:
                 agent_ref[0] = agent

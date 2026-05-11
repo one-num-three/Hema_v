@@ -501,6 +501,7 @@ class AIAgent:
         step_callback: callable = None,
         stream_delta_callback: callable = None,
         tool_gen_callback: callable = None,
+        tool_event_callback: callable = None,
         status_callback: callable = None,
         max_tokens: int = None,
         reasoning_config: Dict[str, Any] = None,
@@ -633,6 +634,7 @@ class AIAgent:
         self.stream_delta_callback = stream_delta_callback
         self.status_callback = status_callback
         self.tool_gen_callback = tool_gen_callback
+        self.tool_event_callback = tool_event_callback
         self._last_reported_tool = None  # Track for "new tool" mode
         
         # Tool execution state — allows _vprint during tool execution
@@ -3913,6 +3915,30 @@ class AIAgent:
             or getattr(self, "_stream_callback", None) is not None
         )
 
+    def _emit_tool_event(
+        self,
+        event: str,
+        tool_call_id: str,
+        tool_name: str,
+        arguments: Optional[Dict[str, Any]] = None,
+        result: Optional[str] = None,
+        duration: Optional[float] = None,
+    ) -> None:
+        """Notify platform adapters about tool lifecycle events."""
+        cb = self.tool_event_callback
+        if cb is None:
+            return
+        try:
+            cb(event, {
+                "tool_call_id": tool_call_id,
+                "tool_name": tool_name,
+                "arguments": arguments or {},
+                "result": result,
+                "duration": duration,
+            })
+        except Exception:
+            logger.debug("tool_event_callback error", exc_info=True)
+
     def _interruptible_streaming_api_call(
         self, api_kwargs: dict, *, on_first_delta: callable = None
     ):
@@ -5429,6 +5455,9 @@ class AIAgent:
                 except Exception as cb_err:
                     logging.debug(f"Tool progress callback error: {cb_err}")
 
+        for tc, name, args in parsed_calls:
+            self._emit_tool_event("started", tc.id, name, args)
+
         # ── Concurrent execution ─────────────────────────────────────────
         # Each slot holds (function_name, function_args, function_result, duration, error_flag)
         results = [None] * num_tools
@@ -5516,6 +5545,7 @@ class AIAgent:
                 "tool_call_id": tc.id,
             }
             messages.append(tool_msg)
+            self._emit_tool_event("completed", tc.id, name, args, function_result, tool_duration)
 
         # ── Budget pressure injection ────────────────────────────────────
         budget_warning = self._get_budget_warning(api_call_count)
@@ -5586,6 +5616,8 @@ class AIAgent:
                     self.tool_progress_callback(function_name, preview, function_args)
                 except Exception as cb_err:
                     logging.debug(f"Tool progress callback error: {cb_err}")
+
+            self._emit_tool_event("started", tool_call.id, function_name, function_args)
 
             # Checkpoint: snapshot working dir before file-mutating tools
             if function_name in ("write_file", "patch") and self._checkpoint_mgr.enabled:
@@ -5770,6 +5802,14 @@ class AIAgent:
                 "tool_call_id": tool_call.id
             }
             messages.append(tool_msg)
+            self._emit_tool_event(
+                "completed",
+                tool_call.id,
+                function_name,
+                function_args,
+                function_result,
+                tool_duration,
+            )
 
             if not self.quiet_mode:
                 if self.verbose_logging:
