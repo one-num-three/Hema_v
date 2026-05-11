@@ -24,11 +24,13 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-safe2"
+HEMA_APPS_SCRIPT_VERSION = "20260511-safe4"
+ENABLE_HEMA_APPS = True
 
 
 HEMA_APPS_SCRIPT = r"""
 (function () {
+  try {
   const APPS_HASH = "#/hema/apps";
   const CHAT_HASH = "#/hermes/chat";
   const PROMPT_KEY = "hema.pendingAppPrompt";
@@ -110,6 +112,7 @@ HEMA_APPS_SCRIPT = r"""
     const relay = document.querySelector(".nav-item.fun-link");
     if (!relay) return;
     let link = document.querySelector(".hema-app-link");
+    if (link && link.dataset.hemaAppsReady === "1") return;
     if (!link) {
       link = document.createElement("a");
       relay.insertAdjacentElement("afterend", link);
@@ -130,6 +133,7 @@ HEMA_APPS_SCRIPT = r"""
     }
     if (link.__hemaAppsClickBound) return;
     link.__hemaAppsClickBound = true;
+    link.dataset.hemaAppsReady = "1";
     link.addEventListener("click", (event) => {
       event.preventDefault();
       window.location.hash = APPS_HASH;
@@ -304,6 +308,9 @@ HEMA_APPS_SCRIPT = r"""
     console.warn("Hema apps patch disabled after error:", error);
     closeAppsView();
   }
+  } catch (error) {
+    console.warn("Hema apps patch failed to initialize:", error);
+  }
 })();
 """
 
@@ -414,20 +421,38 @@ def patch_hema_apps(client_root: Path) -> bool:
         return False
 
     index = index_path.read_text(encoding="utf-8", errors="replace")
-    script_tag = f'<script defer src="/{HEMA_APPS_SCRIPT_NAME}?v={HEMA_APPS_SCRIPT_VERSION}"></script>'
-    if script_tag in index:
-        print("Hema apps index hook already applied")
-        return True
-
-    index, replaced = re.subn(
-        rf'<script\s+defer\s+src="/{re.escape(HEMA_APPS_SCRIPT_NAME)}(?:\?v=[^"]*)?"></script>',
-        script_tag,
+    script_tag = (
+        '<script id="hema-apps-loader">'
+        '(function(){function load(){'
+        'if(document.getElementById("hema-apps-runtime"))return;'
+        'var s=document.createElement("script");'
+        's.id="hema-apps-runtime";s.defer=true;'
+        f's.src="/{HEMA_APPS_SCRIPT_NAME}?v={HEMA_APPS_SCRIPT_VERSION}";'
+        's.onerror=function(){console.warn("Hema apps failed to load")};'
+        'document.body.appendChild(s)}'
+        'if(document.readyState==="complete")setTimeout(load,800);'
+        'else window.addEventListener("load",function(){setTimeout(load,800)},{once:true});'
+        '})();</script>'
+    )
+    index, removed = re.subn(
+        rf'\s*<script\s+defer\s+src="/{re.escape(HEMA_APPS_SCRIPT_NAME)}(?:\?v=[^"]*)?"></script>',
+        "",
         index,
         count=1,
     )
-    if replaced:
-        index_path.write_text(index, encoding="utf-8")
-        print(f"Updated Hema apps index hook: {index_path}")
+    index, removed_loader = re.subn(
+        r'\s*<script id="hema-apps-loader">.*?</script>',
+        "",
+        index,
+        count=1,
+        flags=re.DOTALL,
+    )
+    if not ENABLE_HEMA_APPS:
+        if removed or removed_loader:
+            index_path.write_text(index, encoding="utf-8")
+            print(f"Disabled Hema apps index hook: {index_path}")
+        else:
+            print("Hema apps index hook disabled")
         return True
 
     if "</body>" not in index:
