@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-nature-app1"
+HEMA_APPS_SCRIPT_VERSION = "20260511-nature-choice1"
 ENABLE_HEMA_APPS = True
 
 
@@ -96,6 +96,11 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-modal{width:min(560px,calc(100vw - 32px));background:#fff;border-radius:20px;box-shadow:0 26px 80px rgba(15,23,42,.24);padding:24px}
       .hema-app-modal h3{font-size:20px;margin:0 0 8px;color:#171717}
       .hema-app-modal p{font-size:13px;color:#777;margin:0 0 14px;line-height:1.6}
+      .hema-nature-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:2px 0 14px}
+      .hema-nature-option{border:1px solid #e5e7eb;border-radius:12px;background:#fafafa;color:#333;text-align:left;padding:9px 10px;cursor:pointer;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}
+      .hema-nature-option strong{display:block;font-size:12px;font-weight:700;color:#202020;margin-bottom:2px}
+      .hema-nature-option span{display:block;font-size:11px;color:#8b8b8b;line-height:1.35}
+      .hema-nature-option.is-selected{border-color:#0f766e;background:rgba(15,118,110,.08);box-shadow:0 0 0 3px rgba(15,118,110,.08)}
       .hema-app-modal textarea{width:100%;height:148px;border:1px solid #ddd;border-radius:14px;padding:12px 14px;resize:vertical;font:14px/1.5 inherit;box-sizing:border-box;outline:none}
       .hema-app-modal textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
       .hema-app-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
@@ -109,7 +114,7 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-mode-tag button{width:18px;height:18px;border:0;border-radius:999px;background:rgba(37,99,235,.12);color:#1f3f8f;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:18px;padding:0}
       .hema-app-mode-tag button:hover{background:rgba(37,99,235,.2)}
       @media (max-width:1100px){.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
-      @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}}
+      @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}.hema-nature-options{grid-template-columns:1fr}}
     `;
     document.head.appendChild(style);
   }
@@ -233,12 +238,29 @@ HEMA_APPS_SCRIPT = r"""
   function ensureNatureModal() {
     let modal = document.querySelector(".hema-nature-modal-mask");
     if (modal) return modal;
+    const options = [
+      ["auto", "自动判断", "让 Hermes 选择合适 skill"],
+      ["nature-reader", "论文阅读", "PDF/DOI/全文转阅读稿"],
+      ["nature-polishing", "学术润色", "Nature 风格英文重构"],
+      ["nature-citation", "补充引文", "CNS/Nature/Cell 引用"],
+      ["nature-figure", "科研绘图", "Python/R 投稿级图表"],
+      ["nature-data", "数据声明", "Data Availability/FAIR"],
+      ["nature-response", "审稿回复", "逐点回复 reviewer"],
+      ["nature-paper2ppt", "论文转PPT", "中文组会/汇报 PPTX"]
+    ];
     modal = document.createElement("div");
     modal.className = "hema-app-modal-mask hema-nature-modal-mask";
     modal.innerHTML = `
       <div class="hema-app-modal" role="dialog" aria-modal="true" aria-label="Nature 科研套件">
         <h3>Nature 科研套件</h3>
-        <p>告诉我你要处理论文、润色英文、补引文、做科研图、写数据声明、回复审稿人，还是把论文做成 PPT。提交后会带着 nature-skills 提示打开聊天。</p>
+        <p>先选一个方向，也可以保持“自动判断”。下面继续写你的通用需求，提交后会带着对应 nature-skills 提示打开聊天。</p>
+        <div class="hema-nature-options" role="group" aria-label="选择科研任务方向">
+          ${options.map(([value, title, desc], index) => `
+            <button class="hema-nature-option ${index === 0 ? "is-selected" : ""}" type="button" data-skill="${value}">
+              <strong>${title}</strong><span>${desc}</span>
+            </button>
+          `).join("")}
+        </div>
         <textarea placeholder="例如：帮我把这篇论文整理成中文组会 PPT；或：帮我润色摘要并按 Nature 风格重构逻辑；或：帮我给这段引言补 CNS/Nature 引文。"></textarea>
         <div class="hema-app-actions">
           <button class="hema-app-cancel" type="button">取消</button>
@@ -251,14 +273,23 @@ HEMA_APPS_SCRIPT = r"""
     modal.addEventListener("click", (event) => {
       if (event.target === modal) modal.classList.remove("is-open");
     });
+    modal.querySelectorAll(".hema-nature-option").forEach((button) => {
+      button.addEventListener("click", () => {
+        modal.querySelectorAll(".hema-nature-option").forEach((node) => node.classList.remove("is-selected"));
+        button.classList.add("is-selected");
+      });
+    });
     modal.querySelector(".hema-app-send").addEventListener("click", () => {
       const need = modal.querySelector("textarea").value.trim();
       if (!need) {
         toast("先写一点科研需求，我再帮你带到聊天里。");
         return;
       }
-      const prompt = buildNaturePrompt(need);
-      setAppMode({ name: "Nature 科研套件", action: "nature" });
+      const selected = modal.querySelector(".hema-nature-option.is-selected");
+      const skill = selected?.dataset.skill || "auto";
+      const label = selected?.querySelector("strong")?.textContent || "自动判断";
+      const prompt = buildNaturePrompt(need, skill, label);
+      setAppMode({ name: label === "自动判断" ? "Nature 科研套件" : `Nature：${label}`, action: "nature", skill });
       localStorage.setItem(PROMPT_KEY, prompt);
       modal.classList.remove("is-open");
       window.location.hash = CHAT_HASH;
@@ -286,11 +317,22 @@ HEMA_APPS_SCRIPT = r"""
     ].join("\\n");
   }
 
-  function buildNaturePrompt(need) {
-    return [
+  function buildNaturePrompt(need, skill, label) {
+    const skills = {
+      "nature-reader": "把 PDF、DOI、arXiv、论文正文或网页论文整理成完整、双语、带图表位置和来源锚点的 Markdown 阅读稿。",
+      "nature-polishing": "把中文或英文科研文本润色/重构为更接近 Nature 风格的学术英文，适合摘要、引言、结果、讨论、标题和方法。",
+      "nature-citation": "为段落或稿件补充严格的 Nature/CNS/Cell 系列引用，并按可导入文献管理器的格式输出。",
+      "nature-figure": "用 Python 或 R 制作、修改、审查高水平论文图，输出 SVG/PDF/TIFF 等投稿级结果。",
+      "nature-data": "准备或审查 Data Availability、数据仓库、FAIR 元数据和数据引用。",
+      "nature-response": "逐点撰写或修改审稿回复、修回信、rebuttal letter。",
+      "nature-paper2ppt": "把科研论文、预印本、PDF、摘要、图注或阅读笔记生成中文学术汇报 PPTX。"
+    };
+    const selected = skill && skill !== "auto" ? `${skill}（${label}）：${skills[skill] || ""}` : "自动判断：请根据用户需求在下方 7 个 nature-* skill 中选择最合适的一个或多个。";
+    const lines = [
       "【应用模式：Nature 科研套件】",
-      "请根据用户需求，从已内置的 nature-skills 中选择最合适的 skill，并明确告诉用户你将使用哪一个或哪几个：",
+      `用户选择方向：${selected}`,
       "",
+      "可用 skill 清单：",
       "- nature-reader：把 PDF、DOI、arXiv、论文正文或网页论文整理成完整、双语、带图表位置和来源锚点的 Markdown 阅读稿。",
       "- nature-polishing：把中文或英文科研文本润色/重构为更接近 Nature 风格的学术英文，适合摘要、引言、结果、讨论、标题和方法。",
       "- nature-citation：为段落或稿件补充严格的 Nature/CNS/Cell 系列引用，并按可导入文献管理器的格式输出。",
@@ -309,7 +351,11 @@ HEMA_APPS_SCRIPT = r"""
       "4. 如果涉及论文事实、引用或图表结论，必须基于用户提供材料或可验证来源，不要编造。",
       "5. 在正式执行前，先给出简短工作方案并等待用户确认；用户确认后再调用对应 skill 工作流。",
       "6. 完成后用中文说明输出文件、主要改动和用户下一步该检查什么。"
-    ].join("\\n");
+    ];
+    if (skill && skill !== "auto") {
+      lines.push("", `优先约束：除非用户需求明显不匹配，否则优先使用 ${skill}；如果需要额外 skill，请先说明为什么。`);
+    }
+    return lines.join("\\n");
   }
 
   function getAppMode() {
