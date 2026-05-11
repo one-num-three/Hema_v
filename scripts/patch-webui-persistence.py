@@ -56,24 +56,30 @@ HEMA_APPS_SCRIPT = r"""
     const style = document.createElement("style");
     style.id = "hema-apps-style";
     style.textContent = `
-      .hema-app-link svg{width:18px;height:18px}
-      .hema-apps-view{position:fixed;inset:0 0 0 296px;z-index:40;background:#fff;display:none;overflow:auto}
-      .sidebar.collapsed ~ .app-main .hema-apps-view,.sidebar.collapsed + .app-main .hema-apps-view{left:72px}
+      .app-main{position:relative}
+      .hema-app-link{display:flex!important;align-items:center!important;gap:16px!important;height:44px!important;margin:2px 42px!important;padding:0!important;border-radius:9px!important;color:#666!important;text-decoration:none!important;font-size:16px!important;font-weight:400!important;box-sizing:border-box!important}
+      .hema-app-link:hover,.hema-app-link.active{background:#e3e3e3!important;color:#222!important}
+      .hema-app-link .nav-icon{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 22px}
+      .hema-app-link svg{width:22px;height:22px;stroke-width:1.75}
+      .hema-app-link .nav-label{line-height:1}
+      .sidebar.collapsed .hema-app-link,.collapsed .hema-app-link{margin:4px auto!important;width:44px!important;justify-content:center!important}
+      .sidebar.collapsed .hema-app-link .nav-label,.collapsed .hema-app-link .nav-label{display:none!important}
+      .hema-apps-view{position:absolute;inset:0;z-index:40;background:#fff;display:none;overflow:auto}
       .hema-apps-view.is-open{display:block}
-      .hema-apps-shell{max-width:1180px;margin:0 auto;padding:42px 44px 56px}
-      .hema-apps-kicker{font-size:13px;color:#8b8b8b;margin-bottom:8px}
-      .hema-apps-title{font-size:28px;font-weight:700;color:#171717;margin:0}
-      .hema-apps-subtitle{font-size:14px;color:#777;margin:10px 0 28px}
-      .hema-apps-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
-      .hema-app-card{height:248px;border:1px solid #e7e7e7;border-radius:18px;background:#fff;overflow:hidden;text-align:left;padding:0;cursor:pointer;box-shadow:0 10px 28px rgba(15,23,42,.05);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-      .hema-app-card:hover{transform:translateY(-3px);box-shadow:0 18px 42px rgba(15,23,42,.10);border-color:#d6d6d6}
-      .hema-app-shot{height:66%;position:relative;background:linear-gradient(135deg,var(--hema-accent),#f8fafc);overflow:hidden}
-      .hema-app-shot:before{content:"";position:absolute;inset:18px;border-radius:16px;background:rgba(255,255,255,.76);box-shadow:0 16px 40px rgba(15,23,42,.18)}
-      .hema-app-shot:after{content:"";position:absolute;left:34px;right:34px;bottom:28px;height:42px;border-radius:12px;background:linear-gradient(90deg,rgba(255,255,255,.95),rgba(255,255,255,.38));box-shadow:0 -42px 0 -18px rgba(255,255,255,.72),0 -78px 0 -22px rgba(255,255,255,.48)}
-      .hema-app-orb{position:absolute;right:28px;top:24px;width:52px;height:52px;border-radius:18px;background:var(--hema-accent);opacity:.9}
-      .hema-app-body{height:34%;border-top:1px solid #ececec;padding:14px 16px 12px;box-sizing:border-box}
-      .hema-app-name{font-size:15px;font-weight:650;color:#202020;margin-bottom:6px}
-      .hema-app-desc{font-size:12px;line-height:1.45;color:#8a8a8a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+      .hema-apps-shell{max-width:none;margin:0;padding:42px 48px 56px}
+      .hema-apps-kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a9a9a;margin-bottom:8px}
+      .hema-apps-title{font-size:30px;font-weight:700;color:#171717;margin:0}
+      .hema-apps-subtitle{font-size:14px;color:#7a7a7a;margin:10px 0 26px;max-width:720px;line-height:1.7}
+      .hema-apps-grid{display:grid;grid-template-columns:repeat(4,minmax(154px,1fr));gap:16px}
+      .hema-app-card{height:208px;border:1px solid #e9e9e9;border-radius:16px;background:#fff;overflow:hidden;text-align:left;padding:0;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,.045);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
+      .hema-app-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,23,42,.09);border-color:#dcdcdc;background:#fdfdfd}
+      .hema-app-shot{height:62%;position:relative;background:linear-gradient(145deg,#f8fafc,#edf1f6);overflow:hidden}
+      .hema-app-shot:before{content:"";position:absolute;left:17px;right:17px;top:18px;bottom:18px;border-radius:14px;background:#fff;border:1px solid rgba(15,23,42,.06);box-shadow:0 12px 28px rgba(15,23,42,.08)}
+      .hema-app-shot:after{content:"";position:absolute;left:34px;right:34px;top:43px;height:9px;border-radius:99px;background:linear-gradient(90deg,var(--hema-accent),rgba(148,163,184,.26));box-shadow:0 26px 0 rgba(148,163,184,.15),0 52px 0 rgba(148,163,184,.10)}
+      .hema-app-orb{position:absolute;right:30px;bottom:26px;width:54px;height:34px;border-radius:12px;background:color-mix(in srgb,var(--hema-accent) 72%,white);opacity:.86;box-shadow:0 10px 24px rgba(15,23,42,.12)}
+      .hema-app-body{height:38%;border-top:1px solid #eeeeee;padding:13px 15px 12px;box-sizing:border-box}
+      .hema-app-name{font-size:14px;font-weight:650;color:#202020;margin-bottom:5px}
+      .hema-app-desc{font-size:12px;line-height:1.45;color:#8d8d8d;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
       .hema-app-modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.28);z-index:90;display:none;align-items:center;justify-content:center}
       .hema-app-modal-mask.is-open{display:flex}
       .hema-app-modal{width:min(560px,calc(100vw - 32px));background:#fff;border-radius:20px;box-shadow:0 26px 80px rgba(15,23,42,.24);padding:24px}
@@ -87,7 +93,7 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-send{background:#171717;color:#fff}
       .hema-app-toast{position:fixed;right:24px;bottom:24px;z-index:100;background:#171717;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;display:none}
       .hema-app-toast.is-open{display:block}
-      @media (max-width:1100px){.hema-apps-view{left:0}.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
+      @media (max-width:1100px){.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
       @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}}
     `;
     document.head.appendChild(style);
@@ -235,12 +241,45 @@ HEMA_APPS_SCRIPT = r"""
     if (!open && window.location.hash === CHAT_HASH) setTimeout(fillChatInput, 300);
   }
 
+  function closeAppsView() {
+    document.querySelector(".hema-apps-view")?.classList.remove("is-open");
+    document.querySelector(".hema-app-link")?.classList.remove("active");
+  }
+
+  function renderSoon() {
+    window.requestAnimationFrame(() => {
+      if (window.location.hash !== APPS_HASH) closeAppsView();
+      render();
+    });
+  }
+
+  function patchHistoryEvents() {
+    if (window.__hemaAppsHistoryPatched) return;
+    window.__hemaAppsHistoryPatched = true;
+    const fire = () => window.dispatchEvent(new Event("hema-route-change"));
+    for (const name of ["pushState", "replaceState"]) {
+      const original = history[name];
+      history[name] = function patchedHistoryState() {
+        const result = original.apply(this, arguments);
+        fire();
+        return result;
+      };
+    }
+    window.addEventListener("popstate", fire);
+  }
+
   const observer = new MutationObserver(() => ensureSidebarLink());
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  window.addEventListener("hashchange", render);
-  window.addEventListener("load", render);
-  setInterval(ensureSidebarLink, 1200);
-  render();
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("a");
+    if (link && !link.classList.contains("hema-app-link")) setTimeout(renderSoon, 0);
+  }, true);
+  patchHistoryEvents();
+  window.addEventListener("hashchange", renderSoon);
+  window.addEventListener("hema-route-change", renderSoon);
+  window.addEventListener("load", renderSoon);
+  setInterval(renderSoon, 1200);
+  renderSoon();
 })();
 """
 
