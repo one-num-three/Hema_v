@@ -95,7 +95,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Patch: persist assistant messages to local SQLite
+      - name: "Patch: persist assistant messages to local SQLite"
         shell: pwsh
         working-directory: hermes-web-ui-src
         run: |
