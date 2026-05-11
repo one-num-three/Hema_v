@@ -35,6 +35,11 @@ if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
 )
 if exist "%WEBUI_NPM_SERVER%" set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
 
+:: Apply local Web UI compatibility patches even when an existing server is reused.
+if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
+    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
+)
+
 :: Make sure the gateway belongs to this install before opening Web UI.
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
 call "%SCRIPT_DIR%start_hermes_gateway.bat"
@@ -109,11 +114,6 @@ if %errorlevel% equ 0 (
 :: Backfill old Web UI databases where assistant messages were not persisted.
 if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
-)
-
-:: Apply local Web UI compatibility patches after npm/CDN installs or updates.
-if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
-    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
 )
 
 :: Env vars consumed by hermes-web-ui server
