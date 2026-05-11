@@ -12,7 +12,6 @@ set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
 set "WEBUI_PORT=8648"
 set "GATEWAY_PORT=8642"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
-set "WEBUI_TOKEN_FILE=%USERPROFILE%\.hermes-web-ui\.token"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
 
 :: Pre-flight checks
@@ -45,30 +44,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Read or generate auth token before any branch can open the browser.
-if not exist "%USERPROFILE%\.hermes-web-ui" mkdir "%USERPROFILE%\.hermes-web-ui"
-if not exist "%WEBUI_TOKEN_FILE%" (
-    powershell -NoProfile -Command ^
-        "$tokenFile=[IO.Path]::GetFullPath('%WEBUI_TOKEN_FILE%');" ^
-        "$dir=[IO.Path]::GetDirectoryName($tokenFile);" ^
-        "New-Item -ItemType Directory -Force -Path $dir | Out-Null;" ^
-        "$t=[System.BitConverter]::ToString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))-replace'-','';" ^
-        "Set-Content -LiteralPath $tokenFile -Value $t.ToLower() -Encoding ASCII" >nul 2>&1
-)
-if not exist "%WEBUI_TOKEN_FILE%" (
-    echo [ERROR] Failed to create Web UI auth token: "%WEBUI_TOKEN_FILE%"
-    echo         Please check whether PowerShell is available and the user profile is writable.
-    echo         hermes-web-ui reads token from AUTH_TOKEN first, otherwise "%USERPROFILE%\.hermes-web-ui\.token".
-    pause
-    exit /b 1
-)
-set /p WEBUI_TOKEN=<"%WEBUI_TOKEN_FILE%"
-if "%WEBUI_TOKEN%"=="" (
-    echo [ERROR] Web UI auth token is empty: "%WEBUI_TOKEN_FILE%"
-    echo         Delete this file and run start_webui.bat again.
-    pause
-    exit /b 1
-)
+:: Local desktop launcher: Web UI binds to localhost, so auth is disabled by default.
+:: If you expose the Web UI to LAN/Internet later, re-enable auth and use HTTPS.
+set "AUTH_DISABLED=1"
 
 :: Check if Web UI is already running
 if exist "%WEBUI_PID_FILE%" (
@@ -133,7 +111,6 @@ if exist "%SCRIPT_DIR%python_embedded\Scripts\hermes.exe" (
     set "HERMES_BIN=%SCRIPT_DIR%hermes.bat"
 )
 
-set "AUTH_TOKEN=%WEBUI_TOKEN%"
 set "NPM_CONFIG_CACHE=%SCRIPT_DIR%.npm-cache"
 set "npm_config_ignore_scripts=true"
 
@@ -178,7 +155,7 @@ echo [INFO] Starting hermes-web-ui on port %WEBUI_PORT%...
 echo [INFO] Install root: "%SCRIPT_DIR%"
 echo [INFO] Node executable: "%NODE_EXE%"
 echo [INFO] Web UI server: "%WEBUI_SERVER%"
-echo [INFO] Token file: "%WEBUI_TOKEN_FILE%"
+echo [INFO] Auth mode: disabled for localhost
 echo [INFO] Log file: "%WEBUI_LOG%"
 cd /d "%WEBUI_DIR%"
 for /f %%p in ('powershell -NoProfile -Command ^
@@ -245,7 +222,6 @@ echo.
 echo [DIAG] Expected files:
 if exist "%NODE_EXE%" (echo        [OK] "%NODE_EXE%") else (echo        [MISS] "%NODE_EXE%")
 if exist "%WEBUI_SERVER%" (echo        [OK] "%WEBUI_SERVER%") else (echo        [MISS] "%WEBUI_SERVER%")
-if exist "%WEBUI_TOKEN_FILE%" (echo        [OK] "%WEBUI_TOKEN_FILE%") else (echo        [MISS] "%WEBUI_TOKEN_FILE%")
 echo.
 echo [DIAG] Recent Web UI log:
 powershell -NoProfile -Command "if(Test-Path -LiteralPath '%WEBUI_LOG%'){Get-Content -LiteralPath '%WEBUI_LOG%' -Tail 30}else{Write-Host 'Log file does not exist.'}" 2>nul
@@ -260,8 +236,8 @@ pause
 exit /b 1
 
 :open_browser
-:: Open browser with token in URL fragment (Vue Router hash mode)
-set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/?token=%WEBUI_TOKEN%"
+:: Open local Web UI. Auth is disabled for localhost in this launcher.
+set "BROWSER_URL=http://localhost:%WEBUI_PORT%/"
 echo [INFO] Opening browser: %BROWSER_URL%
 powershell -NoProfile -Command ^
     "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
