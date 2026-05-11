@@ -12,6 +12,7 @@ set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
 set "WEBUI_PORT=8648"
 set "GATEWAY_PORT=8642"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
+set "WEBUI_MODE_FILE=%USERPROFILE%\.hermes-web-ui\server.mode"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
 
 :: Pre-flight checks
@@ -58,8 +59,15 @@ if exist "%WEBUI_PID_FILE%" (
             powershell -NoProfile -Command ^
                 "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
             if !errorlevel! equ 0 (
-                echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
-                goto :open_browser
+                call :is_expected_webui_mode
+                if !errorlevel! equ 0 (
+                    echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
+                    goto :open_browser
+                ) else (
+                    echo [WARN] Existing Web UI was started with old settings, restarting it...
+                    taskkill /F /PID !EXISTING_PID! >nul 2>&1
+                    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+                )
             )
         ) else (
             echo [WARN] Existing Web UI PID belongs to another install, restarting it...
@@ -191,6 +199,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
 )
 if defined WEBUI_PID (
     echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
+    echo auth-disabled:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
     echo [INFO] Web UI PID: !WEBUI_PID!
 )
 
@@ -209,6 +218,7 @@ if %errorlevel% equ 0 (
         )
         if defined WEBUI_PID (
             echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
+            echo auth-disabled:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
             echo [INFO] Web UI PID: !WEBUI_PID!
         )
     )
@@ -257,3 +267,11 @@ powershell -NoProfile -Command ^
     "try{$p=Get-CimInstance Win32_Process -Filter ('ProcessId=' + [int]$pidText)}catch{$p=$null};" ^
     "if($p -and $p.CommandLine -and $p.CommandLine.Contains($server)){exit 0}else{exit 1}" >nul 2>&1
 exit /b %errorlevel%
+
+:is_expected_webui_mode
+if "%EXISTING_PID%"=="" exit /b 1
+if not exist "%WEBUI_MODE_FILE%" exit /b 1
+set "WEBUI_MODE="
+set /p WEBUI_MODE=<"%WEBUI_MODE_FILE%"
+if /i "%WEBUI_MODE%"=="auth-disabled:%EXISTING_PID%" exit /b 0
+exit /b 1
