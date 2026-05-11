@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260512-modal-scope1"
+HEMA_APPS_SCRIPT_VERSION = "20260512-minimax-apps1"
 ENABLE_HEMA_APPS = True
 
 
@@ -49,9 +49,24 @@ HEMA_APPS_SCRIPT = r"""
       accent: "#0f766e",
       action: "nature"
     },
-    { name: "表格分析", desc: "清洗数据、提炼结论，生成可读分析摘要。", accent: "#ca8a04" },
-    { name: "图片理解", desc: "识别截图、界面和图片内容，输出说明。", accent: "#9333ea" },
-    { name: "网页总结", desc: "读取网页信息并整理重点，适合快速调研。", accent: "#dc2626" },
+    {
+      name: "PDF 排版",
+      desc: "调用 minimax-pdf，创建、填写或重排可打印 PDF 文档。",
+      accent: "#dc2626",
+      action: "minimax-pdf"
+    },
+    {
+      name: "表格处理",
+      desc: "调用 minimax-xlsx，读取、分析、编辑和验证 Excel 表格。",
+      accent: "#ca8a04",
+      action: "minimax-xlsx"
+    },
+    {
+      name: "Word 文档",
+      desc: "调用 minimax-docx，创建、编辑、套模板和规范化排版 DOCX。",
+      accent: "#9333ea",
+      action: "minimax-docx"
+    },
     { name: "代码助手", desc: "解释、修改和排查代码问题。", accent: "#334155" },
     { name: "工作计划", desc: "把目标拆成任务清单和执行顺序。", accent: "#16a34a" },
     { name: "日报周报", desc: "根据素材生成简洁汇报文本。", accent: "#ea580c" },
@@ -179,7 +194,7 @@ HEMA_APPS_SCRIPT = r"""
         <div class="hema-apps-shell">
           <div class="hema-apps-kicker">Hema Apps</div>
           <h1 class="hema-apps-title">应用</h1>
-          <p class="hema-apps-subtitle">把常用能力做成入口。先上线 PPT 和 Nature 科研套件，其它功能先占位，后面按真实工作流补齐。</p>
+          <p class="hema-apps-subtitle">把常用能力做成入口。已上线 PPT、Nature 科研套件、PDF、表格和 Word 文档，其它功能先占位，后面按真实工作流补齐。</p>
           <div class="hema-apps-grid">${apps.map(card).join("")}</div>
         </div>
       `;
@@ -192,6 +207,7 @@ HEMA_APPS_SCRIPT = r"""
         if (!item) return;
         if (item.dataset.action === "ppt") openPptModal();
         else if (item.dataset.action === "nature") openNatureModal();
+        else if (item.dataset.action && item.dataset.action.startsWith("minimax-")) openMiniMaxModal(item.dataset.action);
         else toast("这个应用还是占位，我们后面再一起定。");
       });
     }
@@ -298,6 +314,83 @@ HEMA_APPS_SCRIPT = r"""
     return modal;
   }
 
+  const minimaxApps = {
+    "minimax-pdf": {
+      name: "PDF 排版",
+      skill: "minimax-pdf",
+      intro: "适合创建新 PDF、填写已有 PDF 表单、把已有文档重排成更专业的可打印 PDF。",
+      placeholder: "例如：把这份论文/报告重排成正式 PDF；或：生成一份 6 页项目建议书 PDF，含封面、目录、正文和附录。",
+      rules: [
+        "先判断模式：CREATE 从零生成、FILL 填写表单字段、REFORMAT 重排已有文档。",
+        "CREATE/REFORMAT 时先建立 token 化设计系统：文档类型、封面风格、配色、字体、间距和页眉页脚。",
+        "PDF 必须可打印、版心稳定、标题层级清楚、页码/目录/脚注/引用等正式文档元素完整。",
+        "如果用户提供已有文件，先确认文件路径、目标风格、输出页数或是否保持原内容顺序。"
+      ]
+    },
+    "minimax-xlsx": {
+      name: "表格处理",
+      skill: "minimax-xlsx",
+      intro: "适合 Excel/CSV 读取分析、创建表格、编辑现有 xlsx、公式修复、格式化和验证。",
+      placeholder: "例如：读取这个 Excel 并分析销售数据；或：帮我生成一份带公式、汇总页和专业格式的预算表。",
+      rules: [
+        "先判断模式：READ 分析、CREATE 新建、EDIT 零格式损失编辑、FIX 修公式、VALIDATE 校验公式。",
+        "读取分析时不要修改源文件；编辑时尽量保留原有格式、工作表结构和公式。",
+        "输出表格要有清晰表头、冻结窗格、数字格式、条件格式、汇总区和必要说明。",
+        "涉及金额、百分比、日期、小数位时必须统一格式；公式要可重算并验证关键结果。"
+      ]
+    },
+    "minimax-docx": {
+      name: "Word 文档",
+      skill: "minimax-docx",
+      intro: "适合 Word/DOCX 文书、论文、作文、报告、公文、合同、模板套用和规范化排版。",
+      placeholder: "例如：把这篇作文排成正式 Word；或：把报告套成公文格式；或：按论文规范生成 DOCX。",
+      rules: [
+        "先判断流水线：A 从零创建、B 填写/编辑现有文档、C 应用模板格式并做验证门控。",
+        "正式文书要处理标题层级、正文样式、页边距、页眉页脚、页码、目录、表格、脚注和参考文献。",
+        "中文文书/作文要注意段首缩进、行距、标点、中英文空格、数字单位、标题居中和版心整洁。",
+        "公文/报告场景优先参考 GB/T 9704；学术场景按用户指定 APA/MLA/Chicago/Nature/学校模板执行。"
+      ]
+    }
+  };
+
+  function ensureMiniMaxModal() {
+    let modal = document.querySelector(".hema-minimax-modal-mask");
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.className = "hema-app-modal-mask hema-minimax-modal-mask";
+    modal.innerHTML = `
+      <div class="hema-app-modal" role="dialog" aria-modal="true" aria-label="文件应用">
+        <h3></h3>
+        <p class="hema-minimax-intro"></p>
+        <textarea></textarea>
+        <div class="hema-app-actions">
+          <button class="hema-app-cancel" type="button">取消</button>
+          <button class="hema-app-send" type="button">发送给 Hermes</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".hema-app-cancel").addEventListener("click", () => modal.classList.remove("is-open"));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.classList.remove("is-open");
+    });
+    modal.querySelector(".hema-app-send").addEventListener("click", () => {
+      const config = minimaxApps[modal.dataset.kind] || minimaxApps["minimax-docx"];
+      const need = modal.querySelector("textarea").value.trim();
+      if (!need) {
+        toast(`先写一点${config.name}需求，我再帮你带到聊天里。`);
+        return;
+      }
+      const prompt = buildMiniMaxPrompt(config, need);
+      setAppMode({ name: config.name, action: config.skill });
+      localStorage.setItem(PROMPT_KEY, prompt);
+      modal.classList.remove("is-open");
+      window.location.hash = CHAT_HASH;
+      setTimeout(fillChatInput, 450);
+    });
+    return modal;
+  }
+
   function buildPptPrompt(need) {
     return [
       "【应用模式：制作/修改PPT】",
@@ -369,6 +462,25 @@ HEMA_APPS_SCRIPT = r"""
     return lines.join("\\n");
   }
 
+  function buildMiniMaxPrompt(config, need) {
+    return [
+      `【应用模式：${config.name}】`,
+      `请使用 ${config.skill} skill 完成这个文件任务。`,
+      "",
+      "用户初始需求：",
+      need,
+      "",
+      "能力定位：",
+      config.intro,
+      "",
+      "执行规则：",
+      ...config.rules.map((rule, index) => `${index + 1}. ${rule}`),
+      `${config.rules.length + 1}. 如果缺少必要文件、模板、格式标准、输出路径或关键字段，请先追问，不要凭空假设。`,
+      `${config.rules.length + 2}. 输出必须是真实文件路径，并说明生成/修改了哪些内容、用户下一步应检查什么。`,
+      `${config.rules.length + 3}. 在正式生成前，先给出简短处理方案并等待用户确认；用户确认后再执行。`
+    ].join("\\n");
+  }
+
   function getAppMode() {
     try {
       return JSON.parse(localStorage.getItem(MODE_KEY) || "null");
@@ -409,6 +521,7 @@ HEMA_APPS_SCRIPT = r"""
 
   function openPptModal() {
     document.querySelector(".hema-nature-modal-mask")?.classList.remove("is-open");
+    document.querySelector(".hema-minimax-modal-mask")?.classList.remove("is-open");
     const modal = ensureModal();
     modal.classList.add("is-open");
     setTimeout(() => modal.querySelector("textarea").focus(), 50);
@@ -416,9 +529,25 @@ HEMA_APPS_SCRIPT = r"""
 
   function openNatureModal() {
     document.querySelector(".hema-ppt-modal-mask")?.classList.remove("is-open");
+    document.querySelector(".hema-minimax-modal-mask")?.classList.remove("is-open");
     const modal = ensureNatureModal();
     modal.classList.add("is-open");
     setTimeout(() => modal.querySelector("textarea").focus(), 50);
+  }
+
+  function openMiniMaxModal(kind) {
+    document.querySelector(".hema-ppt-modal-mask")?.classList.remove("is-open");
+    document.querySelector(".hema-nature-modal-mask")?.classList.remove("is-open");
+    const config = minimaxApps[kind] || minimaxApps["minimax-docx"];
+    const modal = ensureMiniMaxModal();
+    modal.dataset.kind = kind;
+    modal.querySelector("h3").textContent = config.name;
+    modal.querySelector(".hema-minimax-intro").textContent = config.intro;
+    const textarea = modal.querySelector("textarea");
+    textarea.value = "";
+    textarea.setAttribute("placeholder", config.placeholder);
+    modal.classList.add("is-open");
+    setTimeout(() => textarea.focus(), 50);
   }
 
   function fillChatInput() {
