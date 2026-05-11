@@ -79,6 +79,16 @@ set "TCLTK_URL=https://www.python.org/ftp/python/3.13.12/amd64/tcltk.msi"
 if exist "%PYTHON_EXE%" goto :python_already_installed
 goto :python_need_install
 :python_already_installed
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "try{& '%PYTHON_EXE%' -c 'import encodings, sys; print(sys.version)' *> $null; exit $LASTEXITCODE}catch{exit 1}" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] Embedded Python exists but is incomplete or broken.
+    echo        Expected standard library file is missing or unusable, for example:
+    echo        "%PYTHON_DIR%\python313.zip"
+    echo        Reinstalling embedded Python...
+    rmdir /S /Q "%PYTHON_DIR%" 2>nul
+    goto :python_need_install
+)
 echo [OK] Embedded Python already installed.
 goto :check_pip
 :python_need_install
@@ -104,6 +114,14 @@ if not exist "%PYTHON_EXE%" (
     call :maybe_pause
     exit /b 1
 )
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "if(Get-ChildItem -LiteralPath '%PYTHON_DIR%' -Filter 'python*.zip' -File -ErrorAction SilentlyContinue){exit 0}else{exit 1}" >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Python extraction is incomplete. Missing python*.zip standard library.
+    echo        Python cannot start without this file because it contains encodings and core modules.
+    call :maybe_pause
+    exit /b 1
+)
 del "%PYTHON_ZIP%" 2>nul
 
 :: ============================================
@@ -118,7 +136,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "$pthFiles = Get-ChildItem '%PYTHON_DIR%\python*._pth';" ^
     "if ($pthFiles.Count -gt 0) {" ^
     "  $pth = $pthFiles[0];" ^
-    "  $zipName = (Get-ChildItem '%PYTHON_DIR%\python*.zip' | Select-Object -First 1).Name;" ^
+    "  $zipName = (Get-ChildItem -LiteralPath '%PYTHON_DIR%' -Filter 'python*.zip' -File | Select-Object -First 1).Name;" ^
     "  if (-not $zipName) { $zipName = 'python313.zip' };" ^
     "  $content = @($zipName, '.', 'Lib', 'Lib\site-packages', 'DLLs', '', 'import site');" ^
     "  $content | Set-Content -Path $pth.FullName -Encoding ASCII;" ^
@@ -135,7 +153,19 @@ if %errorlevel% neq 0 (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
         "$ProgressPreference = 'SilentlyContinue';" ^
-        "Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile '%PYTHON_DIR%\get-pip.py'"
+        "try{Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile '%PYTHON_DIR%\get-pip.py' -TimeoutSec 120; exit 0}catch{Write-Host $_.Exception.Message; exit 1}"
+    if errorlevel 1 (
+        echo ERROR: Failed to download get-pip.py.
+        echo        If you are using the full local package, this usually means bundled pip files are missing.
+        echo        Otherwise, check TLS/proxy/firewall access to https://bootstrap.pypa.io/get-pip.py.
+        call :maybe_pause
+        exit /b 1
+    )
+    if not exist "%PYTHON_DIR%\get-pip.py" (
+        echo ERROR: get-pip.py was not created after download.
+        call :maybe_pause
+        exit /b 1
+    )
     "%PYTHON_EXE%" "%PYTHON_DIR%\get-pip.py" --quiet
     if errorlevel 1 (
         echo ERROR: Failed to install pip.
