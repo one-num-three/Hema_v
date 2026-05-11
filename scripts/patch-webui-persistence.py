@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-ppt-quality1"
+HEMA_APPS_SCRIPT_VERSION = "20260512-modal-scope1"
 ENABLE_HEMA_APPS = True
 
 
@@ -199,10 +199,10 @@ HEMA_APPS_SCRIPT = r"""
   }
 
   function ensureModal() {
-    let modal = document.querySelector(".hema-app-modal-mask");
+    let modal = document.querySelector(".hema-ppt-modal-mask");
     if (modal) return modal;
     modal = document.createElement("div");
-    modal.className = "hema-app-modal-mask";
+    modal.className = "hema-app-modal-mask hema-ppt-modal-mask";
     modal.innerHTML = `
       <div class="hema-app-modal" role="dialog" aria-modal="true" aria-label="制作或修改PPT">
         <h3>制作/修改PPT</h3>
@@ -408,12 +408,14 @@ HEMA_APPS_SCRIPT = r"""
   }
 
   function openPptModal() {
+    document.querySelector(".hema-nature-modal-mask")?.classList.remove("is-open");
     const modal = ensureModal();
     modal.classList.add("is-open");
     setTimeout(() => modal.querySelector("textarea").focus(), 50);
   }
 
   function openNatureModal() {
+    document.querySelector(".hema-ppt-modal-mask")?.classList.remove("is-open");
     const modal = ensureNatureModal();
     modal.classList.add("is-open");
     setTimeout(() => modal.querySelector("textarea").focus(), 50);
