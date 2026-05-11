@@ -57,12 +57,13 @@ HEMA_APPS_SCRIPT = r"""
     style.id = "hema-apps-style";
     style.textContent = `
       .app-main{position:relative}
-      .hema-app-link{display:flex!important;align-items:center!important;gap:16px!important;height:44px!important;margin:2px 42px!important;padding:0!important;border-radius:9px!important;color:#666!important;text-decoration:none!important;font-size:16px!important;font-weight:400!important;box-sizing:border-box!important}
-      .hema-app-link:hover,.hema-app-link.active{background:#e3e3e3!important;color:#222!important}
-      .hema-app-link .nav-icon{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 22px}
-      .hema-app-link svg{width:22px;height:22px;stroke-width:1.75}
+      .hema-app-link{display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;margin:0!important;padding:12px!important;border-radius:6px!important;color:var(--text-secondary)!important;text-decoration:none!important;font-size:14px!important;font-weight:400!important;line-height:1.6!important;box-sizing:border-box!important}
+      .hema-app-link:hover{background-color:rgba(var(--accent-primary-rgb), .06)!important;color:var(--text-primary)!important}
+      .hema-app-link.active{background-color:rgba(var(--accent-primary-rgb), .12)!important;color:var(--accent-primary)!important}
+      .hema-app-link .nav-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 18px}
+      .hema-app-link svg{width:18px;height:18px;stroke-width:1.8}
       .hema-app-link .nav-label{line-height:1}
-      .sidebar.collapsed .hema-app-link,.collapsed .hema-app-link{margin:4px auto!important;width:44px!important;justify-content:center!important}
+      .sidebar.collapsed .hema-app-link,.collapsed .hema-app-link{justify-content:center!important;gap:0!important;padding:10px 4px!important}
       .sidebar.collapsed .hema-app-link .nav-label,.collapsed .hema-app-link .nav-label{display:none!important}
       .hema-apps-view{position:absolute;inset:0;z-index:40;background:#fff;display:none;overflow:auto}
       .hema-apps-view.is-open{display:block}
@@ -105,17 +106,33 @@ HEMA_APPS_SCRIPT = r"""
 
   function ensureSidebarLink() {
     const relay = document.querySelector(".nav-item.fun-link");
-    if (!relay || document.querySelector(".hema-app-link")) return;
-    const link = document.createElement("a");
+    if (!relay) return;
+    let link = document.querySelector(".hema-app-link");
+    if (!link) {
+      link = document.createElement("a");
+      relay.insertAdjacentElement("afterend", link);
+    }
+    for (const attr of Array.from(relay.attributes)) {
+      if (attr.name.startsWith("data-v-")) {
+        link.setAttribute(attr.name, attr.value);
+      }
+    }
     link.className = "nav-item hema-app-link";
     link.href = APPS_HASH;
     link.innerHTML = `<span class="nav-icon">${icon()}</span><span class="nav-label">应用</span>`;
+    const scopeAttr = Array.from(link.attributes).find((attr) => attr.name.startsWith("data-v-"));
+    if (scopeAttr) {
+      for (const child of link.querySelectorAll("span, svg")) {
+        child.setAttribute(scopeAttr.name, scopeAttr.value);
+      }
+    }
+    if (link.__hemaAppsClickBound) return;
+    link.__hemaAppsClickBound = true;
     link.addEventListener("click", (event) => {
       event.preventDefault();
       window.location.hash = APPS_HASH;
       render();
     });
-    relay.insertAdjacentElement("afterend", link);
   }
 
   function card(app, index) {
@@ -132,25 +149,30 @@ HEMA_APPS_SCRIPT = r"""
 
   function ensureView() {
     let view = document.querySelector(".hema-apps-view");
-    const main = document.querySelector(".app-main") || document.body;
-    if (view) return view;
-    view = document.createElement("section");
-    view.className = "hema-apps-view";
-    view.innerHTML = `
-      <div class="hema-apps-shell">
-        <div class="hema-apps-kicker">Hema Apps</div>
-        <h1 class="hema-apps-title">应用</h1>
-        <p class="hema-apps-subtitle">把常用能力做成入口。先上线 PPT，其它功能先占位，后面按真实工作流补齐。</p>
-        <div class="hema-apps-grid">${apps.map(card).join("")}</div>
-      </div>
-    `;
-    main.appendChild(view);
-    view.addEventListener("click", (event) => {
-      const item = event.target.closest(".hema-app-card");
-      if (!item) return;
-      if (item.dataset.action === "ppt") openPptModal();
-      else toast("这个应用还是占位，我们后面再一起定。");
-    });
+    const main = document.querySelector(".app-main");
+    if (!main) return null;
+    if (!view) {
+      view = document.createElement("section");
+      view.className = "hema-apps-view";
+      view.innerHTML = `
+        <div class="hema-apps-shell">
+          <div class="hema-apps-kicker">Hema Apps</div>
+          <h1 class="hema-apps-title">应用</h1>
+          <p class="hema-apps-subtitle">把常用能力做成入口。先上线 PPT，其它功能先占位，后面按真实工作流补齐。</p>
+          <div class="hema-apps-grid">${apps.map(card).join("")}</div>
+        </div>
+      `;
+    }
+    if (view.parentElement !== main) main.appendChild(view);
+    if (!view.__hemaAppsClickBound) {
+      view.__hemaAppsClickBound = true;
+      view.addEventListener("click", (event) => {
+        const item = event.target.closest(".hema-app-card");
+        if (!item) return;
+        if (item.dataset.action === "ppt") openPptModal();
+        else toast("这个应用还是占位，我们后面再一起定。");
+      });
+    }
     return view;
   }
 
@@ -235,6 +257,7 @@ HEMA_APPS_SCRIPT = r"""
     ensureStyle();
     ensureSidebarLink();
     const view = ensureView();
+    if (!view) return;
     const open = window.location.hash === APPS_HASH;
     view.classList.toggle("is-open", open);
     document.querySelector(".hema-app-link")?.classList.toggle("active", open);
