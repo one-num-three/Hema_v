@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-nature-choice1"
+HEMA_APPS_SCRIPT_VERSION = "20260511-ppt-quality1"
 ENABLE_HEMA_APPS = True
 
 
@@ -39,7 +39,7 @@ HEMA_APPS_SCRIPT = r"""
   const apps = [
     {
       name: "制作/修改PPT",
-      desc: "调用 ppt-master skill，先确认主题、页数、风格和素材。",
+      desc: "调用 ppt-master skill，强调叙事结构、设计系统和可编辑高质量页面。",
       accent: "#2563eb",
       action: "ppt"
     },
@@ -206,7 +206,7 @@ HEMA_APPS_SCRIPT = r"""
     modal.innerHTML = `
       <div class="hema-app-modal" role="dialog" aria-modal="true" aria-label="制作或修改PPT">
         <h3>制作/修改PPT</h3>
-        <p>告诉我主题、用途、页数、风格、是否已有素材。提交后会带着 ppt-master skill 提示打开聊天。</p>
+        <p>告诉我主题、用途、页数、风格、是否已有素材。提交后会带着更严格的 ppt-master 设计提示打开聊天。</p>
         <textarea placeholder="例如：帮我做一个 10 页的产品介绍 PPT，风格科技感，受众是客户，重点讲功能、案例和报价。"></textarea>
         <div class="hema-app-actions">
           <button class="hema-app-cancel" type="button">取消</button>
@@ -301,19 +301,30 @@ HEMA_APPS_SCRIPT = r"""
   function buildPptPrompt(need) {
     return [
       "【应用模式：制作/修改PPT】",
-      "请使用 ppt-master skill 帮我完成 PPT 工作。",
+      "请使用 ppt-master skill 帮我完成一份高质量、可编辑、适合真实交付的 PPT。",
       "",
       "用户初始需求：",
       need,
       "",
-      "请按以下规则执行：",
-      "1. 先判断任务类型：新建 PPT、根据文档/资料生成 PPT、修改已有 PPT、润色/重构整份 PPT。",
-      "2. 如果用户没有提供必要资料，请先追问：主题/用途、目标受众、页数范围、语言、风格偏好、是否有品牌模板、是否需要演讲备注、是否已有文档或旧 PPT。",
+      "任务判断：",
+      "1. 先判断任务类型：新建 PPT、根据文档/资料生成 PPT、修改已有 PPT、润色/重构整份 PPT、论文/报告转汇报。",
+      "2. 如果用户没有提供必要资料，请先追问：主题/用途、目标受众、页数范围、语言、使用场景、风格偏好、是否有品牌模板、是否需要演讲备注、是否已有文档或旧 PPT。",
       "3. 如果用户提供文档、网页、Markdown、PDF、Word、Excel 或旧 PPT，请优先把资料作为内容来源，不要凭空扩写关键事实。",
-      "4. 如果是修改或润色旧 PPT，请先分析现有结构、视觉风格和主要问题，再提出修改方案。",
-      "5. 输出目标必须是可在 PowerPoint 中继续编辑的 .pptx，而不是整页图片。",
-      "6. 在真正生成前，先给出简短制作方案并等待用户确认；用户确认后再调用 ppt-master 工作流执行。",
-      "7. 生成完成后告诉用户输出文件路径，并提醒其打开检查。"
+      "4. 如果是修改或润色旧 PPT，请先分析现有结构、叙事逻辑、视觉风格、信息密度和主要问题，再提出修改方案。",
+      "",
+      "质量目标：",
+      "1. 不要做成普通 bullet list。每页必须有一个清晰 key message，并围绕它组织信息层级。",
+      "2. 先建立整套 design spec：受众、叙事主线、页面节奏、色彩、字体、版式、图标、图片、图表和辅助元素规则。用户确认后再生成。",
+      "3. 页面节奏要有变化：封面/章节页可作为 anchor，信息页可 dense，重点页要 breathing。不要每页都做成同一种卡片网格。",
+      "4. 使用辅助性视觉元素，但必须服务理解，而不是纯装饰：章节进度条、页眉小标签、关键数字徽章、图标锚点、时间线、流程箭头、对比矩阵、注释 callout、数据来源脚注、图例、分割线、浅色背景块、局部高亮、微弱渐变、品牌纹理。",
+      "5. 辅助元素要克制：同一页最多 1-2 个主要装饰手法；禁止堆叠无意义圆点、随机波浪、过多阴影、荧光色、满屏渐变和花哨贴纸。",
+      "6. 能图示就不要只堆文字：流程用流程图，比较用矩阵，时间关系用 timeline，结构关系用层级/环形/中心辐射，数据用柱状/折线/瀑布/雷达等合适图表。",
+      "7. 优先使用 ppt-master 内置能力：布局模板、charts_index 可视化模板、icons 图标库、spec_lock、svg_quality_checker 和 SVG-to-PPTX 导出流程。",
+      "8. 字体、对齐、间距和留白要统一。正文密度高时减少装饰，重点页则用留白和大标题/大数字制造记忆点。",
+      "9. 输出目标必须是可在 PowerPoint 中继续编辑的 .pptx：文字、形状、图标、图表尽量保持可编辑，不要把整页导成一张图片。",
+      "10. 生成前先给出简短制作方案并等待用户确认，方案至少包含：页数建议、叙事结构、视觉方向、辅助元素策略、可能使用的图表/图标类型。",
+      "11. 生成后必须做质量检查：是否跑版、文字是否溢出、对比度是否足够、每页 key message 是否明确、页面节奏是否重复、图表和注释是否可读。",
+      "12. 完成后告诉用户输出文件路径，并提醒其打开检查；如果发现某页视觉弱，要主动建议可继续精修。"
     ].join("\\n");
   }
 
