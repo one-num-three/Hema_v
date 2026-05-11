@@ -5,6 +5,15 @@ on:
   push:
     paths:
       - 'installer_gui.ps1'
+      - 'installer_gui.bat'
+      - 'install.bat'
+      - 'start_webui.bat'
+      - 'start_hermes_gateway.bat'
+      - 'stop_webui.bat'
+      - 'scripts/**'
+      - 'cdn/version.json'
+      - 'package.json'
+      - 'package-lock.json'
       - 'assets/installer/**'
       - '.github/workflows/build-installer-exe.yml'
 
@@ -35,10 +44,10 @@ jobs:
           $keyFile = "$env:TEMP\cdn_key"
           $env:CDN_SSH_KEY | Set-Content $keyFile -Encoding ASCII
           icacls $keyFile /inheritance:r /grant:r "$env:USERNAME:(R)" 2>$null
-          
+
           $sshOpts = "-o StrictHostKeyChecking=no -i $keyFile"
           $cdnPath = "/var/www/hermes-cdn/files"
-          
+
           scp $sshOpts.Split(' ') 安装Hermes.exe "${env:CDN_USER}@${env:CDN_HOST}:${cdnPath}/"
           Remove-Item $keyFile -Force
           Write-Host "Uploaded to CDN"

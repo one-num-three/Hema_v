@@ -45,8 +45,17 @@ if errorlevel 1 (
 if not exist "%USERPROFILE%\.hermes-web-ui" mkdir "%USERPROFILE%\.hermes-web-ui"
 if not exist "%WEBUI_TOKEN_FILE%" (
     powershell -NoProfile -Command ^
+        "$tokenFile=[IO.Path]::GetFullPath('%WEBUI_TOKEN_FILE%');" ^
+        "$dir=[IO.Path]::GetDirectoryName($tokenFile);" ^
+        "New-Item -ItemType Directory -Force -Path $dir | Out-Null;" ^
         "$t=[System.BitConverter]::ToString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))-replace'-','';" ^
-        "Set-Content -Path '%WEBUI_TOKEN_FILE%' -Value $t.ToLower() -Encoding ASCII" >nul 2>&1
+        "Set-Content -LiteralPath $tokenFile -Value $t.ToLower() -Encoding ASCII" >nul 2>&1
+)
+if not exist "%WEBUI_TOKEN_FILE%" (
+    echo [ERROR] Failed to create Web UI auth token: "%WEBUI_TOKEN_FILE%"
+    echo         Please check whether PowerShell is available and the user profile is writable.
+    pause
+    exit /b 1
 )
 set /p WEBUI_TOKEN=<"%WEBUI_TOKEN_FILE%"
 
@@ -155,7 +164,19 @@ if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (
 :: Start Web UI in background
 echo [INFO] Starting hermes-web-ui on port %WEBUI_PORT%...
 cd /d "%WEBUI_DIR%"
-start /b "" "%NODE_EXE%" "%WEBUI_SERVER%" >> "%WEBUI_LOG%" 2>&1
+for /f %%p in ('powershell -NoProfile -Command ^
+    "$node=[IO.Path]::GetFullPath('%NODE_EXE%');" ^
+    "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
+    "$work=[IO.Path]::GetFullPath('%WEBUI_DIR%');" ^
+    "$log=[IO.Path]::GetFullPath('%WEBUI_LOG%');" ^
+    "$logDir=[IO.Path]::GetDirectoryName($log);" ^
+    "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
+    "$cmd='""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
+    "$p=Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
+    "Start-Sleep -Seconds 1;" ^
+    "Write-Output $p.Id"') do (
+    if not defined WEBUI_WRAPPER_PID set "WEBUI_WRAPPER_PID=%%p"
+)
 
 :: Capture PID after 1s
 powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
