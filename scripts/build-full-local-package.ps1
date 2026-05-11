@@ -101,7 +101,14 @@ $RequiredFiles = @(
     "assets\installer\hippo-installer.ico",
     "scripts\patch-webui-persistence.py",
     "skills\productivity\ppt-master\SKILL.md",
-    "skills\productivity\ppt-master\requirements.txt"
+    "skills\productivity\ppt-master\requirements.txt",
+    "skills\research\nature-citation\SKILL.md",
+    "skills\research\nature-data\SKILL.md",
+    "skills\research\nature-figure\SKILL.md",
+    "skills\research\nature-paper2ppt\SKILL.md",
+    "skills\research\nature-polishing\SKILL.md",
+    "skills\research\nature-reader\SKILL.md",
+    "skills\research\nature-response\SKILL.md"
 )
 
 $Missing = @($RequiredFiles | Where-Object { $RelativeFiles -notcontains $_ })

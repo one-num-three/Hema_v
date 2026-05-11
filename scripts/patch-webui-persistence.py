@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-ppt-app1"
+HEMA_APPS_SCRIPT_VERSION = "20260511-nature-app1"
 ENABLE_HEMA_APPS = True
 
 
@@ -43,7 +43,12 @@ HEMA_APPS_SCRIPT = r"""
       accent: "#2563eb",
       action: "ppt"
     },
-    { name: "文档整理", desc: "把长文、会议纪要或资料整理成清晰结构。", accent: "#0f766e" },
+    {
+      name: "Nature 科研套件",
+      desc: "论文阅读、润色、引文、科研绘图、审稿回复和 paper-to-PPT。",
+      accent: "#0f766e",
+      action: "nature"
+    },
     { name: "表格分析", desc: "清洗数据、提炼结论，生成可读分析摘要。", accent: "#ca8a04" },
     { name: "图片理解", desc: "识别截图、界面和图片内容，输出说明。", accent: "#9333ea" },
     { name: "网页总结", desc: "读取网页信息并整理重点，适合快速调研。", accent: "#dc2626" },
@@ -169,7 +174,7 @@ HEMA_APPS_SCRIPT = r"""
         <div class="hema-apps-shell">
           <div class="hema-apps-kicker">Hema Apps</div>
           <h1 class="hema-apps-title">应用</h1>
-          <p class="hema-apps-subtitle">把常用能力做成入口。先上线 PPT，其它功能先占位，后面按真实工作流补齐。</p>
+          <p class="hema-apps-subtitle">把常用能力做成入口。先上线 PPT 和 Nature 科研套件，其它功能先占位，后面按真实工作流补齐。</p>
           <div class="hema-apps-grid">${apps.map(card).join("")}</div>
         </div>
       `;
@@ -181,6 +186,7 @@ HEMA_APPS_SCRIPT = r"""
         const item = event.target.closest(".hema-app-card");
         if (!item) return;
         if (item.dataset.action === "ppt") openPptModal();
+        else if (item.dataset.action === "nature") openNatureModal();
         else toast("这个应用还是占位，我们后面再一起定。");
       });
     }
@@ -224,6 +230,43 @@ HEMA_APPS_SCRIPT = r"""
     return modal;
   }
 
+  function ensureNatureModal() {
+    let modal = document.querySelector(".hema-nature-modal-mask");
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.className = "hema-app-modal-mask hema-nature-modal-mask";
+    modal.innerHTML = `
+      <div class="hema-app-modal" role="dialog" aria-modal="true" aria-label="Nature 科研套件">
+        <h3>Nature 科研套件</h3>
+        <p>告诉我你要处理论文、润色英文、补引文、做科研图、写数据声明、回复审稿人，还是把论文做成 PPT。提交后会带着 nature-skills 提示打开聊天。</p>
+        <textarea placeholder="例如：帮我把这篇论文整理成中文组会 PPT；或：帮我润色摘要并按 Nature 风格重构逻辑；或：帮我给这段引言补 CNS/Nature 引文。"></textarea>
+        <div class="hema-app-actions">
+          <button class="hema-app-cancel" type="button">取消</button>
+          <button class="hema-app-send" type="button">发送给 Hermes</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".hema-app-cancel").addEventListener("click", () => modal.classList.remove("is-open"));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.classList.remove("is-open");
+    });
+    modal.querySelector(".hema-app-send").addEventListener("click", () => {
+      const need = modal.querySelector("textarea").value.trim();
+      if (!need) {
+        toast("先写一点科研需求，我再帮你带到聊天里。");
+        return;
+      }
+      const prompt = buildNaturePrompt(need);
+      setAppMode({ name: "Nature 科研套件", action: "nature" });
+      localStorage.setItem(PROMPT_KEY, prompt);
+      modal.classList.remove("is-open");
+      window.location.hash = CHAT_HASH;
+      setTimeout(fillChatInput, 450);
+    });
+    return modal;
+  }
+
   function buildPptPrompt(need) {
     return [
       "【应用模式：制作/修改PPT】",
@@ -240,6 +283,32 @@ HEMA_APPS_SCRIPT = r"""
       "5. 输出目标必须是可在 PowerPoint 中继续编辑的 .pptx，而不是整页图片。",
       "6. 在真正生成前，先给出简短制作方案并等待用户确认；用户确认后再调用 ppt-master 工作流执行。",
       "7. 生成完成后告诉用户输出文件路径，并提醒其打开检查。"
+    ].join("\\n");
+  }
+
+  function buildNaturePrompt(need) {
+    return [
+      "【应用模式：Nature 科研套件】",
+      "请根据用户需求，从已内置的 nature-skills 中选择最合适的 skill，并明确告诉用户你将使用哪一个或哪几个：",
+      "",
+      "- nature-reader：把 PDF、DOI、arXiv、论文正文或网页论文整理成完整、双语、带图表位置和来源锚点的 Markdown 阅读稿。",
+      "- nature-polishing：把中文或英文科研文本润色/重构为更接近 Nature 风格的学术英文，适合摘要、引言、结果、讨论、标题和方法。",
+      "- nature-citation：为段落或稿件补充严格的 Nature/CNS/Cell 系列引用，并按可导入文献管理器的格式输出。",
+      "- nature-figure：用 Python 或 R 制作、修改、审查高水平论文图，输出 SVG/PDF/TIFF 等投稿级结果。",
+      "- nature-data：准备或审查 Data Availability、数据仓库、FAIR 元数据和数据引用。",
+      "- nature-response：逐点撰写或修改审稿回复、修回信、rebuttal letter。",
+      "- nature-paper2ppt：把科研论文、预印本、PDF、摘要、图注或阅读笔记生成中文学术汇报 PPTX。",
+      "",
+      "用户初始需求：",
+      need,
+      "",
+      "执行规则：",
+      "1. 先判断任务类型，并选择对应的 nature-* skill；如果一个任务需要多个 skill，请说明顺序。",
+      "2. 如果缺少必要材料，先追问，不要假装已经读过论文或数据。常见必需材料包括 PDF/DOI/链接/正文、目标期刊、图表数据、审稿意见、旧稿或旧 PPT。",
+      "3. 如果用户要生成文件，最终产物必须是真实文件路径，例如 .md、.pptx、.svg、.pdf、.tiff、.ris 或 .enw，而不是只给大纲。",
+      "4. 如果涉及论文事实、引用或图表结论，必须基于用户提供材料或可验证来源，不要编造。",
+      "5. 在正式执行前，先给出简短工作方案并等待用户确认；用户确认后再调用对应 skill 工作流。",
+      "6. 完成后用中文说明输出文件、主要改动和用户下一步该检查什么。"
     ].join("\\n");
   }
 
@@ -287,13 +356,19 @@ HEMA_APPS_SCRIPT = r"""
     setTimeout(() => modal.querySelector("textarea").focus(), 50);
   }
 
+  function openNatureModal() {
+    const modal = ensureNatureModal();
+    modal.classList.add("is-open");
+    setTimeout(() => modal.querySelector("textarea").focus(), 50);
+  }
+
   function fillChatInput() {
     const prompt = localStorage.getItem(PROMPT_KEY);
     if (!prompt) return;
     const input = findChatInput();
     if (!input) {
       navigator.clipboard && navigator.clipboard.writeText(prompt).catch(() => {});
-      toast("已复制 PPT 提示词，请粘贴到聊天框。");
+      toast("已复制应用提示词，请粘贴到聊天框。");
       return;
     }
     if (input.tagName === "TEXTAREA" || input.tagName === "INPUT") {
@@ -307,7 +382,7 @@ HEMA_APPS_SCRIPT = r"""
     localStorage.removeItem(PROMPT_KEY);
     input.focus();
     ensureAppModeTag();
-    toast("PPT 需求已填入聊天框，确认后发送即可。");
+    toast("应用需求已填入聊天框，确认后发送即可。");
   }
 
   function findChatInput() {
