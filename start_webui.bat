@@ -20,12 +20,16 @@ if not exist "%NODE_EXE%" (
     echo [ERROR] Node.js not found at "%NODE_EXE%"
     echo         Web UI requires the Full version.
     echo         Run: install.bat full
+    echo         Expected install root: "%SCRIPT_DIR%"
     pause
     exit /b 1
 )
 if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
-    echo [ERROR] Web UI server not found at "%WEBUI_SERVER%"
+    echo [ERROR] Web UI server not found.
+    echo         Checked bundle mode: "%WEBUI_SERVER%"
+    echo         Checked npm mode:    "%WEBUI_NPM_SERVER%"
     echo         Run: install.bat full
+    echo         If this is a newly downloaded installer, the CDN package may be old or incomplete.
     pause
     exit /b 1
 )
@@ -54,10 +58,17 @@ if not exist "%WEBUI_TOKEN_FILE%" (
 if not exist "%WEBUI_TOKEN_FILE%" (
     echo [ERROR] Failed to create Web UI auth token: "%WEBUI_TOKEN_FILE%"
     echo         Please check whether PowerShell is available and the user profile is writable.
+    echo         hermes-web-ui reads token from AUTH_TOKEN first, otherwise "%USERPROFILE%\.hermes-web-ui\.token".
     pause
     exit /b 1
 )
 set /p WEBUI_TOKEN=<"%WEBUI_TOKEN_FILE%"
+if "%WEBUI_TOKEN%"=="" (
+    echo [ERROR] Web UI auth token is empty: "%WEBUI_TOKEN_FILE%"
+    echo         Delete this file and run start_webui.bat again.
+    pause
+    exit /b 1
+)
 
 :: Check if Web UI is already running
 if exist "%WEBUI_PID_FILE%" (
@@ -97,6 +108,7 @@ netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [ERROR] Port %WEBUI_PORT% still in use after cleanup. Aborting.
     echo         Run manually: netstat -ano ^| findstr :%WEBUI_PORT%
+    echo         Then stop the listed process or reboot Windows.
     pause
     exit /b 1
 )
@@ -163,6 +175,11 @@ if exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" (
 
 :: Start Web UI in background
 echo [INFO] Starting hermes-web-ui on port %WEBUI_PORT%...
+echo [INFO] Install root: "%SCRIPT_DIR%"
+echo [INFO] Node executable: "%NODE_EXE%"
+echo [INFO] Web UI server: "%WEBUI_SERVER%"
+echo [INFO] Token file: "%WEBUI_TOKEN_FILE%"
+echo [INFO] Log file: "%WEBUI_LOG%"
 cd /d "%WEBUI_DIR%"
 for /f %%p in ('powershell -NoProfile -Command ^
     "$node=[IO.Path]::GetFullPath('%NODE_EXE%');" ^
@@ -176,6 +193,16 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "Start-Sleep -Seconds 1;" ^
     "Write-Output $p.Id"') do (
     if not defined WEBUI_WRAPPER_PID set "WEBUI_WRAPPER_PID=%%p"
+)
+if not defined WEBUI_WRAPPER_PID (
+    echo [ERROR] Failed to launch Web UI wrapper process.
+    echo         Possible causes:
+    echo         - cmd.exe or PowerShell is blocked by policy.
+    echo         - Node.js path is missing: "%NODE_EXE%"
+    echo         - Web UI server path is missing: "%WEBUI_SERVER%"
+    echo         - Log directory is not writable: "%USERPROFILE%\.hermes-web-ui"
+    pause
+    exit /b 1
 )
 
 :: Capture PID after 1s
@@ -214,6 +241,20 @@ if %errorlevel% equ 0 (
 if %WAITED% LSS %MAX_WAIT% goto :wait_webui
 echo [WARN] Web UI did not respond in %MAX_WAIT%s.
 echo        Check log: %WEBUI_LOG%
+echo.
+echo [DIAG] Expected files:
+if exist "%NODE_EXE%" (echo        [OK] "%NODE_EXE%") else (echo        [MISS] "%NODE_EXE%")
+if exist "%WEBUI_SERVER%" (echo        [OK] "%WEBUI_SERVER%") else (echo        [MISS] "%WEBUI_SERVER%")
+if exist "%WEBUI_TOKEN_FILE%" (echo        [OK] "%WEBUI_TOKEN_FILE%") else (echo        [MISS] "%WEBUI_TOKEN_FILE%")
+echo.
+echo [DIAG] Recent Web UI log:
+powershell -NoProfile -Command "if(Test-Path -LiteralPath '%WEBUI_LOG%'){Get-Content -LiteralPath '%WEBUI_LOG%' -Tail 30}else{Write-Host 'Log file does not exist.'}" 2>nul
+echo.
+echo [DIAG] Common causes:
+echo        - The installer copied an old or incomplete webui directory from CDN.
+echo        - node_embedded was not installed or was removed by antivirus.
+echo        - port %WEBUI_PORT% is occupied by another process.
+echo        - node-pty failed to load on this Windows environment; check the log above.
 echo [ERROR] Web UI failed to start, browser will not be opened.
 pause
 exit /b 1

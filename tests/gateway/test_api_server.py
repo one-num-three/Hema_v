@@ -634,6 +634,36 @@ class TestResponsesEndpoint:
             assert len(call_kwargs["conversation_history"]) == 1
 
     @pytest.mark.asyncio
+    async def test_conversation_history_field_is_passed_to_agent(self, adapter):
+        """Web UI transcript history sent to /v1/responses is preserved."""
+        mock_result = {"final_response": "You asked about Git.", "messages": [], "api_calls": 1}
+        history = [
+            {"role": "user", "content": "What is git?"},
+            {"role": "assistant", "content": "Git is a version control system."},
+        ]
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "model": "hermes-agent",
+                        "input": "What did I ask before?",
+                        "conversation_history": history,
+                        "session_id": "webui-session-1",
+                        "store": False,
+                    },
+                )
+
+            assert resp.status == 200
+            call_kwargs = mock_run.call_args.kwargs
+            assert call_kwargs["user_message"] == "What did I ask before?"
+            assert call_kwargs["conversation_history"] == history
+            assert call_kwargs["session_id"] == "webui-session-1"
+
+    @pytest.mark.asyncio
     async def test_instructions_as_ephemeral_prompt(self, adapter):
         """The instructions field maps to ephemeral_system_prompt."""
         mock_result = {"final_response": "Ahoy!", "messages": [], "api_calls": 1}

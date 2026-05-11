@@ -768,6 +768,13 @@ class APIServerAdapter(BasePlatformAdapter):
             if instructions is None:
                 instructions = stored.get("instructions")
 
+        # hermes-web-ui 0.5.x sends the visible chat transcript as
+        # conversation_history when calling /v1/responses. Preserve it so the
+        # agent does not start each Web UI turn as a fresh backend session.
+        request_history = self._normalize_run_history(body.get("conversation_history", []))
+        if request_history:
+            conversation_history = request_history
+
         # Append new input messages to history (all but the last become history)
         for msg in input_messages[:-1]:
             conversation_history.append(msg)
@@ -782,7 +789,11 @@ class APIServerAdapter(BasePlatformAdapter):
             conversation_history = conversation_history[-100:]
 
         # Run the agent (with Idempotency-Key support)
-        session_id = str(uuid.uuid4())
+        session_id = body.get("session_id")
+        if not isinstance(session_id, str) or not session_id.strip():
+            session_id = str(uuid.uuid4())
+        else:
+            session_id = session_id.strip()
 
         async def _compute_response():
             return await self._run_agent(
@@ -796,7 +807,16 @@ class APIServerAdapter(BasePlatformAdapter):
         if idempotency_key:
             fp = _make_request_fingerprint(
                 body,
-                keys=["input", "instructions", "previous_response_id", "conversation", "model", "tools"],
+                keys=[
+                    "input",
+                    "instructions",
+                    "previous_response_id",
+                    "conversation",
+                    "conversation_history",
+                    "session_id",
+                    "model",
+                    "tools",
+                ],
             )
             try:
                 result, usage = await _idem_cache.get_or_set(idempotency_key, fp, _compute_response)
