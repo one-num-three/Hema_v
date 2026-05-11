@@ -15,6 +15,7 @@ link to Hema's current relay login URL.
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 
 
@@ -23,6 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
+HEMA_APPS_SCRIPT_VERSION = "20260511-safe2"
 
 
 HEMA_APPS_SCRIPT = r"""
@@ -256,12 +258,16 @@ HEMA_APPS_SCRIPT = r"""
   function render() {
     ensureStyle();
     ensureSidebarLink();
+    const open = window.location.hash === APPS_HASH;
+    if (!open) {
+      closeAppsView();
+      if (window.location.hash === CHAT_HASH) setTimeout(fillChatInput, 300);
+      return;
+    }
     const view = ensureView();
     if (!view) return;
-    const open = window.location.hash === APPS_HASH;
     view.classList.toggle("is-open", open);
     document.querySelector(".hema-app-link")?.classList.toggle("active", open);
-    if (!open && window.location.hash === CHAT_HASH) setTimeout(fillChatInput, 300);
   }
 
   function closeAppsView() {
@@ -271,38 +277,33 @@ HEMA_APPS_SCRIPT = r"""
 
   function renderSoon() {
     window.requestAnimationFrame(() => {
-      if (window.location.hash !== APPS_HASH) closeAppsView();
-      render();
+      try {
+        render();
+      } catch (error) {
+        console.warn("Hema apps render skipped:", error);
+        closeAppsView();
+      }
     });
-  }
-
-  function patchHistoryEvents() {
-    if (window.__hemaAppsHistoryPatched) return;
-    window.__hemaAppsHistoryPatched = true;
-    const fire = () => window.dispatchEvent(new Event("hema-route-change"));
-    for (const name of ["pushState", "replaceState"]) {
-      const original = history[name];
-      history[name] = function patchedHistoryState() {
-        const result = original.apply(this, arguments);
-        fire();
-        return result;
-      };
-    }
-    window.addEventListener("popstate", fire);
   }
 
   const observer = new MutationObserver(() => ensureSidebarLink());
   observer.observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener("click", (event) => {
-    const link = event.target.closest("a");
-    if (link && !link.classList.contains("hema-app-link")) setTimeout(renderSoon, 0);
+    const link = event.target && event.target.closest ? event.target.closest("a") : null;
+    if (link && !link.classList.contains("hema-app-link")) {
+      closeAppsView();
+      setTimeout(renderSoon, 0);
+    }
   }, true);
-  patchHistoryEvents();
   window.addEventListener("hashchange", renderSoon);
-  window.addEventListener("hema-route-change", renderSoon);
   window.addEventListener("load", renderSoon);
   setInterval(renderSoon, 1200);
-  renderSoon();
+  try {
+    renderSoon();
+  } catch (error) {
+    console.warn("Hema apps patch disabled after error:", error);
+    closeAppsView();
+  }
 })();
 """
 
@@ -413,9 +414,20 @@ def patch_hema_apps(client_root: Path) -> bool:
         return False
 
     index = index_path.read_text(encoding="utf-8", errors="replace")
-    script_tag = f'<script defer src="/{HEMA_APPS_SCRIPT_NAME}"></script>'
+    script_tag = f'<script defer src="/{HEMA_APPS_SCRIPT_NAME}?v={HEMA_APPS_SCRIPT_VERSION}"></script>'
     if script_tag in index:
         print("Hema apps index hook already applied")
+        return True
+
+    index, replaced = re.subn(
+        rf'<script\s+defer\s+src="/{re.escape(HEMA_APPS_SCRIPT_NAME)}(?:\?v=[^"]*)?"></script>',
+        script_tag,
+        index,
+        count=1,
+    )
+    if replaced:
+        index_path.write_text(index, encoding="utf-8")
+        print(f"Updated Hema apps index hook: {index_path}")
         return True
 
     if "</body>" not in index:
