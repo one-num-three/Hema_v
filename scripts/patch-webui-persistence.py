@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260511-safe4"
+HEMA_APPS_SCRIPT_VERSION = "20260511-ppt-app1"
 ENABLE_HEMA_APPS = True
 
 
@@ -34,6 +34,7 @@ HEMA_APPS_SCRIPT = r"""
   const APPS_HASH = "#/hema/apps";
   const CHAT_HASH = "#/hermes/chat";
   const PROMPT_KEY = "hema.pendingAppPrompt";
+  const MODE_KEY = "hema.activeAppMode";
 
   const apps = [
     {
@@ -98,6 +99,10 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-send{background:#171717;color:#fff}
       .hema-app-toast{position:fixed;right:24px;bottom:24px;z-index:100;background:#171717;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;display:none}
       .hema-app-toast.is-open{display:block}
+      .hema-app-mode-tag{display:flex;align-items:center;justify-content:space-between;gap:10px;width:max-content;max-width:100%;margin:0 0 8px;padding:6px 8px 6px 10px;border:1px solid rgba(37,99,235,.22);border-radius:999px;background:rgba(37,99,235,.08);color:#1f3f8f;font-size:12px;line-height:1.2}
+      .hema-app-mode-tag strong{font-weight:650;color:#1d2d5f}
+      .hema-app-mode-tag button{width:18px;height:18px;border:0;border-radius:999px;background:rgba(37,99,235,.12);color:#1f3f8f;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:18px;padding:0}
+      .hema-app-mode-tag button:hover{background:rgba(37,99,235,.2)}
       @media (max-width:1100px){.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
       @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}}
     `;
@@ -209,13 +214,71 @@ HEMA_APPS_SCRIPT = r"""
         toast("先写一点 PPT 需求，我再帮你带到聊天里。");
         return;
       }
-      const prompt = `请使用 ppt-master skill 帮我制作/修改PPT。我的需求是：\n${need}\n\n请先追问缺失信息，再给出制作方案。`;
+      const prompt = buildPptPrompt(need);
+      setAppMode({ name: "制作/修改PPT", action: "ppt" });
       localStorage.setItem(PROMPT_KEY, prompt);
       modal.classList.remove("is-open");
       window.location.hash = CHAT_HASH;
       setTimeout(fillChatInput, 450);
     });
     return modal;
+  }
+
+  function buildPptPrompt(need) {
+    return [
+      "【应用模式：制作/修改PPT】",
+      "请使用 ppt-master skill 帮我完成 PPT 工作。",
+      "",
+      "用户初始需求：",
+      need,
+      "",
+      "请按以下规则执行：",
+      "1. 先判断任务类型：新建 PPT、根据文档/资料生成 PPT、修改已有 PPT、润色/重构整份 PPT。",
+      "2. 如果用户没有提供必要资料，请先追问：主题/用途、目标受众、页数范围、语言、风格偏好、是否有品牌模板、是否需要演讲备注、是否已有文档或旧 PPT。",
+      "3. 如果用户提供文档、网页、Markdown、PDF、Word、Excel 或旧 PPT，请优先把资料作为内容来源，不要凭空扩写关键事实。",
+      "4. 如果是修改或润色旧 PPT，请先分析现有结构、视觉风格和主要问题，再提出修改方案。",
+      "5. 输出目标必须是可在 PowerPoint 中继续编辑的 .pptx，而不是整页图片。",
+      "6. 在真正生成前，先给出简短制作方案并等待用户确认；用户确认后再调用 ppt-master 工作流执行。",
+      "7. 生成完成后告诉用户输出文件路径，并提醒其打开检查。"
+    ].join("\\n");
+  }
+
+  function getAppMode() {
+    try {
+      return JSON.parse(localStorage.getItem(MODE_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function setAppMode(mode) {
+    if (!mode) localStorage.removeItem(MODE_KEY);
+    else localStorage.setItem(MODE_KEY, JSON.stringify(mode));
+    ensureAppModeTag();
+  }
+
+  function ensureAppModeTag() {
+    const existing = document.querySelector(".hema-app-mode-tag");
+    const mode = getAppMode();
+    if (!mode) {
+      existing && existing.remove();
+      return;
+    }
+    const inputArea = document.querySelector(".chat-input-area");
+    if (!inputArea) return;
+    let tag = existing;
+    if (!tag) {
+      tag = document.createElement("div");
+      tag.className = "hema-app-mode-tag";
+      tag.innerHTML = '<span>应用：<strong></strong></span><button type="button" title="退出应用模式" aria-label="退出应用模式">×</button>';
+      tag.querySelector("button").addEventListener("click", () => {
+        setAppMode(null);
+        localStorage.removeItem(PROMPT_KEY);
+        toast("已退出应用模式。");
+      });
+    }
+    tag.querySelector("strong").textContent = mode.name || "应用";
+    if (tag.parentElement !== inputArea) inputArea.insertBefore(tag, inputArea.firstChild);
   }
 
   function openPptModal() {
@@ -227,7 +290,7 @@ HEMA_APPS_SCRIPT = r"""
   function fillChatInput() {
     const prompt = localStorage.getItem(PROMPT_KEY);
     if (!prompt) return;
-    const input = document.querySelector("textarea") || document.querySelector('[contenteditable="true"]');
+    const input = findChatInput();
     if (!input) {
       navigator.clipboard && navigator.clipboard.writeText(prompt).catch(() => {});
       toast("已复制 PPT 提示词，请粘贴到聊天框。");
@@ -243,7 +306,21 @@ HEMA_APPS_SCRIPT = r"""
     }
     localStorage.removeItem(PROMPT_KEY);
     input.focus();
+    ensureAppModeTag();
     toast("PPT 需求已填入聊天框，确认后发送即可。");
+  }
+
+  function findChatInput() {
+    const candidates = Array.from(document.querySelectorAll("textarea, input, [contenteditable='true']"));
+    return candidates.find((node) => {
+      if (node.closest(".hema-app-modal-mask")) return false;
+      if (node.offsetParent === null && node.getClientRects().length === 0) return false;
+      if (node.tagName === "INPUT") {
+        const type = (node.getAttribute("type") || "text").toLowerCase();
+        if (!["text", "search"].includes(type)) return false;
+      }
+      return true;
+    }) || null;
   }
 
   function toast(message) {
@@ -262,6 +339,7 @@ HEMA_APPS_SCRIPT = r"""
   function render() {
     ensureStyle();
     ensureSidebarLink();
+    ensureAppModeTag();
     const open = window.location.hash === APPS_HASH;
     if (!open) {
       closeAppsView();

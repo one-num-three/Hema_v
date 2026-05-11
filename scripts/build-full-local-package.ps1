@@ -99,7 +99,9 @@ $RequiredFiles = @(
     "start_webui.bat",
     "installer_gui.ps1",
     "assets\installer\hippo-installer.ico",
-    "scripts\patch-webui-persistence.py"
+    "scripts\patch-webui-persistence.py",
+    "skills\productivity\ppt-master\SKILL.md",
+    "skills\productivity\ppt-master\requirements.txt"
 )
 
 $Missing = @($RequiredFiles | Where-Object { $RelativeFiles -notcontains $_ })
