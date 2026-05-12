@@ -634,6 +634,133 @@ class TestResponsesEndpoint:
             assert len(call_kwargs["conversation_history"]) == 1
 
     @pytest.mark.asyncio
+    async def test_conversation_history_field_is_passed_to_agent(self, adapter):
+        """Web UI transcript history sent to /v1/responses is preserved."""
+        mock_result = {"final_response": "You asked about Git.", "messages": [], "api_calls": 1}
+        history = [
+            {"role": "user", "content": "What is git?"},
+            {"role": "assistant", "content": "Git is a version control system."},
+        ]
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (mock_result, {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0})
+                resp = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "model": "hermes-agent",
+                        "input": "What did I ask before?",
+                        "conversation_history": history,
+                        "session_id": "webui-session-1",
+                        "store": False,
+                    },
+                )
+
+            assert resp.status == 200
+            call_kwargs = mock_run.call_args.kwargs
+            assert call_kwargs["user_message"] == "What did I ask before?"
+            assert call_kwargs["conversation_history"] == history
+            assert call_kwargs["session_id"] == "webui-session-1"
+
+    @pytest.mark.asyncio
+    async def test_stream_true_returns_responses_sse(self, adapter):
+        """Responses stream=true returns events hermes-web-ui can persist."""
+        mock_result = {"final_response": "Hello from Hermes.", "messages": [], "api_calls": 1}
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", new_callable=AsyncMock) as mock_run:
+                mock_run.return_value = (
+                    mock_result,
+                    {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+                )
+                resp = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "model": "hermes-agent",
+                        "input": "Hello",
+                        "stream": True,
+                        "store": False,
+                    },
+                )
+
+            assert resp.status == 200
+            assert "text/event-stream" in resp.headers.get("Content-Type", "")
+            body = await resp.text()
+            assert "response.output_text.delta" in body
+            assert "Hello from Hermes." in body
+            assert "response.completed" in body
+            assert "data: [DONE]" in body
+
+    @pytest.mark.asyncio
+    async def test_stream_true_forwards_tool_events(self, adapter):
+        """Tool lifecycle callbacks become Responses API output item events."""
+        mock_result = {
+            "final_response": "Done.",
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "type": "function",
+                            "function": {"name": "web_search", "arguments": "{\"query\":\"ppt skill\"}"},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call_123", "content": "Found presentations skill."},
+                {"role": "assistant", "content": "Done."},
+            ],
+            "api_calls": 1,
+        }
+
+        async def _mock_run_agent(**kwargs):
+            kwargs["tool_event_callback"](
+                "started",
+                {
+                    "tool_call_id": "call_123",
+                    "tool_name": "web_search",
+                    "arguments": {"query": "ppt skill"},
+                },
+            )
+            kwargs["tool_event_callback"](
+                "completed",
+                {
+                    "tool_call_id": "call_123",
+                    "tool_name": "web_search",
+                    "result": "Found presentations skill.",
+                },
+            )
+            kwargs["stream_delta_callback"]("Done.")
+            return mock_result, {"input_tokens": 1, "output_tokens": 2, "total_tokens": 3}
+
+        app = _create_app(adapter)
+        async with TestClient(TestServer(app)) as cli:
+            with patch.object(adapter, "_run_agent", side_effect=_mock_run_agent):
+                resp = await cli.post(
+                    "/v1/responses",
+                    json={
+                        "model": "hermes-agent",
+                        "input": "Search PPT skills",
+                        "stream": True,
+                        "store": False,
+                    },
+                )
+
+            assert resp.status == 200
+            body = await resp.text()
+            assert "response.output_item.done" in body
+            assert "\"type\": \"function_call\"" in body
+            assert "\"call_id\": \"call_123\"" in body
+            assert "\"name\": \"web_search\"" in body
+            assert "\"type\": \"function_call_output\"" in body
+            assert "Found presentations skill." in body
+            assert "response.output_text.delta" in body
+            assert "response.completed" in body
+
+    @pytest.mark.asyncio
     async def test_instructions_as_ephemeral_prompt(self, adapter):
         """The instructions field maps to ephemeral_system_prompt."""
         mock_result = {"final_response": "Ahoy!", "messages": [], "api_calls": 1}
