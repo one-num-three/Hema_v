@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">Core Architecture</text>
+    <line x1="60" y1="100" x2="420" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- Center node -->
+  <g id="center-node">
+    <circle cx="640" cy="400" r="80" fill="none" stroke="#000000" stroke-width="6"/>
+    <text x="640" y="395" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000" text-anchor="middle">HERMES</text>
+    <text x="640" y="425" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000" text-anchor="middle">AGENT</text>
+  </g>
+  
+  <!-- Module 1: Planner (top) -->
+  <g id="module-planner">
+    <line x1="640" y1="320" x2="640" y2="220" stroke="#000000" stroke-width="2"/>
+    <rect x="540" y="160" width="200" height="60" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <!-- icon: tabler-outline/target -->
+  <g transform="translate(560.0, 175.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" />
+    <path d="M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0" />
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+  </g>
+    <text x="640" y="200" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">Planner</text>
+  </g>
+  
+  <!-- Module 2: Tool System (right) -->
+  <g id="module-tools">
+    <line x1="720" y1="400" x2="900" y2="400" stroke="#000000" stroke-width="2"/>
+    <rect x="900" y="360" width="200" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <!-- icon: tabler-outline/tool -->
+  <g transform="translate(920.0, 375.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5" />
+  </g>
+    <text x="1000" y="405" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">Tool System</text>
+    <text x="1000" y="430" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#666666" text-anchor="middle">Execute operations</text>
+  </g>
+  
+  <!-- Module 3: Memory (bottom-right) -->
+  <g id="module-memory">
+    <line x1="700" y1="460" x2="820" y2="560" stroke="#000000" stroke-width="2"/>
+    <rect x="820" y="560" width="200" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <!-- icon: tabler-outline/database -->
+  <g transform="translate(840.0, 575.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M4 6a8 3 0 1 0 16 0a8 3 0 1 0 -16 0" />
+    <path d="M4 6v6a8 3 0 0 0 16 0v-6" />
+    <path d="M4 12v6a8 3 0 0 0 16 0v-6" />
+  </g>
+    <text x="920" y="605" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">Memory</text>
+    <text x="920" y="630" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#666666" text-anchor="middle">Store experiences</text>
+  </g>
+  
+  <!-- Module 4: Skill Library (bottom-left) -->
+  <g id="module-skills">
+    <line x1="580" y1="460" x2="460" y2="560" stroke="#000000" stroke-width="2"/>
+    <rect x="260" y="560" width="200" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <!-- icon: tabler-outline/book -->
+  <g transform="translate(280.0, 575.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 19a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+    <path d="M3 6a9 9 0 0 1 9 0a9 9 0 0 1 9 0" />
+    <path d="M3 6l0 13" />
+    <path d="M12 6l0 13" />
+    <path d="M21 6l0 13" />
+  </g>
+    <text x="360" y="605" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">Skill Library</text>
+    <text x="360" y="630" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#666666" text-anchor="middle">Reuse solutions</text>
+  </g>
+  
+  <!-- Module 5: Reflection (left) -->
+  <g id="module-reflection">
+    <line x1="560" y1="400" x2="380" y2="400" stroke="#000000" stroke-width="2"/>
+    <rect x="180" y="360" width="200" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <!-- icon: tabler-outline/refresh -->
+  <g transform="translate(200.0, 375.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+    <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+  </g>
+    <text x="280" y="405" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">Reflection</text>
+    <text x="280" y="430" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#666666" text-anchor="middle">Self-improve</text>
+  </g>
+</svg>

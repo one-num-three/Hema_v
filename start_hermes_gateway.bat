@@ -72,7 +72,7 @@ if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 :: Start gateway in background. Use Start-Process so the gateway stays alive
 :: after this batch file exits; "start /b" is not reliable for detached
 :: Python processes on Windows.
-echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
+echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT% (may take 10-15s)...
 cd /d "%SCRIPT_DIR%"
 
 for /f %%p in ('powershell -NoProfile -Command ^
@@ -92,6 +92,7 @@ set "WAITED=0"
 :wait_gateway
 timeout /t 1 /nobreak >nul
 set /a WAITED+=1
+<nul set /p =""
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (

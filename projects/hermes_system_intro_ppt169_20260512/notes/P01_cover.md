@@ -1,0 +1,1 @@
+Welcome everyone. Today we're going to explore Hermes Agent System — an intelligent AI agent architecture that goes far beyond what you might know as chatbots. This is a system designed to think, act, and learn like a human assistant.

@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">Use Case: PPT Generation</text>
+    <line x1="60" y1="100" x2="580" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- User request -->
+  <g id="user-request">
+    <rect x="200" y="150" width="880" height="60" fill="#F5F5F5" stroke="#CCCCCC" stroke-width="2"/>
+    <text x="640" y="188" font-family="Roboto Mono, Consolas, 'Courier New', monospace" font-size="24" fill="#333333" text-anchor="middle">"Create an AI industry analysis PPT"</text>
+  </g>
+  
+  <!-- Step 1: Analyze (left) -->
+  <g id="step-analyze">
+    <rect x="100" y="250" width="400" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="140" cy="290" r="20" fill="#000000"/>
+    <text x="140" y="297" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">1</text>
+    <text x="200" y="285" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Analyze</text>
+    <text x="200" y="315" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Understand requirements</text>
+  </g>
+  
+  <!-- Arrow to step 2 -->
+  <g id="arrow-1-2">
+    <!-- icon: tabler-outline/arrow-right -->
+  <g transform="translate(520.0, 278.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M5 12l14 0" />
+    <path d="M13 18l6 -6" />
+    <path d="M13 6l6 6" />
+  </g>
+  </g>
+  
+  <!-- Step 2: Research (right) -->
+  <g id="step-research">
+    <rect x="780" y="250" width="400" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="820" cy="290" r="20" fill="#000000"/>
+    <text x="820" y="297" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">2</text>
+    <text x="880" y="285" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Research</text>
+    <text x="880" y="315" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Search industry data</text>
+  </g>
+  
+  <!-- Arrow to step 3 -->
+  <g id="arrow-2-3">
+    <path d="M 980 330 L 980 370 L 500 370 L 500 390" fill="none" stroke="#000000" stroke-width="2"/>
+  </g>
+  
+  <!-- Step 3: Structure (center) -->
+  <g id="step-structure">
+    <rect x="300" y="390" width="400" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="340" cy="430" r="20" fill="#000000"/>
+    <text x="340" y="437" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">3</text>
+    <text x="400" y="425" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Structure</text>
+    <text x="400" y="455" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Organize content outline</text>
+  </g>
+  
+  <!-- Arrow to step 4 -->
+  <g id="arrow-3-4">
+    <!-- icon: tabler-outline/arrow-right -->
+  <g transform="translate(720.0, 418.0) scale(1.3333333333333333)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M5 12l14 0" />
+    <path d="M13 18l6 -6" />
+    <path d="M13 6l6 6" />
+  </g>
+  </g>
+  
+  <!-- Step 4: Visualize (right) -->
+  <g id="step-visualize">
+    <rect x="780" y="390" width="400" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="820" cy="430" r="20" fill="#000000"/>
+    <text x="820" y="437" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF" text-anchor="middle">4</text>
+    <text x="880" y="425" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Visualize</text>
+    <text x="880" y="455" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Generate charts</text>
+  </g>
+  
+  <!-- Arrow to step 5 -->
+  <g id="arrow-4-5">
+    <path d="M 980 470 L 980 510 L 500 510 L 500 530" fill="none" stroke="#000000" stroke-width="2"/>
+  </g>
+  
+  <!-- Step 5: Export (center-bottom) -->
+  <g id="step-export">
+    <rect x="300" y="530" width="400" height="80" fill="#000000" stroke="#000000" stroke-width="3"/>
+    <circle cx="340" cy="570" r="20" fill="#FFFFFF"/>
+    <text x="340" y="577" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="bold" fill="#000000" text-anchor="middle">5</text>
+    <text x="400" y="565" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF">Export</text>
+    <text x="400" y="595" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#CCCCCC">Produce final PPTX</text>
+  </g>
+  
+  <!-- Success indicator -->
+  <g id="success">
+    <!-- icon: tabler-outline/circle-check -->
+  <g transform="translate(628.0, 640.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
+    <path d="M9 12l2 2l4 -4" />
+  </g>
+  </g>
+</svg>

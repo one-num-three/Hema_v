@@ -1,0 +1,1 @@
+Thank you for your attention. I'd be happy to answer any questions you have about Hermes Agent System.

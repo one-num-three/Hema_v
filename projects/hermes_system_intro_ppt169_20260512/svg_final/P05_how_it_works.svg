@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">How It Works</text>
+    <line x1="60" y1="100" x2="340" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- Step 1: Understand Task -->
+  <g id="step-1">
+    <rect x="200" y="150" width="880" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="250" cy="190" r="24" fill="#000000"/>
+    <text x="250" y="198" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">1</text>
+    <text x="320" y="185" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Understand Task</text>
+    <text x="320" y="215" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Parse user request and identify goals</text>
+  </g>
+  
+  <!-- Arrow 1 -->
+  <g id="arrow-1">
+    <!-- icon: tabler-outline/chevron-down -->
+  <g transform="translate(628.0, 235.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M6 9l6 6l6 -6" />
+  </g>
+  </g>
+  
+  <!-- Step 2: Plan Steps -->
+  <g id="step-2">
+    <rect x="200" y="270" width="880" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="250" cy="310" r="24" fill="#000000"/>
+    <text x="250" y="318" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">2</text>
+    <text x="320" y="305" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Plan Steps</text>
+    <text x="320" y="335" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Break down into executable actions</text>
+  </g>
+  
+  <!-- Arrow 2 -->
+  <g id="arrow-2">
+    <!-- icon: tabler-outline/chevron-down -->
+  <g transform="translate(628.0, 355.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M6 9l6 6l6 -6" />
+  </g>
+  </g>
+  
+  <!-- Step 3: Execute Tools -->
+  <g id="step-3">
+    <rect x="200" y="390" width="880" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="250" cy="430" r="24" fill="#000000"/>
+    <text x="250" y="438" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">3</text>
+    <text x="320" y="425" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Execute Tools</text>
+    <text x="320" y="455" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Run code, search web, read files, call APIs</text>
+  </g>
+  
+  <!-- Arrow 3 -->
+  <g id="arrow-3">
+    <!-- icon: tabler-outline/chevron-down -->
+  <g transform="translate(628.0, 475.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M6 9l6 6l6 -6" />
+  </g>
+  </g>
+  
+  <!-- Step 4: Learn & Remember -->
+  <g id="step-4">
+    <rect x="200" y="510" width="880" height="80" fill="#FFFFFF" stroke="#000000" stroke-width="3"/>
+    <circle cx="250" cy="550" r="24" fill="#000000"/>
+    <text x="250" y="558" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#FFFFFF" text-anchor="middle">4</text>
+    <text x="320" y="545" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000">Learn &amp; Remember</text>
+    <text x="320" y="575" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#666666">Save successful patterns to memory</text>
+  </g>
+  
+  <!-- Arrow 4 (feedback loop) -->
+  <g id="arrow-feedback">
+    <path d="M 1100 550 L 1140 550 L 1140 190 L 1100 190" fill="none" stroke="#CCCCCC" stroke-width="2" stroke-dasharray="8,4"/>
+    <text x="1160" y="380" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#999999">Continuous</text>
+    <text x="1160" y="405" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="18" fill="#999999">Improvement</text>
+  </g>
+</svg>

@@ -132,6 +132,7 @@ set "WAITED=0"
 :wait_webui
 timeout /t 1 /nobreak >nul
 set /a WAITED+=1
+<nul set /p =""
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (

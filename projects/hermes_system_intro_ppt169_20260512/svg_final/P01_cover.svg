@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <defs>
+    <!-- Subtle grid pattern -->
+    <pattern id="grid" width="160" height="90" patternUnits="userSpaceOnUse">
+      <path d="M 160 0 L 0 0 0 90" fill="none" stroke="#F5F5F5" stroke-width="1"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Grid background -->
+  <g id="bg-grid">
+    <rect width="1280" height="720" fill="url(#grid)"/>
+  </g>
+  
+  <!-- Main content -->
+  <g id="cover-content">
+    <!-- Bold frame -->
+    <rect x="200" y="200" width="880" height="320" fill="none" stroke="#000000" stroke-width="6"/>
+    
+    <!-- Pixel-style corner brackets (top-left) -->
+    <path d="M 180 180 L 180 200 L 200 200 M 180 180 L 200 180" stroke="#000000" stroke-width="4" fill="none"/>
+    
+    <!-- Pixel-style corner brackets (top-right) -->
+    <path d="M 1100 180 L 1080 180 L 1080 200 M 1100 180 L 1100 200" stroke="#000000" stroke-width="4" fill="none"/>
+    
+    <!-- Pixel-style corner brackets (bottom-left) -->
+    <path d="M 180 540 L 180 520 L 200 520 M 180 540 L 200 540" stroke="#000000" stroke-width="4" fill="none"/>
+    
+    <!-- Pixel-style corner brackets (bottom-right) -->
+    <path d="M 1100 540 L 1080 540 L 1080 520 M 1100 540 L 1100 520" stroke="#000000" stroke-width="4" fill="none"/>
+    
+    <!-- Main title -->
+    <text x="640" y="320" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="96" font-weight="bold" fill="#000000" text-anchor="middle">HERMES</text>
+    <text x="640" y="400" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="96" font-weight="bold" fill="#000000" text-anchor="middle">AGENT SYSTEM</text>
+    
+    <!-- Subtitle -->
+    <text x="640" y="470" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" fill="#666666" text-anchor="middle">An Intelligent AI Agent Architecture</text>
+  </g>
+  
+  <!-- Footer -->
+  <g id="cover-footer">
+    <line x1="200" y1="600" x2="1080" y2="600" stroke="#CCCCCC" stroke-width="2"/>
+    <text x="640" y="640" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="20" fill="#999999" text-anchor="middle">For Freshman Students | 2026</text>
+  </g>
+</svg>

@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">Challenges</text>
+    <line x1="60" y1="100" x2="280" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- Challenge 1: High Cost -->
+  <g id="challenge-1">
+    <rect x="200" y="160" width="880" height="100" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
+    <!-- icon: tabler-outline/alert-circle -->
+  <g transform="translate(240.0, 190.0) scale(2.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </g>
+    <text x="320" y="210" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000">High Cost</text>
+    <text x="320" y="245" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#666666">Computational resources and API calls are expensive</text>
+  </g>
+  
+  <!-- Challenge 2: Error Chains -->
+  <g id="challenge-2">
+    <rect x="200" y="280" width="880" height="100" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
+    <!-- icon: tabler-outline/alert-circle -->
+  <g transform="translate(240.0, 310.0) scale(2.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </g>
+    <text x="320" y="330" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000">Error Chains</text>
+    <text x="320" y="365" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#666666">Long task sequences can fail at any step</text>
+  </g>
+  
+  <!-- Challenge 3: Bad Memory -->
+  <g id="challenge-3">
+    <rect x="200" y="400" width="880" height="100" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
+    <!-- icon: tabler-outline/alert-circle -->
+  <g transform="translate(240.0, 430.0) scale(2.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </g>
+    <text x="320" y="450" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000">Bad Memory</text>
+    <text x="320" y="485" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#666666">Incorrect experiences persist and affect future decisions</text>
+  </g>
+  
+  <!-- Challenge 4: Security Risks -->
+  <g id="challenge-4">
+    <rect x="200" y="520" width="880" height="100" fill="#FFFFFF" stroke="#CCCCCC" stroke-width="2"/>
+    <!-- icon: tabler-outline/alert-circle -->
+  <g transform="translate(240.0, 550.0) scale(2.0)" fill="none" stroke="#000000" stroke-width="2">
+    <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </g>
+    <text x="320" y="570" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000">Security Risks</text>
+    <text x="320" y="605" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#666666">Tool permissions require careful safeguards</text>
+  </g>
+</svg>

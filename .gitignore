@@ -72,3 +72,5 @@ node_tmp/
 *.7z
 *.msi
 hermes-webui-bundle.7z
+.install-complete
+tools/7za.exe

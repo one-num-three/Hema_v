@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">What is Hermes?</text>
+    <line x1="60" y1="100" x2="400" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- Main content (centered, breathing) -->
+  <g id="definition">
+    <!-- Core definition box -->
+    <rect x="200" y="200" width="880" height="200" fill="none" stroke="#CCCCCC" stroke-width="2"/>
+    
+    <!-- Definition text (large, centered) -->
+    <text x="640" y="270" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="600" fill="#000000" text-anchor="middle">An AI agent that thinks, uses tools,</text>
+    <text x="640" y="320" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="600" fill="#000000" text-anchor="middle">remembers experiences,</text>
+    <text x="640" y="370" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="600" fill="#000000" text-anchor="middle">and continuously learns.</text>
+  </g>
+  
+  <!-- Supporting text -->
+  <g id="comparison">
+    <text x="640" y="480" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" fill="#666666" text-anchor="middle">Unlike chatbots that only talk...</text>
+    <text x="640" y="530" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="28" font-weight="bold" fill="#000000" text-anchor="middle">Hermes completes tasks like a human assistant.</text>
+  </g>
+  
+  <!-- Decorative element -->
+  <g id="decoration">
+    <circle cx="640" cy="600" r="8" fill="#000000"/>
+  </g>
+</svg>

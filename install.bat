@@ -2,6 +2,8 @@
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
 
+if "%HERMES_INSTALLER_NO_PAUSE%"=="" set "HERMES_INSTALLER_NO_PAUSE=0"
+
 :: ============================================
 :: 版本选择 (Lite = Python only, Full = + Node.js + Web UI)
 :: ============================================
@@ -74,10 +76,12 @@ set "TCLTK_URL=https://www.python.org/ftp/python/3.13.12/amd64/tcltk.msi"
 :: ============================================
 :: Step 1: Download Embedded Python
 :: ============================================
-if exist "%PYTHON_EXE%" (
-    echo [OK] Embedded Python already installed.
-    goto :check_pip
-)
+if exist "%PYTHON_EXE%" goto :python_already_installed
+goto :python_need_install
+:python_already_installed
+echo [OK] Embedded Python already installed.
+goto :check_pip
+:python_need_install
 
 echo [STEP 1/10] Downloading Python %PYTHON_VERSION% embedded...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -87,7 +91,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 
 if not exist "%PYTHON_ZIP%" (
     echo ERROR: Failed to download Python. Check your internet connection.
-    pause
+    call :maybe_pause
     exit /b 1
 )
 
@@ -97,7 +101,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 
 if not exist "%PYTHON_EXE%" (
     echo ERROR: Python extraction failed.
-    pause
+    call :maybe_pause
     exit /b 1
 )
 del "%PYTHON_ZIP%" 2>nul
@@ -135,7 +139,7 @@ if %errorlevel% neq 0 (
     "%PYTHON_EXE%" "%PYTHON_DIR%\get-pip.py" --quiet
     if errorlevel 1 (
         echo ERROR: Failed to install pip.
-        pause
+        call :maybe_pause
         exit /b 1
     )
     del "%PYTHON_DIR%\get-pip.py" 2>nul
@@ -167,9 +171,9 @@ if not exist "%PYTHON_DIR%\Lib\tkinter" (
     )
 
     if exist "!TCLTK_MSI!" (
-        :: Use PowerShell Start-Process -Wait for reliable synchronous extraction.
-        :: "start /wait msiexec /a" can return before extraction completes on
-        :: Windows 11 Enterprise with restrictive Group Policy, leaving DLLs absent.
+        rem Use PowerShell Start-Process -Wait for reliable synchronous extraction.
+        rem "start /wait msiexec /a" can return before extraction completes on
+        rem Windows 11 Enterprise with restrictive Group Policy, leaving DLLs absent.
         powershell -NoProfile -ExecutionPolicy Bypass -Command ^
             "Start-Process msiexec.exe -ArgumentList '/a','\"!TCLTK_MSI!\"','/qn','TARGETDIR=\"!TCLTK_TEMP!\"' -Wait -NoNewWindow"
         if exist "!TCLTK_TEMP!\DLLs" (
@@ -301,6 +305,14 @@ echo [OK] Created cli-config.yaml.
 :: Create ~/.hermes directory
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
+rem Create default config.yaml if missing (gateway requires it)
+if not exist "%USERPROFILE%\.hermes\config.yaml" (
+    if exist "%SCRIPT_DIR%\cli-config.yaml.example" (
+        copy "%SCRIPT_DIR%\cli-config.yaml.example" "%USERPROFILE%\.hermes\config.yaml" >nul
+        echo [OK] Created ~/.hermes/config.yaml from template.
+    )
+)
+
 :: Default permissions
 if exist "%USERPROFILE%\.hermes\permissions.json" goto :perms_done
 "%PYTHON_EXE%" -c "import json;json.dump({'read':2,'write':1,'install':1,'execute':2,'remove':1,'network':2},open(r'%USERPROFILE%\.hermes\permissions.json','w'),indent=2)" 2>nul
@@ -418,12 +430,22 @@ if not "%INSTALL_MODE%"=="full" goto :skip_webui
 
 set "WEBUI_DIR=%SCRIPT_DIR%\webui"
 set "WEBUI_SERVER=%WEBUI_DIR%\dist\server\index.js"
+set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
+set "WEBUI_NPM_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.js"
 set "SEVENZIP=%SCRIPT_DIR%\tools\7za.exe"
 set "BUNDLE_VER=0.5.13"
 set "BUNDLE_FILE=%SCRIPT_DIR%\hermes-webui-bundle.7z"
 set "BUNDLE_CDN=http://121.40.165.216/hermes-cdn/files/hermes-webui-bundle-v%BUNDLE_VER%-win-x64.7z"
 
+if not exist "%WEBUI_NPM_SERVER%" goto :webui_check_bundle
+echo [OK] hermes-web-ui v%BUNDLE_VER% already installed (npm mode), skipping.
+goto :skip_webui
+:webui_check_bundle
 if not exist "%WEBUI_SERVER%" goto :webui_need_install
+if exist "%WEBUI_SOCKETIO%" goto :webui_files_ok
+echo [INFO] Detected incomplete Web UI files, reinstalling runtime dependencies...
+goto :webui_need_install
+:webui_files_ok
 echo [OK] hermes-web-ui v%BUNDLE_VER% already installed, skipping.
 goto :skip_webui
 :webui_need_install
@@ -595,5 +617,11 @@ echo.
 :: 标记安装已完成（HermesSetup.exe 用此判断是否需要进入安装界面）
 echo %INSTALL_MODE%>"%SCRIPT_DIR%\.install-complete"
 
-pause
 endlocal
+call :maybe_pause
+goto :eof
+
+:maybe_pause
+if "%HERMES_INSTALLER_NO_PAUSE%"=="1" goto :eof
+pause
+goto :eof

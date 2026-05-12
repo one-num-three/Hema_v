@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720">
+  <!-- Background -->
+  <rect width="1280" height="720" fill="#FFFFFF"/>
+  
+  <!-- Page header -->
+  <g id="header">
+    <text x="60" y="80" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="48" font-weight="bold" fill="#000000">Beyond Chatbots</text>
+    <line x1="60" y1="100" x2="380" y2="100" stroke="#000000" stroke-width="4"/>
+  </g>
+  
+  <!-- Matrix grid structure -->
+  <g id="matrix-grid">
+    <!-- Vertical center line -->
+    <line x1="640" y1="150" x2="640" y2="660" stroke="#000000" stroke-width="4"/>
+    <!-- Horizontal center line -->
+    <line x1="100" y1="405" x2="1180" y2="405" stroke="#000000" stroke-width="4"/>
+    
+    <!-- Column headers -->
+    <text x="370" y="190" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="36" font-weight="bold" fill="#000000" text-anchor="middle">Regular Chatbot</text>
+    <text x="910" y="190" font-family="Montserrat, 'Microsoft YaHei', Arial, sans-serif" font-size="36" font-weight="bold" fill="#000000" text-anchor="middle">Hermes Agent</text>
+  </g>
+  
+  <!-- Top-left: Chatbot Capability -->
+  <g id="cell-chatbot-capability">
+    <text x="370" y="260" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="600" fill="#666666" text-anchor="middle">Capability</text>
+    <text x="370" y="310" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Answers</text>
+    <text x="370" y="350" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Questions</text>
+  </g>
+  
+  <!-- Top-right: Agent Capability -->
+  <g id="cell-agent-capability">
+    <text x="910" y="260" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="600" fill="#666666" text-anchor="middle">Capability</text>
+    <text x="910" y="310" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Completes</text>
+    <text x="910" y="350" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Tasks</text>
+  </g>
+  
+  <!-- Bottom-left: Chatbot Tools -->
+  <g id="cell-chatbot-tools">
+    <text x="370" y="460" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="600" fill="#666666" text-anchor="middle">Tools</text>
+    <text x="370" y="520" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" fill="#000000" text-anchor="middle">None</text>
+    <text x="370" y="580" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#999999" text-anchor="middle">Session-only memory</text>
+    <text x="370" y="620" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#999999" text-anchor="middle">Static knowledge</text>
+  </g>
+  
+  <!-- Bottom-right: Agent Tools -->
+  <g id="cell-agent-tools">
+    <text x="910" y="460" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" font-weight="600" fill="#666666" text-anchor="middle">Tools</text>
+    <text x="910" y="520" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="32" font-weight="bold" fill="#000000" text-anchor="middle">Browser, Python, APIs</text>
+    <text x="910" y="580" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#000000" text-anchor="middle">Long-term memory</text>
+    <text x="910" y="620" font-family="Inter, 'Microsoft YaHei', Arial, sans-serif" font-size="24" fill="#000000" text-anchor="middle">Self-evolving</text>
+  </g>
+</svg>
