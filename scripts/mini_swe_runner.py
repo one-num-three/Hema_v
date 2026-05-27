@@ -14,16 +14,16 @@ Features:
 
 Usage:
     # Run a single task with local environment
-    python mini_swe_runner.py --task "Create a hello world Python script" --env local
+    python scripts/mini_swe_runner.py --task "Create a hello world Python script" --env local
     
     # Run with Docker
-    python mini_swe_runner.py --task "List files in /tmp" --env docker --image python:3.11-slim
+    python scripts/mini_swe_runner.py --task "List files in /tmp" --env docker --image python:3.11-slim
     
     # Run with Modal (cloud)
-    python mini_swe_runner.py --task "Install numpy and test it" --env modal --image python:3.11-slim
+    python scripts/mini_swe_runner.py --task "Install numpy and test it" --env modal --image python:3.11-slim
     
     # Batch mode from JSONL file
-    python mini_swe_runner.py --prompts_file prompts.jsonl --output_file trajectories.jsonl --env docker
+    python scripts/mini_swe_runner.py --prompts_file prompts.jsonl --output_file trajectories.jsonl --env docker
 """
 
 import json
@@ -39,8 +39,22 @@ from typing import List, Dict, Any, Optional, Literal
 import fire
 from dotenv import load_dotenv
 
+SCRIPT_PATH = Path(__file__).resolve()
+
+
+def find_repo_root(start: Path) -> Path:
+    for candidate in (start.parent, *start.parents):
+        if (candidate / "pyproject.toml").exists() and (candidate / "run_agent.py").exists():
+            return candidate
+    return start.parent
+
+
+REPO_ROOT = find_repo_root(SCRIPT_PATH)
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 # Load environment variables
-load_dotenv()
+load_dotenv(REPO_ROOT / ".env")
 
 
 
@@ -644,13 +658,13 @@ def main(
         
     Examples:
         # Single task with local environment
-        python mini_swe_runner.py --task "Create hello.py that prints Hello World"
+        python scripts/mini_swe_runner.py --task "Create hello.py that prints Hello World"
         
         # Single task with Docker
-        python mini_swe_runner.py --task "List files" --env docker
+        python scripts/mini_swe_runner.py --task "List files" --env docker
         
         # Batch from file
-        python mini_swe_runner.py --prompts_file tasks.jsonl --output_file results.jsonl
+        python scripts/mini_swe_runner.py --prompts_file tasks.jsonl --output_file results.jsonl
     """
     print("🚀 Mini-SWE Runner with Hermes Trajectory Format")
     print("=" * 60)
@@ -702,7 +716,7 @@ def main(
     
     else:
         print("❌ Please provide either --task or --prompts_file")
-        print("   Example: python mini_swe_runner.py --task 'Create a hello world script'")
+        print("   Example: python scripts/mini_swe_runner.py --task 'Create a hello world script'")
 
 
 if __name__ == "__main__":

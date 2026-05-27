@@ -24,7 +24,7 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260512-minimax-apps1"
+HEMA_APPS_SCRIPT_VERSION = "20260528-fast-launch2"
 ENABLE_HEMA_APPS = True
 
 
@@ -35,6 +35,15 @@ HEMA_APPS_SCRIPT = r"""
   const CHAT_HASH = "#/hermes/chat";
   const PROMPT_KEY = "hema.pendingAppPrompt";
   const MODE_KEY = "hema.activeAppMode";
+  const STARTUP_OVERLAY_ID = "hema-startup-overlay";
+  const STARTUP_STYLE_ID = "hema-startup-style";
+  const STARTUP_STATE = window.__hemaStartupState || (window.__hemaStartupState = {
+    booted: false,
+    done: false,
+    hiding: false,
+    healthSeen: false,
+    lastStatus: "",
+  });
 
   const apps = [
     {
@@ -75,6 +84,186 @@ HEMA_APPS_SCRIPT = r"""
     { name: "邮件润色", desc: "改写语气、结构和表达方式。", accent: "#be123c" },
     { name: "更多应用", desc: "占位功能，后续按你的业务继续补。", accent: "#64748b" }
   ];
+
+  function ensureStartupStyle() {
+    if (document.getElementById(STARTUP_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STARTUP_STYLE_ID;
+    style.textContent = `
+      #${STARTUP_OVERLAY_ID}{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:
+        radial-gradient(circle at 18% 16%,rgba(37,99,235,.18),transparent 26%),
+        radial-gradient(circle at 82% 20%,rgba(14,116,144,.16),transparent 24%),
+        linear-gradient(145deg,#f8fbff 0%,#eef5fb 48%,#e8eef6 100%);
+        color:#10233a;transition:opacity .42s ease,visibility .42s ease}
+      #${STARTUP_OVERLAY_ID}.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
+      #${STARTUP_OVERLAY_ID} .hema-startup-card{position:relative;overflow:hidden;width:min(520px,calc(100vw - 32px));padding:30px 30px 24px;border-radius:30px;background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.84));border:1px solid rgba(148,163,184,.22);box-shadow:0 30px 80px rgba(15,23,42,.12),inset 0 1px 0 rgba(255,255,255,.6);backdrop-filter:blur(18px)}
+      #${STARTUP_OVERLAY_ID} .hema-startup-card:before{content:"";position:absolute;inset:-30% auto auto -10%;width:220px;height:220px;border-radius:999px;background:radial-gradient(circle,rgba(37,99,235,.18),transparent 68%);filter:blur(8px);animation:hema-float 4.8s ease-in-out infinite}
+      #${STARTUP_OVERLAY_ID} .hema-startup-card:after{content:"";position:absolute;right:-40px;top:-46px;width:170px;height:170px;border-radius:999px;background:radial-gradient(circle,rgba(15,118,110,.16),transparent 70%);filter:blur(8px);animation:hema-float 5.6s ease-in-out infinite reverse}
+      #${STARTUP_OVERLAY_ID} .hema-startup-row{position:relative;display:flex;align-items:center;gap:18px}
+      #${STARTUP_OVERLAY_ID} .hema-startup-logo{position:relative;width:68px;height:68px;flex:0 0 68px;border-radius:22px;background:linear-gradient(145deg,#0f172a 0%,#163760 42%,#1d4ed8 100%);box-shadow:0 18px 40px rgba(29,78,216,.28),inset 0 1px 0 rgba(255,255,255,.18)}
+      #${STARTUP_OVERLAY_ID} .hema-startup-logo:before{content:"";position:absolute;inset:-8px;border-radius:28px;background:conic-gradient(from 180deg,rgba(37,99,235,0) 0deg,rgba(37,99,235,.46) 90deg,rgba(14,116,144,.5) 210deg,rgba(37,99,235,0) 360deg);filter:blur(10px);animation:hema-spin 4.2s linear infinite}
+      #${STARTUP_OVERLAY_ID} .hema-startup-logo:after{content:"";position:absolute;inset:1px;border-radius:21px;border:1px solid rgba(255,255,255,.14)}
+      #${STARTUP_OVERLAY_ID} .hema-startup-logo-mark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;letter-spacing:-.06em;color:#f8fbff;text-shadow:0 6px 20px rgba(255,255,255,.18)}
+      #${STARTUP_OVERLAY_ID} .hema-startup-logo-pulse{position:absolute;inset:-10px;border-radius:30px;border:1px solid rgba(37,99,235,.18);animation:hema-pulse 2.4s ease-out infinite}
+      #${STARTUP_OVERLAY_ID} .hema-startup-kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4f6b8f}
+      #${STARTUP_OVERLAY_ID} .hema-startup-title{margin-top:6px;font-size:27px;font-weight:800;letter-spacing:-.04em;color:#10233a}
+      #${STARTUP_OVERLAY_ID} .hema-startup-text{margin-top:8px;font-size:14px;line-height:1.65;color:#51657e;min-height:24px}
+      #${STARTUP_OVERLAY_ID} .hema-startup-meta{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#70829a}
+      #${STARTUP_OVERLAY_ID} .hema-startup-stage{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:#21466b}
+      #${STARTUP_OVERLAY_ID} .hema-startup-stage-dot{width:8px;height:8px;border-radius:999px;background:linear-gradient(145deg,#2563eb,#0f766e);box-shadow:0 0 0 6px rgba(37,99,235,.10)}
+      #${STARTUP_OVERLAY_ID} .hema-startup-progress{position:relative;margin-top:18px;height:10px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden}
+      #${STARTUP_OVERLAY_ID} .hema-startup-progress-bar{position:absolute;inset:0 auto 0 0;width:18%;border-radius:999px;background:linear-gradient(90deg,#2563eb 0%,#0f766e 52%,#60a5fa 100%);box-shadow:0 0 18px rgba(37,99,235,.28);transition:width .45s ease}
+      #${STARTUP_OVERLAY_ID} .hema-startup-progress-bar:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.72),rgba(255,255,255,0));animation:hema-sheen 1.8s linear infinite}
+      #${STARTUP_OVERLAY_ID} .hema-startup-foot{margin-top:12px;font-size:12px;color:#789}
+      @keyframes hema-spin{to{transform:rotate(360deg)}}
+      @keyframes hema-pulse{0%{transform:scale(.92);opacity:.22}60%{transform:scale(1.06);opacity:.10}100%{transform:scale(1.14);opacity:0}}
+      @keyframes hema-sheen{to{transform:translateX(180%)}}
+      @keyframes hema-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,10px,0)}}
+      @media (max-width:640px){
+        #${STARTUP_OVERLAY_ID} .hema-startup-card{width:min(100vw - 24px,520px);padding:24px 20px 20px;border-radius:24px}
+        #${STARTUP_OVERLAY_ID} .hema-startup-row{align-items:flex-start}
+        #${STARTUP_OVERLAY_ID} .hema-startup-logo{width:58px;height:58px;flex-basis:58px;border-radius:18px}
+        #${STARTUP_OVERLAY_ID} .hema-startup-logo-mark{font-size:24px}
+        #${STARTUP_OVERLAY_ID} .hema-startup-title{font-size:23px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureStartupOverlay() {
+    if (STARTUP_STATE.done) return null;
+    ensureStartupStyle();
+    let overlay = document.getElementById(STARTUP_OVERLAY_ID);
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = STARTUP_OVERLAY_ID;
+    overlay.innerHTML = `
+      <div class="hema-startup-card">
+        <div class="hema-startup-row">
+          <div class="hema-startup-logo" aria-hidden="true">
+            <div class="hema-startup-logo-pulse"></div>
+            <div class="hema-startup-logo-mark">H</div>
+          </div>
+          <div>
+            <div class="hema-startup-kicker">HERMES WEB UI</div>
+            <div class="hema-startup-title">正在启动控制台</div>
+            <div class="hema-startup-text" data-hema-startup-text>正在连接 Hermes 服务…</div>
+          </div>
+        </div>
+        <div class="hema-startup-meta">
+          <div class="hema-startup-stage"><span class="hema-startup-stage-dot"></span><span data-hema-startup-stage>初始化连接</span></div>
+          <div data-hema-startup-percent>18%</div>
+        </div>
+        <div class="hema-startup-progress" aria-hidden="true"><div class="hema-startup-progress-bar" data-hema-startup-progress></div></div>
+        <div class="hema-startup-foot" data-hema-startup-foot>正在准备页面与网关通信。</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function updateStartupOverlay(status, percent, foot) {
+    const overlay = ensureStartupOverlay();
+    if (!overlay) return;
+    const nextStatus = status || STARTUP_STATE.lastStatus || "正在连接 Hermes 服务…";
+    STARTUP_STATE.lastStatus = nextStatus;
+    const nextPercent = Math.max(8, Math.min(100, Number(percent) || 18));
+    const stage = overlay.querySelector("[data-hema-startup-stage]");
+    const text = overlay.querySelector("[data-hema-startup-text]");
+    const progress = overlay.querySelector("[data-hema-startup-progress]");
+    const percentNode = overlay.querySelector("[data-hema-startup-percent]");
+    const footNode = overlay.querySelector("[data-hema-startup-foot]");
+    if (stage) stage.textContent = nextStatus;
+    if (text) text.textContent = nextStatus;
+    if (progress) progress.style.width = nextPercent + "%";
+    if (percentNode) percentNode.textContent = nextPercent + "%";
+    if (footNode && foot) footNode.textContent = foot;
+  }
+
+  function hideStartupOverlay() {
+    const overlay = document.getElementById(STARTUP_OVERLAY_ID);
+    if (!overlay || overlay.dataset.hidden === "1" || STARTUP_STATE.hiding) return;
+    STARTUP_STATE.hiding = true;
+    STARTUP_STATE.done = true;
+    overlay.dataset.hidden = "1";
+    overlay.classList.add("is-hidden");
+    setTimeout(() => {
+      overlay.remove();
+      STARTUP_STATE.hiding = false;
+    }, 460);
+  }
+
+  function isMainUiReady() {
+    return !!(
+      document.querySelector(".chat-input-area") ||
+      document.querySelector("textarea") ||
+      document.querySelector("[contenteditable='true']") ||
+      document.querySelector(".app-main")
+    );
+  }
+
+  function bootStartupOverlay() {
+    if (STARTUP_STATE.booted || STARTUP_STATE.done) return;
+    STARTUP_STATE.booted = true;
+    updateStartupOverlay("正在连接 Hermes 服务…", 18, "正在准备页面与网关通信。");
+    const deadline = Date.now() + 12000;
+    let lastHealthyAt = 0;
+    const poll = async () => {
+      if (STARTUP_STATE.done) return;
+      if (isMainUiReady() && STARTUP_STATE.healthSeen) {
+        updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
+        setTimeout(hideStartupOverlay, 260);
+        return;
+      }
+      try {
+        const res = await fetch("/health", { cache: "no-store" });
+        if (res.ok) {
+          const health = await res.json();
+          STARTUP_STATE.healthSeen = true;
+          lastHealthyAt = Date.now();
+          if (health.gateway === "running") {
+            updateStartupOverlay("即将就绪", 96, "已连接网关，正在恢复当前会话。");
+            if (isMainUiReady()) {
+              setTimeout(hideStartupOverlay, 220);
+              return;
+            }
+          } else {
+            updateStartupOverlay("正在恢复会话", 68, "页面已经连上服务，正在等待网关就绪。");
+          }
+        } else {
+          updateStartupOverlay("正在连接 Hermes 服务…", 34, "服务已响应，但健康检查尚未完成。");
+        }
+      } catch {
+        updateStartupOverlay("正在连接 Hermes 服务…", 22, "正在唤起本地服务，请稍候。");
+      }
+      if (STARTUP_STATE.healthSeen && isMainUiReady() && Date.now() - lastHealthyAt > 800) {
+        updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
+        setTimeout(hideStartupOverlay, 220);
+        return;
+      }
+      if (Date.now() >= deadline) {
+        updateStartupOverlay("即将就绪", 100, "已进入页面，如有需要可继续在页面内自动重连。");
+        hideStartupOverlay();
+        return;
+      }
+      setTimeout(poll, STARTUP_STATE.healthSeen ? 420 : 560);
+    };
+    setTimeout(poll, 100);
+  }
+
+  function dismissStartupOverlaySoon() {
+    if (STARTUP_STATE.done) return;
+    if (!STARTUP_STATE.healthSeen) return;
+    updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
+    setTimeout(hideStartupOverlay, 180);
+  }
+
+  window.addEventListener("pageshow", () => {
+    if (isMainUiReady()) dismissStartupOverlaySoon();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && isMainUiReady()) dismissStartupOverlaySoon();
+  });
 
   function ensureStyle() {
     if (document.getElementById("hema-apps-style")) return;
@@ -600,6 +789,7 @@ HEMA_APPS_SCRIPT = r"""
   }
 
   function render() {
+    ensureStartupOverlay();
     ensureStyle();
     ensureSidebarLink();
     ensureAppModeTag();
@@ -644,6 +834,11 @@ HEMA_APPS_SCRIPT = r"""
   window.addEventListener("load", renderSoon);
   setInterval(renderSoon, 1200);
   try {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bootStartupOverlay, { once: true });
+    } else {
+      bootStartupOverlay();
+    }
     renderSoon();
   } catch (error) {
     console.warn("Hema apps patch disabled after error:", error);
@@ -701,6 +896,64 @@ def patch_webui(filepath: str) -> bool:
             return False
         content = content.replace(responses_marker, "W&&(e.session_id=W);" + responses_marker, 1)
         changed = True
+
+    if 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content and 'this.activeProfile||"default"' in content:
+        print("Gateway UPSTREAM patch already applied")
+    else:
+        old_gateway_port_logic = (
+            'readProfilePort(G){let l=(0,Ml.join)(this.profileDir(G),"config.yaml"),c=Sp==="container"?"hermes-agent":"127.0.0.1";'
+            'if(!(0,yI.existsSync)(l))return{port:8642,host:c};'
+            'try{let b=(0,yI.readFileSync)(l,"utf-8"),W=(_I.load(b)||{})?.platforms?.api_server?.extra,d=W?.port||8642,'
+            'm=typeof d=="number"?d:parseInt(d,10)||8642,N=W?.host||c;return{port:m>0&&m<=65535?m:8642,host:N}}'
+            'catch{return{port:8642,host:c}}}'
+        )
+        new_gateway_port_logic = (
+            'readProfilePort(G){let l=process.env.UPSTREAM?.trim(),c=Sp==="container"?"hermes-agent":"127.0.0.1";'
+            'if(l&&(G||"default")===(this.activeProfile||"default"))try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;'
+            'return{port:Z>0&&Z<=65535?Z:8642,host:W||c}}catch{}'
+            'let b=(0,Ml.join)(this.profileDir(G),"config.yaml");if(!(0,yI.existsSync)(b))return{port:8642,host:c};'
+            'try{let Z=(0,yI.readFileSync)(b,"utf-8"),W=(_I.load(Z)||{})?.platforms?.api_server?.extra,d=W?.port||8642,'
+            'm=typeof d=="number"?d:parseInt(d,10)||8642,N=W?.host||c;return{port:m>0&&m<=65535?m:8642,host:N}}'
+            'catch{return{port:8642,host:c}}}'
+        )
+        if old_gateway_port_logic not in content:
+            print("ERROR: Could not find GatewayManager readProfilePort() call site")
+            return False
+        content = content.replace(old_gateway_port_logic, new_gateway_port_logic, 1)
+        changed = True
+
+    malformed_direct_logs = 'split(/\n?\n/)' in content
+
+    if (
+        "Direct log file listing failed" in content
+        and "Direct log file read failed" in content
+        and not malformed_direct_logs
+    ):
+        print("Direct log file patch already applied")
+    else:
+        new_logs = (
+            'async function Ar(){try{let I=(0,Ml.join)(tI(),"logs"),G={agent:"hermes.log",gateway:"gateway.log",errors:"errors.log"},l=[];if(!(0,yI.existsSync)(I))return l;for(let[c,b]of Object.entries(G)){let Z=(0,Ml.join)(I,b);if(!(0,yI.existsSync)(Z))continue;let W=(0,yI.statSync)(Z),d=W.size<1024?`${W.size}B`:W.size<1024*1024?`${Math.round(W.size/1024)}KB`:`${(W.size/1024/1024).toFixed(1)}MB`;l.push({name:c,size:d,modified:new Date(W.mtimeMs).toISOString().replace("T"," ").slice(0,19)})}return l}catch(I){return s.error(I,"Direct log file listing failed"),[]}}'
+            'async function Lr(I="agent",G=100,l,c,b){try{let Z={agent:"hermes.log",gateway:"gateway.log",errors:"errors.log"},W=Z[I]||`${I}.log`,d=(0,Ml.join)(tI(),"logs",W);if(!(0,yI.existsSync)(d))throw new Error(`Log file not found: ${d}`);let m=(0,yI.readFileSync)(d,"utf-8").split(/\\r?\\n/);if(l){let N=String(l).toLowerCase();m=m.filter(a=>a.toLowerCase().includes(N))}c&&(m=m.filter(N=>N.includes(c))),b&&(m=m.filter(N=>N.includes(b)));let Y=Math.max(1,Number(G)||100);return m.slice(-Y).join(`\\n`)}catch(Z){throw s.error(Z,"Direct log file read failed"),new Error(`Failed to read logs: ${Z.message}`)}}'
+        )
+        logs_pattern = re.compile(
+            r'async function Ar\(\)\{try\{let\{stdout:I\}=await UI\(rI,\["logs","list"\],\{timeout:1e4,\.\.\.BI\}\),G=\[\],l=I\.trim\(\)\.split\(`.*?`\)\.filter\(c=>c\.includes\("\.log"\)\);for\(let c of l\)\{let b=c\.match\(/\^\\s\+\(\\S\+\)\\s\+\(\[\\d\.\]\+\\w\+\)\\s\+\(\.\+\)\$/\);if\(b\)\{let W=b\[1\]\.replace\(/\\\.log\$/,""\);\["agent","errors","gateway"\]\.includes\(W\)&&G\.push\(\{name:W,size:b\[2\],modified:b\[3\]\.trim\(\)\}\)\}\}return G\}catch\(I\)\{return s\.error\(I,"Hermes CLI: logs list failed"\),\[\]\}\}async function Lr\(I="agent",G=100,l,c,b\)\{let Z=\["logs",I,"-n",String\(G\)\];l&&Z\.push\("--level",l\),c&&Z\.push\("--session",c\),b&&Z\.push\("--since",b\);try\{let\{stdout:W\}=await UI\(rI,Z,\{maxBuffer:10485760,timeout:15e3,\.\.\.BI\}\);return W\}catch\(W\)\{throw s\.error\(W,"Hermes CLI: logs read failed"\),new Error\(`Failed to read logs: \$\{W\.message\}`\)\}\}',
+            re.DOTALL,
+        )
+        if logs_pattern.search(content):
+            content = logs_pattern.sub(lambda _m: new_logs, content, count=1)
+        elif malformed_direct_logs:
+            content = content.replace('split(/\n?\n/)', 'split(/\\r?\\n/)', 1)
+        else:
+            print("ERROR: Could not repair Hermes logs patch")
+            return False
+        changed = True
+
+    if not changed:
+        malformed_count = content.count('split(/\n?\n/)')
+        if malformed_count:
+            content = content.replace('split(/\n?\n/)', 'split(/\\r?\\n/)')
+            changed = True
+            print(f"Normalized malformed log regex: {malformed_count}")
 
     if not changed:
         print("Already patched; no change needed")
@@ -771,8 +1024,8 @@ def patch_hema_apps(client_root: Path) -> bool:
         f's.src="/{HEMA_APPS_SCRIPT_NAME}?v={HEMA_APPS_SCRIPT_VERSION}";'
         's.onerror=function(){console.warn("Hema apps failed to load")};'
         'document.body.appendChild(s)}'
-        'if(document.readyState==="complete")setTimeout(load,800);'
-        'else window.addEventListener("load",function(){setTimeout(load,800)},{once:true});'
+        'if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",load,{once:true});'
+        'else load();'
         '})();</script>'
     )
     index, removed = re.subn(

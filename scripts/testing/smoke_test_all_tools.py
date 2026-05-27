@@ -4,14 +4,26 @@ COMPREHENSIVE SMOKE TEST - ALL HERMES TOOLS
 Tests every registered tool via registry.dispatch() with real calls.
 """
 import sys, os, json, time, traceback
+from pathlib import Path
 
 # --- Bootstrap ---
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+SCRIPT_PATH = Path(__file__).resolve()
+
+
+def find_repo_root(start: Path) -> Path:
+    for candidate in (start.parent, *start.parents):
+        if (candidate / "pyproject.toml").exists() and (candidate / "run_agent.py").exists():
+            return candidate
+    return start.parent
+
+
+REPO_ROOT = find_repo_root(SCRIPT_PATH)
+sys.path.insert(0, str(REPO_ROOT))
 from dotenv import load_dotenv
-load_dotenv(".env", encoding="utf-8")
+load_dotenv(REPO_ROOT / ".env", encoding="utf-8")
 
 # Force workspace to a temp dir so file tools don't trash real files
-TEST_WORKSPACE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspace", "_smoke_test")
+TEST_WORKSPACE = str(REPO_ROOT / "workspace" / "_smoke_test")
 os.makedirs(TEST_WORKSPACE, exist_ok=True)
 
 # Import model_tools which triggers all tool discovery

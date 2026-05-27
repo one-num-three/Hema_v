@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
 """Comprehensive test suite for all 45 Hermes custom tools."""
 import sys, os, json, importlib.util, time
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+SCRIPT_PATH = Path(__file__).resolve()
+
+
+def find_repo_root(start: Path) -> Path:
+    for candidate in (start.parent, *start.parents):
+        if (candidate / "pyproject.toml").exists() and (candidate / "run_agent.py").exists():
+            return candidate
+    return start.parent
+
+
+REPO_ROOT = find_repo_root(SCRIPT_PATH)
+sys.path.insert(0, str(REPO_ROOT))
 
 # Load env
 from dotenv import load_dotenv
-load_dotenv(".env", encoding="utf-8")
+load_dotenv(REPO_ROOT / ".env", encoding="utf-8")
 
 sys.modules["tools"] = type(sys)("tools")
-sys.modules["tools"].__path__ = ["tools"]
+sys.modules["tools"].__path__ = [str(REPO_ROOT / "tools")]
 
-spec_reg = importlib.util.spec_from_file_location("tools.registry", "tools/registry.py")
+spec_reg = importlib.util.spec_from_file_location("tools.registry", REPO_ROOT / "tools" / "registry.py")
 mod_reg = importlib.util.module_from_spec(spec_reg)
 sys.modules["tools.registry"] = mod_reg
 spec_reg.loader.exec_module(mod_reg)
@@ -28,7 +40,7 @@ modules = [
     ("tools.workflow_tool", "tools/workflow_tool.py"),
 ]
 for modname, path in modules:
-    spec = importlib.util.spec_from_file_location(modname, path)
+    spec = importlib.util.spec_from_file_location(modname, REPO_ROOT / path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[modname] = mod
     spec.loader.exec_module(mod)

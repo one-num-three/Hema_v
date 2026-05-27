@@ -73,18 +73,18 @@ if exist "%WEBUI_PID_FILE%" (
                     ) else (
                         echo [WARN] Existing Web UI is running but reports gateway disconnected, restarting it...
                         taskkill /F /PID !EXISTING_PID! >nul 2>&1
-                        powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+                        powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
                     )
                 ) else (
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
                     taskkill /F /PID !EXISTING_PID! >nul 2>&1
-                    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+                    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
                 )
             )
         ) else (
             echo [WARN] Existing Web UI PID belongs to another install, restarting it...
             taskkill /F /PID !EXISTING_PID! >nul 2>&1
-            powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+            powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
         )
     )
     del "%WEBUI_PID_FILE%" 2>nul
@@ -98,7 +98,7 @@ if %errorlevel% equ 0 (
         taskkill /F /PID %%p >nul 2>&1
         echo [INFO] Killed PID %%p that held port %WEBUI_PORT%
     )
-    powershell -NoProfile -Command "Start-Sleep -Seconds 2" >nul 2>&1
+    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
 )
 
 :: Verify port is now free
@@ -187,7 +187,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
     "$cmd='""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
     "$p=Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
-    "Start-Sleep -Seconds 1;" ^
+    "Start-Sleep -Milliseconds 300;" ^
     "Write-Output $p.Id"') do (
     if not defined WEBUI_WRAPPER_PID set "WEBUI_WRAPPER_PID=%%p"
 )
@@ -202,8 +202,8 @@ if not defined WEBUI_WRAPPER_PID (
     exit /b 1
 )
 
-:: Capture PID after 1s
-powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
+:: Capture PID after a short settle delay
+powershell -NoProfile -Command "Start-Sleep -Milliseconds 300" >nul 2>&1
 for /f %%p in ('powershell -NoProfile -Command ^
     "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
     "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -and $_.CommandLine.Contains($server) } | Sort-Object CreationDate -Descending | Select-Object -First 1 -ExpandProperty ProcessId"') do (
@@ -215,11 +215,11 @@ if defined WEBUI_PID (
     echo [INFO] Web UI PID: !WEBUI_PID!
 )
 
-:: Poll /health up to 30 seconds
-set "MAX_WAIT=30"
+:: Poll /health up to 20 seconds
+set "MAX_WAIT=40"
 set "WAITED=0"
 :wait_webui
-powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
+powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
 set /a WAITED+=1
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
@@ -238,7 +238,7 @@ if %errorlevel% equ 0 (
     goto :open_browser
 )
 if %WAITED% LSS %MAX_WAIT% goto :wait_webui
-echo [WARN] Web UI did not respond in %MAX_WAIT%s.
+echo [WARN] Web UI did not respond within the startup window.
 echo        Check log: %WEBUI_LOG%
 echo.
 echo [DIAG] Expected files:
@@ -258,32 +258,10 @@ pause
 exit /b 1
 
 :open_browser
-call "%SCRIPT_DIR%start_hermes_gateway.bat"
-if errorlevel 1 (
-    echo [ERROR] Gateway is not running, browser will not be opened.
-    echo         Web UI would show "not connected" without the gateway.
-    pause
-    exit /b 1
-)
 call :is_webui_gateway_connected
 if errorlevel 1 (
-    echo [WARN] Web UI is up but still reports gateway disconnected; waiting briefly...
-    set "CONNECT_WAITED=0"
-:wait_webui_gateway
-    powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
-    set /a CONNECT_WAITED+=1
-    call :is_webui_gateway_connected
-    if !errorlevel! equ 0 goto :open_browser_ready
-    if !CONNECT_WAITED! LSS 10 goto :wait_webui_gateway
-    echo [ERROR] Web UI still reports gateway disconnected after !CONNECT_WAITED!s.
-    echo         Gateway health:
-    powershell -NoProfile -Command "try{(Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing).Content}catch{$_.Exception.Message}" 2>nul
-    echo         Web UI health:
-    powershell -NoProfile -Command "try{(Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing).Content}catch{$_.Exception.Message}" 2>nul
-    pause
-    exit /b 1
+    echo [INFO] Web UI page is opening now; Hermes connection will finish in the page.
 )
-:open_browser_ready
 :: Open local Web UI. Auth is disabled for localhost in this launcher.
 set "BROWSER_URL=http://localhost:%WEBUI_PORT%/"
 echo [INFO] Opening browser: %BROWSER_URL%
