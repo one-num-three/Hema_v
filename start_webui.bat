@@ -111,14 +111,17 @@ if exist "%WEBUI_PID_FILE%" (
                     )
                 ) else (
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
+                    del "%WEBUI_PID_FILE%" 2>nul
+                    del "%WEBUI_MODE_FILE%" 2>nul
                     taskkill /F /PID !EXISTING_PID! >nul 2>&1
-                    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
+                    ping 127.0.0.1 -n 2 >nul 2>&1
                 )
             )
         ) else (
             echo [WARN] Existing Web UI PID belongs to another install, restarting it...
+            del "%WEBUI_PID_FILE%" 2>nul
             taskkill /F /PID !EXISTING_PID! >nul 2>&1
-            powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
+            ping 127.0.0.1 -n 2 >nul 2>&1
         )
     )
     del "%WEBUI_PID_FILE%" 2>nul
@@ -131,8 +134,7 @@ if %errorlevel% equ 0 (
     for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
         taskkill /F /PID %%p >nul 2>&1
         echo [INFO] Killed PID %%p that held port %WEBUI_PORT%
-    )
-    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
+    ping 127.0.0.1 -n 2 >nul 2>&1
 )
 
 :: Verify port is now free
@@ -240,7 +242,7 @@ if not defined WEBUI_WRAPPER_PID (
 )
 
 :: Capture PID after a short settle delay
-powershell -NoProfile -Command "Start-Sleep -Milliseconds 300" >nul 2>&1
+ping 127.0.0.1 -n 2 >nul 2>&1
 for /f %%p in ('powershell -NoProfile -Command ^
     "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
     "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'node.exe' -and $_.CommandLine -and $_.CommandLine.Contains($server) } | Sort-Object CreationDate -Descending | Select-Object -First 1 -ExpandProperty ProcessId"') do (
@@ -383,7 +385,7 @@ for /l %%i in (1,1,2) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0
-    powershell -NoProfile -Command "Start-Sleep -Milliseconds 150" >nul 2>&1
+    ping 127.0.0.1 -n 2 >nul 2>&1
 )
 echo [WARN] Launcher page server did not start in time, browser will open WebUI directly.
 set "WEBUI_LAUNCHER_PORT="
