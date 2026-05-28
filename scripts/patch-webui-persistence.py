@@ -77,6 +77,19 @@ def patch_webui(filepath: str) -> bool:
         content = content.replace(responses_marker, "W&&(e.session_id=W);" + responses_marker, 1)
         changed = True
 
+    if 'PYTHONIOENCODING:"utf-8"' in content and 'PYTHONUTF8:"1"' in content:
+        print("UTF-8 child process patch already applied")
+    else:
+        old_exec_opts = 'UI=(0,Jr.promisify)(PY.execFile),BI={windowsHide:!0},'
+        new_exec_opts = 'UI=(0,Jr.promisify)(PY.execFile),BI={windowsHide:!0,env:{...process.env,PYTHONIOENCODING:"utf-8",PYTHONUTF8:"1"}},'
+        if old_exec_opts in content:
+            content = content.replace(old_exec_opts, new_exec_opts, 1)
+            changed = True
+            print("Patched UTF-8 child process env")
+        else:
+            print("ERROR: Could not find child process exec options")
+            return False
+
     if 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content and 'this.activeProfile||"default"' in content:
         print("Gateway UPSTREAM patch already applied")
     else:
@@ -127,6 +140,37 @@ def patch_webui(filepath: str) -> bool:
             print("ERROR: Could not repair Hermes logs patch")
             return False
         changed = True
+
+    old_profile_list_bundle = (
+        'async function kr(){try{let{stdout:I}=await UI(rI,["profile","list"],{timeout:1e4,...BI}),G=I.trim().split(`\\r\\n`).filter(Boolean),l=[];for(let c of G){if(c.startsWith(" Profile")||c.match(/^ ─/))continue;let b=c.match(/^\\s+(◆)?(.+?)\\s+(\\S+)\\s{2,}(\\S+)\\s{2,}(.*)$/);b&&l.push({name:b[2],active:!!b[1],model:b[3],gateway:b[4],alias:b[5].trim()==="\\u2014"?"":b[5].trim()})}return l}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
+    )
+    profile_list_bundle = (
+        'async function kr(){try{let I=require("fs"),G=require("path"),l=require("os"),'
+        'b=G.resolve(l.homedir(),".hermes"),Z=G.join(b,"active_profile"),W=G.join(b,"profiles"),d=I.existsSync(Z)?I.readFileSync(Z,"utf-8").trim()||"default":"default",'
+        'm=a=>{let Y=G.join(a,"config.yaml");if(!I.existsSync(Y))return"";try{let n=I.readFileSync(Y,"utf-8"),V=n.match(/(?:^|\\r?\\n)model:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+default:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);if(V?.[1])return V[1].trim();let e=n.match(/^model:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);return e?.[1]?e[1].trim():""}catch{return""}},'
+        'N=a=>I.existsSync(G.join(a,"gateway.pid"))?"running":"stopped",V=[{name:"default",active:d==="default",model:m(b),gateway:N(b),alias:""}];'
+        'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:N(Y),alias:a.name})}'
+        'return V.sort((a,Y)=>a.name==="default"?-1:Y.name==="default"?1:a.name.localeCompare(Y.name))}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
+    )
+    if old_profile_list_bundle in content:
+        content = content.replace(old_profile_list_bundle, profile_list_bundle, 1)
+        changed = True
+        print("Patched bundled profile list reader")
+
+    gateway_profiles_bundle = (
+        'async listProfiles(){let G=["default"],l=(0,Ml.join)(Op,"profiles");'
+        'if((0,yI.existsSync)(l))for(let c of(0,yI.readdirSync)(l,{withFileTypes:!0}))c.isDirectory()&&G.push(c.name);'
+        'return Array.from(new Set(G)).sort((c,b)=>c==="default"?-1:b==="default"?1:c.localeCompare(b))}'
+    )
+    gateway_profiles_pattern = re.compile(
+        r'async listProfiles\(\)\{try\{let\{stdout:G\}=await vY\(\$d,\["profile","list"\],\{timeout:1e4,windowsHide:!0\}\),l=\[\];for\(let c of G\.trim\(\)\.split\(`.*?`\)\)\{if\(c\.startsWith\(" Profile"\)\|\|c\.match\(/\^ .*?/\)\)continue;let b=c\.match\(/.*?/\);b&&l\.push\(b\[1\]\)\}return l\}catch\{.*?return G\}\}',
+        re.DOTALL,
+    )
+    if 'await vY($d,["profile","list"]' in content:
+        content, replacements = gateway_profiles_pattern.subn(lambda _m: gateway_profiles_bundle, content, count=1)
+        if replacements:
+            changed = True
+            print("Patched bundled GatewayManager profile discovery")
 
     if '"/__hema/shutdown-all"' in content and "Shutting down Web UI and gateway" in content:
         print("Shutdown-all route patch already applied")
@@ -254,6 +298,58 @@ def patch_app_bundle(filepath: str) -> bool:
     return True
 
 
+def patch_router_bundle(filepath: str) -> bool:
+    path = Path(filepath)
+    if not path.exists():
+        print(f"Router bundle not found, skipping: {path}")
+        return True
+
+    content = path.read_text(encoding="utf-8", errors="replace")
+    changed = False
+
+    old_profile_header = (
+        'const l=ee();l&&l!=="default"&&(n["X-Hermes-Profile"]=l);'
+    )
+    new_profile_header = (
+        'const l=ee();l&&l!=="default"&&!e.startsWith("/api/hermes/profiles")&&(n["X-Hermes-Profile"]=l);'
+    )
+    if new_profile_header in content:
+        print("Router profile header patch already applied")
+    elif old_profile_header in content:
+        content = content.replace(old_profile_header, new_profile_header, 1)
+        changed = True
+        print("Patched router profile header handling")
+    else:
+        print("ERROR: Could not find router profile header call site")
+        return False
+
+    old_delete_store = (
+        'async function O(r){const s=await W(r);return s&&(delete n.value[r],await i()),s}'
+    )
+    new_delete_store = (
+        'async function O(r){let s=await W(r);'
+        'if(s){delete n.value[r],e.value=e.value.filter(m=>m.name!==r),t.value?.name===r&&(t.value=e.value.find(m=>m.active)??null),'
+        'a.value===r&&(a.value="default",localStorage.removeItem(p)),await i();return!0}'
+        'return await i(),!e.value.some(m=>m.name===r)}'
+    )
+    if new_delete_store in content:
+        print("Router delete profile patch already applied")
+    elif old_delete_store in content:
+        content = content.replace(old_delete_store, new_delete_store, 1)
+        changed = True
+        print("Patched router delete profile flow")
+    else:
+        print("ERROR: Could not find router delete profile call site")
+        return False
+
+    if not changed:
+        return True
+
+    path.write_text(content, encoding="utf-8")
+    print(f"Patched router bundle: {path}")
+    return True
+
+
 def patch_hema_apps(client_root: Path) -> bool:
     script_path = client_root / HEMA_APPS_SCRIPT_NAME
     index_path = client_root / "index.html"
@@ -377,6 +473,8 @@ def patch_install(root: Path) -> bool:
         ok = patch_webui(str(server_target)) and ok
         ok = patch_weixin_route(server_target.parent) and ok
         client_root = server_target.parents[1] / "client" / "assets" / "js"
+        for router_target in client_root.glob("router-*.js"):
+            ok = patch_router_bundle(str(router_target)) and ok
         for client_target in client_root.glob("index-*.js"):
             ok = patch_client(str(client_target)) and ok
         for app_target in client_root.glob("app-*.js"):

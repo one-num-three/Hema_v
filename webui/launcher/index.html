@@ -122,6 +122,21 @@
       animation: sheen 1.8s linear infinite;
     }
     .foot { margin-top: 12px; font-size: 12px; color: #789; }
+    .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .actions button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      cursor: pointer;
+      background: rgba(37,99,235,.10);
+      color: #143a66;
+      box-shadow: 0 8px 20px rgba(15,23,42,.08);
+    }
+    .actions button.primary {
+      background: linear-gradient(90deg, #2563eb, #0f766e);
+      color: #fff;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes pulse {
       0% { transform: scale(.92); opacity: .22; }
@@ -161,6 +176,10 @@
     </div>
     <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
     <div class="foot" id="footText">正在准备页面与网关通信。</div>
+    <div class="actions">
+      <button type="button" id="retryBtn">重新检测</button>
+      <button type="button" class="primary" id="enterBtn">直接进入</button>
+    </div>
   </div>
   <script>
     const params = new URLSearchParams(location.search);
@@ -181,9 +200,12 @@
     const percent = document.getElementById("percentText");
     const bar = document.getElementById("bar");
     const foot = document.getElementById("footText");
+    const enterBtn = document.getElementById("enterBtn");
+    const retryBtn = document.getElementById("retryBtn");
 
     let attempts = 0;
     let redirected = false;
+    let webuiUpStreak = 0;
     const MAX_WEBUI_ATTEMPTS = 70;
     const MAX_GATEWAY_ATTEMPTS = 90;
 
@@ -207,12 +229,20 @@
           return;
         }
         if (data.webui_up) {
+          webuiUpStreak += 1;
+          if (webuiUpStreak >= 2) {
+            paint("控制台已启动", 90, "已经检测到 8648 页面可访问，正在直接进入控制台。");
+            redirected = true;
+            setTimeout(() => location.replace(targetUrl), 180);
+            return;
+          }
           if (attempts >= MAX_GATEWAY_ATTEMPTS) {
             paint("已打开页面但仍未连接", 66, "Web UI 已启动，但网关没有连上。请返回检查 Hermes gateway 是否正常运行。");
             return;
           }
           paint(...(attempts > 2 ? stages.restore : stages.connect));
         } else {
+          webuiUpStreak = 0;
           if (attempts >= MAX_WEBUI_ATTEMPTS) {
             paint("未检测到本地服务", 42, "没有发现 8648 服务。请确认你是从完整安装目录启动，或重新运行 install.bat full。");
             return;
@@ -228,6 +258,18 @@
       }
       setTimeout(probe, 450);
     }
+
+    enterBtn.addEventListener("click", () => {
+      redirected = true;
+      location.replace(targetUrl);
+    });
+    retryBtn.addEventListener("click", () => {
+      attempts = 0;
+      webuiUpStreak = 0;
+      redirected = false;
+      paint(...stages.boot);
+      setTimeout(probe, 80);
+    });
 
     paint(...stages.boot);
     window.addEventListener("beforeunload", () => {

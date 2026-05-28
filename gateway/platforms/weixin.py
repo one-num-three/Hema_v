@@ -166,7 +166,7 @@ class WeixinAdapter(BasePlatformAdapter):
     async def _post_json(self, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
         if not self._client:
             raise RuntimeError("Weixin client is not connected")
-        response = await self._client.post(path, json=body)
+        response = await asyncio.wait_for(self._client.post(path, json=body), timeout=45.0)
         response.raise_for_status()
         data = response.json()
         if isinstance(data, dict) and data.get("ret") not in (None, 0):
