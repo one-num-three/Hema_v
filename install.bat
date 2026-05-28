@@ -81,7 +81,7 @@ if exist "%WHEELS_DIR%" (
 
 set "PYTHON_VERSION=3.13.12"
 set "PYTHON_URL=https://www.python.org/ftp/python/3.13.12/python-3.13.12-embed-amd64.zip"
-set "PYTHON_ZIP=%SCRIPT_DIR%python_embedded.zip"
+set "PYTHON_ZIP=%SCRIPT_DIR%\python_embedded.zip"
 set "TCLTK_URL=https://www.python.org/ftp/python/3.13.12/amd64/tcltk.msi"
 
 :: ============================================
@@ -259,7 +259,7 @@ if %errorlevel% equ 0 (
 :: Step 6b: Create run_py.sh helper (Unix line endings!)
 :: ============================================
 echo [STEP 6b] Creating Python helper script...
-"%PYTHON_EXE%" -c "f=open(r'%SCRIPT_DIR%run_py.sh','wb');f.write(b'#!/bin/bash\n\"$(dirname \"$0\")/python_embedded/python.exe\" \"$@\"\n');f.close()"
+"%PYTHON_EXE%" -c "f=open(r'%SCRIPT_DIR%\run_py.sh','wb');f.write(b'#!/bin/bash\n\"$(dirname \"$0\")/python_embedded/python.exe\" \"$@\"\n');f.close()"
 echo [OK] run_py.sh created.
 
 :: ============================================
@@ -361,7 +361,7 @@ echo [OK] Python dependencies installed.
 rem Pre-compile project source to .pyc so the gateway starts ~10s faster on
 rem cold boot (Python no longer needs to parse .py files at import time).
 echo        Pre-compiling Python bytecode...
-"%PYTHON_EXE%" -m compileall -q "%SCRIPT_DIR%hermes_cli" "%SCRIPT_DIR%gateway" "%SCRIPT_DIR%tools" 2>nul
+"%PYTHON_EXE%" -m compileall -q "%SCRIPT_DIR%\hermes_cli" "%SCRIPT_DIR%\gateway" "%SCRIPT_DIR%\tools" 2>nul
 echo [OK] Python bytecode pre-compiled.
 
 :: ============================================
