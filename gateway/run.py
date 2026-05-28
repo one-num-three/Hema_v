@@ -1062,8 +1062,17 @@ class GatewayRunner:
         startup_nonretryable_errors: list[str] = []
         startup_retryable_errors: list[str] = []
         
-        # Initialize and connect each configured platform
-        for platform, platform_config in self.config.platforms.items():
+        # Initialize and connect each configured platform.
+        # API_SERVER must come first: it provides the /health endpoint that
+        # the WebUI launcher polls. Every other adapter connects to an
+        # external service and can take 5-30 s each; keeping them after
+        # API_SERVER means the health endpoint is available in ~1-2 s instead
+        # of after all platforms have finished connecting (60-90 s cold start).
+        _sorted_platforms = sorted(
+            self.config.platforms.items(),
+            key=lambda kv: 0 if kv[0] == Platform.API_SERVER else 1,
+        )
+        for platform, platform_config in _sorted_platforms:
             if not platform_config.enabled:
                 continue
             enabled_platform_count += 1
@@ -5113,6 +5122,13 @@ class GatewayRunner:
 
             adapter = self.adapters.get(source.platform)
             if not adapter:
+                return
+
+            # Platforms that don't support edit_message (WeChat, Signal, Email, …)
+            # can't use the "send once + keep editing" model.  Falling through would
+            # produce a separate chat message for every tool call, flooding the user.
+            # Skip progress display entirely; the final response is still sent normally.
+            if type(adapter).edit_message is BasePlatformAdapter.edit_message:
                 return
 
             progress_lines = []      # Accumulated tool lines

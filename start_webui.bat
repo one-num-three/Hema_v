@@ -57,14 +57,12 @@ if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" (
     "%PATCH_PY%" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
 )
 
-call :start_launcher_page
-call :open_launcher_browser
-
-:: Kick the gateway in the background when needed, but do not block the browser.
-:: The page already has its own startup animation and can wait for gateway there.
+rem Start the gateway FIRST so it has maximum time to initialize while the
+rem browser launcher page is loading. The gateway is the main bottleneck
+rem on cold first-run (Python import + platform adapter setup).
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
 powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+    "try{Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
 ) else (
@@ -79,6 +77,9 @@ if %errorlevel% equ 0 (
         "$work=[IO.Path]::GetFullPath('%SCRIPT_DIR%');" ^
         "Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
 )
+
+call :start_launcher_page
+call :open_launcher_browser
 
 :: Local desktop launcher: Web UI binds to localhost, so auth is disabled by default.
 :: If you expose the Web UI to LAN/Internet later, re-enable auth and use HTTPS.
@@ -292,10 +293,10 @@ powershell -NoProfile -Command ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
-rem Wait up to 30s. Embedded Python cold-starts can take 10-20s on new machines.
-rem If the server never comes up, clear WEBUI_LAUNCHER_PORT so open_launcher_browser
-rem falls back to opening the Web UI directly on port %WEBUI_PORT%.
-for /l %%i in (1,1,60) do (
+rem Wait up to 10s. The gateway was already kicked off above; the launcher
+rem page server just needs enough time for Python to start its HTTP listener.
+rem If it misses the window, open_launcher_browser falls back to direct URL.
+for /l %%i in (1,1,20) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0

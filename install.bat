@@ -294,6 +294,12 @@ if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
 
 echo [OK] Python dependencies installed.
 
+rem Pre-compile project source to .pyc so the gateway starts ~10s faster on
+rem cold boot (Python no longer needs to parse .py files at import time).
+echo        Pre-compiling Python bytecode...
+"%PYTHON_EXE%" -m compileall -q "%SCRIPT_DIR%hermes_cli" "%SCRIPT_DIR%gateway" "%SCRIPT_DIR%tools" 2>nul
+echo [OK] Python bytecode pre-compiled.
+
 :: ============================================
 :: Step 8: Node.js dependencies
 :: ============================================
