@@ -1,4 +1,4 @@
-"""
+﻿"""
 Post-build patch for hermes-web-ui bundled files.
 
 The upstream Web UI can finish a run without persisting assistant messages to
@@ -36,235 +36,46 @@ HEMA_APPS_SCRIPT = r"""
   const PROMPT_KEY = "hema.pendingAppPrompt";
   const MODE_KEY = "hema.activeAppMode";
   const SHUTDOWN_MODAL_ID = "hema-shutdown-modal";
-  const STARTUP_OVERLAY_ID = "hema-startup-overlay";
-  const STARTUP_STYLE_ID = "hema-startup-style";
-  const STARTUP_STATE = window.__hemaStartupState || (window.__hemaStartupState = {
-    booted: false,
-    done: false,
-    hiding: false,
-    healthSeen: false,
-    lastStatus: "",
-  });
 
   const apps = [
     {
-      name: "制作/修改PPT",
-      desc: "调用 ppt-master skill，强调叙事结构、设计系统和可编辑高质量页面。",
+      name: "??/??PPT",
+      desc: "?? ppt-master skill??????????????????????",
       accent: "#2563eb",
       action: "ppt"
     },
     {
-      name: "Nature 科研套件",
-      desc: "论文阅读、润色、引文、科研绘图、审稿回复和 paper-to-PPT。",
+      name: "Nature ????",
+      desc: "????????????????????? paper-to-PPT?",
       accent: "#0f766e",
       action: "nature"
     },
     {
-      name: "PDF 排版",
-      desc: "调用 minimax-pdf，创建、填写或重排可打印 PDF 文档。",
+      name: "PDF ??",
+      desc: "?? minimax-pdf???????????? PDF ???",
       accent: "#dc2626",
       action: "minimax-pdf"
     },
     {
-      name: "表格处理",
-      desc: "调用 minimax-xlsx，读取、分析、编辑和验证 Excel 表格。",
+      name: "????",
+      desc: "?? minimax-xlsx???????????? Excel ???",
       accent: "#ca8a04",
       action: "minimax-xlsx"
     },
     {
-      name: "Word 文档",
-      desc: "调用 minimax-docx，创建、编辑、套模板和规范化排版 DOCX。",
+      name: "Word ??",
+      desc: "?? minimax-docx???????????????? DOCX?",
       accent: "#9333ea",
       action: "minimax-docx"
     },
-    { name: "代码助手", desc: "解释、修改和排查代码问题。", accent: "#334155" },
-    { name: "工作计划", desc: "把目标拆成任务清单和执行顺序。", accent: "#16a34a" },
-    { name: "日报周报", desc: "根据素材生成简洁汇报文本。", accent: "#ea580c" },
-    { name: "合同检查", desc: "提取风险点和待确认条款。", accent: "#7c3aed" },
-    { name: "知识库问答", desc: "围绕已有资料做检索和问答。", accent: "#0891b2" },
-    { name: "邮件润色", desc: "改写语气、结构和表达方式。", accent: "#be123c" },
-    { name: "更多应用", desc: "占位功能，后续按你的业务继续补。", accent: "#64748b" }
+    { name: "????", desc: "?????????????", accent: "#334155" },
+    { name: "????", desc: "???????????????", accent: "#16a34a" },
+    { name: "????", desc: "?????????????", accent: "#ea580c" },
+    { name: "????", desc: "????????????", accent: "#7c3aed" },
+    { name: "?????", desc: "?????????????", accent: "#0891b2" },
+    { name: "????", desc: "?????????????", accent: "#be123c" },
+    { name: "????", desc: "????????????????", accent: "#64748b" }
   ];
-
-  function ensureStartupStyle() {
-    if (document.getElementById(STARTUP_STYLE_ID)) return;
-    const style = document.createElement("style");
-    style.id = STARTUP_STYLE_ID;
-    style.textContent = `
-      #${STARTUP_OVERLAY_ID}{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:
-        radial-gradient(circle at 18% 16%,rgba(37,99,235,.18),transparent 26%),
-        radial-gradient(circle at 82% 20%,rgba(14,116,144,.16),transparent 24%),
-        linear-gradient(145deg,#f8fbff 0%,#eef5fb 48%,#e8eef6 100%);
-        color:#10233a;transition:opacity .42s ease,visibility .42s ease}
-      #${STARTUP_OVERLAY_ID}.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
-      #${STARTUP_OVERLAY_ID} .hema-startup-card{position:relative;overflow:hidden;width:min(520px,calc(100vw - 32px));padding:30px 30px 24px;border-radius:30px;background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(255,255,255,.84));border:1px solid rgba(148,163,184,.22);box-shadow:0 30px 80px rgba(15,23,42,.12),inset 0 1px 0 rgba(255,255,255,.6);backdrop-filter:blur(18px)}
-      #${STARTUP_OVERLAY_ID} .hema-startup-card:before{content:"";position:absolute;inset:-30% auto auto -10%;width:220px;height:220px;border-radius:999px;background:radial-gradient(circle,rgba(37,99,235,.18),transparent 68%);filter:blur(8px);animation:hema-float 4.8s ease-in-out infinite}
-      #${STARTUP_OVERLAY_ID} .hema-startup-card:after{content:"";position:absolute;right:-40px;top:-46px;width:170px;height:170px;border-radius:999px;background:radial-gradient(circle,rgba(15,118,110,.16),transparent 70%);filter:blur(8px);animation:hema-float 5.6s ease-in-out infinite reverse}
-      #${STARTUP_OVERLAY_ID} .hema-startup-row{position:relative;display:flex;align-items:center;gap:18px}
-      #${STARTUP_OVERLAY_ID} .hema-startup-logo{position:relative;width:68px;height:68px;flex:0 0 68px;border-radius:22px;background:linear-gradient(145deg,#0f172a 0%,#163760 42%,#1d4ed8 100%);box-shadow:0 18px 40px rgba(29,78,216,.28),inset 0 1px 0 rgba(255,255,255,.18)}
-      #${STARTUP_OVERLAY_ID} .hema-startup-logo:before{content:"";position:absolute;inset:-8px;border-radius:28px;background:conic-gradient(from 180deg,rgba(37,99,235,0) 0deg,rgba(37,99,235,.46) 90deg,rgba(14,116,144,.5) 210deg,rgba(37,99,235,0) 360deg);filter:blur(10px);animation:hema-spin 4.2s linear infinite}
-      #${STARTUP_OVERLAY_ID} .hema-startup-logo:after{content:"";position:absolute;inset:1px;border-radius:21px;border:1px solid rgba(255,255,255,.14)}
-      #${STARTUP_OVERLAY_ID} .hema-startup-logo-mark{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;letter-spacing:-.06em;color:#f8fbff;text-shadow:0 6px 20px rgba(255,255,255,.18)}
-      #${STARTUP_OVERLAY_ID} .hema-startup-logo-pulse{position:absolute;inset:-10px;border-radius:30px;border:1px solid rgba(37,99,235,.18);animation:hema-pulse 2.4s ease-out infinite}
-      #${STARTUP_OVERLAY_ID} .hema-startup-kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#4f6b8f}
-      #${STARTUP_OVERLAY_ID} .hema-startup-title{margin-top:6px;font-size:27px;font-weight:800;letter-spacing:-.04em;color:#10233a}
-      #${STARTUP_OVERLAY_ID} .hema-startup-text{margin-top:8px;font-size:14px;line-height:1.65;color:#51657e;min-height:24px}
-      #${STARTUP_OVERLAY_ID} .hema-startup-meta{margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;color:#70829a}
-      #${STARTUP_OVERLAY_ID} .hema-startup-stage{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:#21466b}
-      #${STARTUP_OVERLAY_ID} .hema-startup-stage-dot{width:8px;height:8px;border-radius:999px;background:linear-gradient(145deg,#2563eb,#0f766e);box-shadow:0 0 0 6px rgba(37,99,235,.10)}
-      #${STARTUP_OVERLAY_ID} .hema-startup-progress{position:relative;margin-top:18px;height:10px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden}
-      #${STARTUP_OVERLAY_ID} .hema-startup-progress-bar{position:absolute;inset:0 auto 0 0;width:18%;border-radius:999px;background:linear-gradient(90deg,#2563eb 0%,#0f766e 52%,#60a5fa 100%);box-shadow:0 0 18px rgba(37,99,235,.28);transition:width .45s ease}
-      #${STARTUP_OVERLAY_ID} .hema-startup-progress-bar:after{content:"";position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.72),rgba(255,255,255,0));animation:hema-sheen 1.8s linear infinite}
-      #${STARTUP_OVERLAY_ID} .hema-startup-foot{margin-top:12px;font-size:12px;color:#789}
-      @keyframes hema-spin{to{transform:rotate(360deg)}}
-      @keyframes hema-pulse{0%{transform:scale(.92);opacity:.22}60%{transform:scale(1.06);opacity:.10}100%{transform:scale(1.14);opacity:0}}
-      @keyframes hema-sheen{to{transform:translateX(180%)}}
-      @keyframes hema-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,10px,0)}}
-      @media (max-width:640px){
-        #${STARTUP_OVERLAY_ID} .hema-startup-card{width:min(100vw - 24px,520px);padding:24px 20px 20px;border-radius:24px}
-        #${STARTUP_OVERLAY_ID} .hema-startup-row{align-items:flex-start}
-        #${STARTUP_OVERLAY_ID} .hema-startup-logo{width:58px;height:58px;flex-basis:58px;border-radius:18px}
-        #${STARTUP_OVERLAY_ID} .hema-startup-logo-mark{font-size:24px}
-        #${STARTUP_OVERLAY_ID} .hema-startup-title{font-size:23px}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function ensureStartupOverlay() {
-    if (STARTUP_STATE.done) return null;
-    ensureStartupStyle();
-    let overlay = document.getElementById(STARTUP_OVERLAY_ID);
-    if (overlay) return overlay;
-    overlay = document.createElement("div");
-    overlay.id = STARTUP_OVERLAY_ID;
-    overlay.innerHTML = `
-      <div class="hema-startup-card">
-        <div class="hema-startup-row">
-          <div class="hema-startup-logo" aria-hidden="true">
-            <div class="hema-startup-logo-pulse"></div>
-            <div class="hema-startup-logo-mark">H</div>
-          </div>
-          <div>
-            <div class="hema-startup-kicker">HERMES WEB UI</div>
-            <div class="hema-startup-title">正在启动控制台</div>
-            <div class="hema-startup-text" data-hema-startup-text>正在连接 Hermes 服务…</div>
-          </div>
-        </div>
-        <div class="hema-startup-meta">
-          <div class="hema-startup-stage"><span class="hema-startup-stage-dot"></span><span data-hema-startup-stage>初始化连接</span></div>
-          <div data-hema-startup-percent>18%</div>
-        </div>
-        <div class="hema-startup-progress" aria-hidden="true"><div class="hema-startup-progress-bar" data-hema-startup-progress></div></div>
-        <div class="hema-startup-foot" data-hema-startup-foot>正在准备页面与网关通信。</div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    return overlay;
-  }
-
-  function updateStartupOverlay(status, percent, foot) {
-    const overlay = ensureStartupOverlay();
-    if (!overlay) return;
-    const nextStatus = status || STARTUP_STATE.lastStatus || "正在连接 Hermes 服务…";
-    STARTUP_STATE.lastStatus = nextStatus;
-    const nextPercent = Math.max(8, Math.min(100, Number(percent) || 18));
-    const stage = overlay.querySelector("[data-hema-startup-stage]");
-    const text = overlay.querySelector("[data-hema-startup-text]");
-    const progress = overlay.querySelector("[data-hema-startup-progress]");
-    const percentNode = overlay.querySelector("[data-hema-startup-percent]");
-    const footNode = overlay.querySelector("[data-hema-startup-foot]");
-    if (stage) stage.textContent = nextStatus;
-    if (text) text.textContent = nextStatus;
-    if (progress) progress.style.width = nextPercent + "%";
-    if (percentNode) percentNode.textContent = nextPercent + "%";
-    if (footNode && foot) footNode.textContent = foot;
-  }
-
-  function hideStartupOverlay() {
-    const overlay = document.getElementById(STARTUP_OVERLAY_ID);
-    if (!overlay || overlay.dataset.hidden === "1" || STARTUP_STATE.hiding) return;
-    STARTUP_STATE.hiding = true;
-    STARTUP_STATE.done = true;
-    overlay.dataset.hidden = "1";
-    overlay.classList.add("is-hidden");
-    setTimeout(() => {
-      overlay.remove();
-      STARTUP_STATE.hiding = false;
-    }, 460);
-  }
-
-  function isMainUiReady() {
-    return !!(
-      document.querySelector(".chat-input-area") ||
-      document.querySelector("textarea") ||
-      document.querySelector("[contenteditable='true']") ||
-      document.querySelector(".app-main")
-    );
-  }
-
-  function bootStartupOverlay() {
-    if (STARTUP_STATE.booted || STARTUP_STATE.done) return;
-    STARTUP_STATE.booted = true;
-    updateStartupOverlay("正在连接 Hermes 服务…", 18, "正在准备页面与网关通信。");
-    const deadline = Date.now() + 12000;
-    let lastHealthyAt = 0;
-    const poll = async () => {
-      if (STARTUP_STATE.done) return;
-      if (isMainUiReady() && STARTUP_STATE.healthSeen) {
-        updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
-        setTimeout(hideStartupOverlay, 260);
-        return;
-      }
-      try {
-        const res = await fetch("/health", { cache: "no-store" });
-        if (res.ok) {
-          const health = await res.json();
-          STARTUP_STATE.healthSeen = true;
-          lastHealthyAt = Date.now();
-          if (health.gateway === "running") {
-            updateStartupOverlay("即将就绪", 96, "已连接网关，正在恢复当前会话。");
-            if (isMainUiReady()) {
-              setTimeout(hideStartupOverlay, 220);
-              return;
-            }
-          } else {
-            updateStartupOverlay("正在恢复会话", 68, "页面已经连上服务，正在等待网关就绪。");
-          }
-        } else {
-          updateStartupOverlay("正在连接 Hermes 服务…", 34, "服务已响应，但健康检查尚未完成。");
-        }
-      } catch {
-        updateStartupOverlay("正在连接 Hermes 服务…", 22, "正在唤起本地服务，请稍候。");
-      }
-      if (STARTUP_STATE.healthSeen && isMainUiReady() && Date.now() - lastHealthyAt > 800) {
-        updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
-        setTimeout(hideStartupOverlay, 220);
-        return;
-      }
-      if (Date.now() >= deadline) {
-        updateStartupOverlay("即将就绪", 100, "已进入页面，如有需要可继续在页面内自动重连。");
-        hideStartupOverlay();
-        return;
-      }
-      setTimeout(poll, STARTUP_STATE.healthSeen ? 420 : 560);
-    };
-    setTimeout(poll, 100);
-  }
-
-  function dismissStartupOverlaySoon() {
-    if (STARTUP_STATE.done) return;
-    if (!STARTUP_STATE.healthSeen) return;
-    updateStartupOverlay("即将就绪", 100, "界面已准备完成。");
-    setTimeout(hideStartupOverlay, 180);
-  }
-
-  window.addEventListener("pageshow", () => {
-    if (isMainUiReady()) dismissStartupOverlaySoon();
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && isMainUiReady()) dismissStartupOverlaySoon();
-  });
 
   function ensureStyle() {
     if (document.getElementById("hema-apps-style")) return;
@@ -276,186 +87,6 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-link:hover{background-color:rgba(var(--accent-primary-rgb), .06)!important;color:var(--text-primary)!important}
       .hema-app-link.active{background-color:rgba(var(--accent-primary-rgb), .12)!important;color:var(--accent-primary)!important}
       .hema-app-link .nav-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 18px}
-      .hema-app-link svg{width:18px;height:18px;stroke-width:1.8}
-      .hema-app-link .nav-label{line-height:1}
-      .hema-more-link .nav-icon{font-size:18px;font-weight:700;letter-spacing:.08em}
-      .sidebar.collapsed .hema-app-link,.collapsed .hema-app-link{justify-content:center!important;gap:0!important;padding:10px 4px!important}
-      .sidebar.collapsed .hema-app-link .nav-label,.collapsed .hema-app-link .nav-label{display:none!important}
-      .hema-apps-view{position:absolute;inset:0;z-index:40;background:#fff;display:none;overflow:auto}
-      .hema-apps-view.is-open{display:block}
-      .hema-apps-shell{max-width:none;margin:0;padding:42px 48px 56px}
-      .hema-apps-kicker{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9a9a9a;margin-bottom:8px}
-      .hema-apps-title{font-size:30px;font-weight:700;color:#171717;margin:0}
-      .hema-apps-subtitle{font-size:14px;color:#7a7a7a;margin:10px 0 26px;max-width:720px;line-height:1.7}
-      .hema-apps-grid{display:grid;grid-template-columns:repeat(4,minmax(154px,1fr));gap:16px}
-      .hema-app-card{height:208px;border:1px solid #e9e9e9;border-radius:16px;background:#fff;overflow:hidden;text-align:left;padding:0;cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,.045);transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
-      .hema-app-card:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,23,42,.09);border-color:#dcdcdc;background:#fdfdfd}
-      .hema-app-shot{height:62%;position:relative;background:linear-gradient(145deg,#f8fafc,#edf1f6);overflow:hidden}
-      .hema-app-shot:before{content:"";position:absolute;left:17px;right:17px;top:18px;bottom:18px;border-radius:14px;background:#fff;border:1px solid rgba(15,23,42,.06);box-shadow:0 12px 28px rgba(15,23,42,.08)}
-      .hema-app-shot:after{content:"";position:absolute;left:34px;right:34px;top:43px;height:9px;border-radius:99px;background:linear-gradient(90deg,var(--hema-accent),rgba(148,163,184,.26));box-shadow:0 26px 0 rgba(148,163,184,.15),0 52px 0 rgba(148,163,184,.10)}
-      .hema-app-orb{position:absolute;right:30px;bottom:26px;width:54px;height:34px;border-radius:12px;background:color-mix(in srgb,var(--hema-accent) 72%,white);opacity:.86;box-shadow:0 10px 24px rgba(15,23,42,.12)}
-      .hema-app-body{height:38%;border-top:1px solid #eeeeee;padding:13px 15px 12px;box-sizing:border-box}
-      .hema-app-name{font-size:14px;font-weight:650;color:#202020;margin-bottom:5px}
-      .hema-app-desc{font-size:12px;line-height:1.45;color:#8d8d8d;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-      .hema-app-modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.28);z-index:90;display:none;align-items:center;justify-content:center}
-      .hema-app-modal-mask.is-open{display:flex}
-      .hema-app-modal{width:min(560px,calc(100vw - 32px));background:#fff;border-radius:20px;box-shadow:0 26px 80px rgba(15,23,42,.24);padding:24px}
-      .hema-app-modal h3{font-size:20px;margin:0 0 8px;color:#171717}
-      .hema-app-modal p{font-size:13px;color:#777;margin:0 0 14px;line-height:1.6}
-      .hema-nature-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:2px 0 14px}
-      .hema-nature-option{border:1px solid #e5e7eb;border-radius:12px;background:#fafafa;color:#333;text-align:left;padding:9px 10px;cursor:pointer;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}
-      .hema-nature-option strong{display:block;font-size:12px;font-weight:700;color:#202020;margin-bottom:2px}
-      .hema-nature-option span{display:block;font-size:11px;color:#8b8b8b;line-height:1.35}
-      .hema-nature-option.is-selected{border-color:#0f766e;background:rgba(15,118,110,.08);box-shadow:0 0 0 3px rgba(15,118,110,.08)}
-      .hema-app-modal textarea{width:100%;height:148px;border:1px solid #ddd;border-radius:14px;padding:12px 14px;resize:vertical;font:14px/1.5 inherit;box-sizing:border-box;outline:none}
-      .hema-app-modal textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
-      .hema-app-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
-      .hema-app-actions button{border:0;border-radius:12px;padding:10px 16px;font-size:14px;cursor:pointer}
-      .hema-app-cancel{background:#f2f2f2;color:#444}
-      .hema-app-send{background:#171717;color:#fff}
-      .hema-app-toast{position:fixed;right:24px;bottom:24px;z-index:100;background:#171717;color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;display:none}
-      .hema-app-toast.is-open{display:block}
-      .hema-app-mode-tag{display:flex;align-items:center;justify-content:space-between;gap:10px;width:max-content;max-width:100%;margin:0 0 8px;padding:6px 8px 6px 10px;border:1px solid rgba(37,99,235,.22);border-radius:999px;background:rgba(37,99,235,.08);color:#1f3f8f;font-size:12px;line-height:1.2}
-      .hema-app-mode-tag strong{font-weight:650;color:#1d2d5f}
-      .hema-app-mode-tag button{width:18px;height:18px;border:0;border-radius:999px;background:rgba(37,99,235,.12);color:#1f3f8f;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:18px;padding:0}
-      .hema-app-mode-tag button:hover{background:rgba(37,99,235,.2)}
-      .hema-shutdown-modal-mask{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.36);backdrop-filter:blur(8px)}
-      .hema-shutdown-modal-mask.is-open{display:flex}
-      .hema-shutdown-modal{width:min(520px,calc(100vw - 28px));padding:26px 24px 22px;border-radius:24px;background:linear-gradient(180deg,#fff,#f9fbfd);box-shadow:0 30px 80px rgba(15,23,42,.22);border:1px solid rgba(148,163,184,.2)}
-      .hema-shutdown-kicker{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#6b7f95;font-weight:700}
-      .hema-shutdown-title{margin-top:8px;font-size:26px;line-height:1.1;font-weight:800;color:#132238}
-      .hema-shutdown-text{margin-top:10px;font-size:14px;line-height:1.7;color:#5b6b80}
-      .hema-shutdown-card{margin-top:18px;padding:16px 16px 14px;border-radius:18px;background:linear-gradient(145deg,rgba(255,245,245,.96),rgba(255,250,250,.98));border:1px solid rgba(239,68,68,.14)}
-      .hema-shutdown-card-title{font-size:14px;font-weight:700;color:#8f1d1d}
-      .hema-shutdown-hint{margin-top:7px;font-size:12px;line-height:1.6;color:#9a5757}
-      .hema-shutdown-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
-      .hema-shutdown-actions button{border:0;border-radius:12px;padding:10px 15px;font-size:14px;cursor:pointer}
-      .hema-shutdown-cancel{background:#eef2f7;color:#435469}
-      .hema-shutdown-confirm{background:linear-gradient(135deg,#b91c1c,#dc2626);color:#fff;box-shadow:0 10px 24px rgba(220,38,38,.24)}
-      .hema-shutdown-confirm[disabled]{opacity:.7;cursor:wait}
-      .hema-exit-overlay{position:fixed;inset:0;z-index:140;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at top,rgba(37,99,235,.12),transparent 30%),linear-gradient(180deg,#f8fbff 0%,#eef4fb 48%,#e7eef5 100%)}
-      .hema-exit-card{width:min(460px,calc(100vw - 32px));padding:28px 28px 24px;border-radius:28px;background:rgba(255,255,255,.9);border:1px solid rgba(148,163,184,.2);box-shadow:0 24px 70px rgba(15,23,42,.12);text-align:center}
-      .hema-exit-spinner{width:56px;height:56px;margin:0 auto 14px;border-radius:999px;border:3px solid rgba(37,99,235,.12);border-top-color:#2563eb;border-right-color:#0f766e;animation:hema-spin 1s linear infinite}
-      .hema-exit-title{font-size:24px;font-weight:800;color:#132238}
-      .hema-exit-text{margin-top:8px;font-size:14px;line-height:1.7;color:#607286}
-      @media (max-width:1100px){.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
-      @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}.hema-nature-options{grid-template-columns:1fr}}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function icon() {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
-  }
-
-  function moreIcon() {
-    return '<span aria-hidden="true">···</span>';
-  }
-
-  function ensureSidebarLink() {
-    const relay = document.querySelector(".nav-item.fun-link");
-    if (!relay) return;
-    let link = document.querySelector(".hema-app-link");
-    if (link && link.dataset.hemaAppsReady === "1") return;
-    if (!link) {
-      link = document.createElement("a");
-      relay.insertAdjacentElement("afterend", link);
-    }
-    for (const attr of Array.from(relay.attributes)) {
-      if (attr.name.startsWith("data-v-")) {
-        link.setAttribute(attr.name, attr.value);
-      }
-    }
-    link.className = "nav-item hema-app-link";
-    link.href = APPS_HASH;
-    link.innerHTML = `<span class="nav-icon">${icon()}</span><span class="nav-label">应用</span>`;
-    const scopeAttr = Array.from(link.attributes).find((attr) => attr.name.startsWith("data-v-"));
-    if (scopeAttr) {
-      for (const child of link.querySelectorAll("span, svg")) {
-        child.setAttribute(scopeAttr.name, scopeAttr.value);
-      }
-    }
-    if (link.__hemaAppsClickBound) return;
-    link.__hemaAppsClickBound = true;
-    link.dataset.hemaAppsReady = "1";
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      window.location.hash = APPS_HASH;
-      render();
-    });
-  }
-
-  function ensureMoreLink() {
-    const appsLink = document.querySelector(".hema-app-link");
-    const relay = document.querySelector(".nav-item.fun-link");
-    const anchor = appsLink || relay;
-    if (!anchor) return;
-    let link = document.querySelector(".hema-more-link");
-    if (link && link.dataset.hemaMoreReady === "1") return;
-    if (!link) {
-      link = document.createElement("a");
-      anchor.insertAdjacentElement("afterend", link);
-    }
-    for (const attr of Array.from(anchor.attributes)) {
-      if (attr.name.startsWith("data-v-")) {
-        link.setAttribute(attr.name, attr.value);
-      }
-    }
-    link.className = "nav-item hema-app-link hema-more-link";
-    link.href = "#";
-    link.innerHTML = `<span class="nav-icon">${moreIcon()}</span><span class="nav-label">更多</span>`;
-    const scopeAttr = Array.from(link.attributes).find((attr) => attr.name.startsWith("data-v-"));
-    if (scopeAttr) {
-      for (const child of link.querySelectorAll("span")) {
-        child.setAttribute(scopeAttr.name, scopeAttr.value);
-      }
-    }
-    if (link.__hemaMoreClickBound) return;
-    link.__hemaMoreClickBound = true;
-    link.dataset.hemaMoreReady = "1";
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      openShutdownModal();
-    });
-  }
-
-  function card(app, index) {
-    return `
-      <button class="hema-app-card" data-action="${app.action || "mock"}" style="--hema-accent:${app.accent}">
-        <div class="hema-app-shot" aria-hidden="true"><span class="hema-app-orb"></span></div>
-        <div class="hema-app-body">
-          <div class="hema-app-name">${app.name}</div>
-          <div class="hema-app-desc">${app.desc}</div>
-        </div>
-      </button>
-    `;
-  }
-
-  function ensureView() {
-    let view = document.querySelector(".hema-apps-view");
-    const main = document.querySelector(".app-main");
-    if (!main) return null;
-    if (!view) {
-      view = document.createElement("section");
-      view.className = "hema-apps-view";
-      view.innerHTML = `
-        <div class="hema-apps-shell">
-          <div class="hema-apps-kicker">Hema Apps</div>
-          <h1 class="hema-apps-title">应用</h1>
-          <p class="hema-apps-subtitle">把常用能力做成入口。已上线 PPT、Nature 科研套件、PDF、表格和 Word 文档，其它功能先占位，后面按真实工作流补齐。</p>
-          <div class="hema-apps-grid">${apps.map(card).join("")}</div>
-        </div>
-      `;
-    }
-    if (view.parentElement !== main) main.appendChild(view);
-    if (!view.__hemaAppsClickBound) {
-      view.__hemaAppsClickBound = true;
-      view.addEventListener("click", (event) => {
-        const item = event.target.closest(".hema-app-card");
-        if (!item) return;
-        if (item.dataset.action === "ppt") openPptModal();
-        else if (item.dataset.action === "nature") openNatureModal();
-        else if (item.dataset.action && item.dataset.action.startsWith("minimax-")) openMiniMaxModal(item.dataset.action);
         else toast("这个应用还是占位，我们后面再一起定。");
       });
     }
@@ -942,7 +573,7 @@ HEMA_APPS_SCRIPT = r"""
   }
 
   function render() {
-    ensureStartupOverlay();
+
     ensureStyle();
     ensureSidebarLink();
     ensureMoreLink();
@@ -988,11 +619,6 @@ HEMA_APPS_SCRIPT = r"""
   window.addEventListener("load", renderSoon);
   setInterval(renderSoon, 1200);
   try {
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", bootStartupOverlay, { once: true });
-    } else {
-      bootStartupOverlay();
-    }
     renderSoon();
   } catch (error) {
     console.warn("Hema apps patch disabled after error:", error);
