@@ -263,12 +263,22 @@ powershell -NoProfile -Command ^
 echo [STEP 7/%TOTAL_STEPS%] Installing Python dependencies...
 echo        (this may take several minutes on first run)
 
-:: Main package (清华镜像 + 显示进度，避免用户以为卡住)
+:: Main package — three-level fallback so partial network failures don't leave
+:: a broken install.  Every level is tested; on total failure we abort clearly.
 echo        Installing core package...
 "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 if errorlevel 1 (
     echo [WARN] Editable install failed, trying requirements.txt...
     "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    if errorlevel 1 (
+        echo [WARN] requirements.txt install also failed, installing critical packages individually...
+        "%PYTHON_EXE%" -m pip install pyyaml python-dotenv openai rich httpx tenacity prompt_toolkit requests jinja2 "pydantic>=2.0" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+        if errorlevel 1 (
+            echo [ERROR] All install methods failed. Check your network and rerun install.bat.
+            pause
+            exit /b 1
+        )
+    )
 )
 
 :: Guarantee the project root is on sys.path regardless of editable-install outcome.
@@ -291,6 +301,50 @@ if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
 
 :: Extra packages needed for Windows GUI
 "%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+
+:: ── Import-level verification for packages that crash Hermes at startup ──────
+:: Any pip step above can partially fail (network glitch, write lock, etc.).
+:: We import-test each critical package and repair on the spot; still broken →
+:: hard exit so the user sees a clear error now, not a cryptic crash later.
+echo        Verifying critical runtime packages...
+
+"%PYTHON_EXE%" -c "import yaml" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] pyyaml missing -- repairing...
+    "%PYTHON_EXE%" -m pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -c "import yaml" >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] pyyaml could not be installed. Check network and rerun install.bat.
+        pause
+        exit /b 1
+    )
+)
+
+"%PYTHON_EXE%" -c "import dotenv" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] python-dotenv missing -- repairing...
+    "%PYTHON_EXE%" -m pip install python-dotenv -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -c "import dotenv" >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] python-dotenv could not be installed. Check network and rerun install.bat.
+        pause
+        exit /b 1
+    )
+)
+
+"%PYTHON_EXE%" -c "import openai" >nul 2>&1
+if errorlevel 1 (
+    echo [WARN] openai missing -- repairing...
+    "%PYTHON_EXE%" -m pip install openai -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -c "import openai" >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] openai could not be installed. Check network and rerun install.bat.
+        pause
+        exit /b 1
+    )
+)
+echo [OK] Critical runtime packages verified.
+:: ─────────────────────────────────────────────────────────────────────────────
 
 echo [OK] Python dependencies installed.
 
