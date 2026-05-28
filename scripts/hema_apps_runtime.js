@@ -81,8 +81,6 @@
         .hema-app-card h3{margin:0;color:var(--text-primary);font-size:16px;font-weight:700}
         .hema-app-card p{margin:10px 0 0;color:var(--text-secondary);font-size:13px;line-height:1.75}
         .hema-apps-kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#5b7aa3}
-        .hema-apps-meta{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
-        .hema-app-pill{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid rgba(148,163,184,.16);font-size:12px;color:var(--text-secondary)}
         .hema-app-modal-mask,.hema-shutdown-modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:9998;padding:16px}
         .hema-app-modal-mask.is-open,.hema-shutdown-modal-mask.is-open{display:flex}
         .hema-app-modal,.hema-shutdown-modal{width:min(720px,calc(100vw - 32px));background:var(--bg-card);border-radius:24px;padding:24px;border:1px solid rgba(var(--accent-primary-rgb),.12);box-shadow:0 28px 80px rgba(15,23,42,.24)}
@@ -102,7 +100,10 @@
         .hema-minimax-lines li+li{margin-top:6px}
         .hema-app-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(14px);background:rgba(15,23,42,.92);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;opacity:0;pointer-events:none;transition:all .18s ease;z-index:10000}
         .hema-app-toast.is-open{opacity:1;transform:translateX(-50%) translateY(0)}
-        .hema-mode-tag{display:inline-flex;align-items:center;gap:6px;margin-right:8px;padding:6px 10px;border-radius:999px;background:rgba(var(--accent-primary-rgb), .08);color:var(--text-primary);font-size:12px}
+        .hema-mode-tag{display:inline-flex;align-items:center;gap:8px;margin-right:8px;padding:6px 8px 6px 10px;border-radius:999px;background:rgba(var(--accent-primary-rgb), .08);color:var(--text-primary);font-size:12px}
+        .hema-mode-tag strong{font-weight:700}
+        .hema-mode-tag-close{width:20px;height:20px;border:0;border-radius:999px;background:rgba(var(--accent-primary-rgb), .10);color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;padding:0}
+        .hema-mode-tag-close:hover{background:rgba(var(--accent-primary-rgb), .16);color:var(--text-primary)}
         .hema-shutdown-kicker{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--text-muted);text-transform:uppercase}
         .hema-shutdown-card{margin-top:16px;padding:16px;border-radius:18px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.12)}
         .hema-shutdown-card-title{font-size:16px;font-weight:700;color:var(--text-primary)}
@@ -238,11 +239,6 @@
             <div class="hema-apps-kicker">Apps Workspace</div>
             <div class="hema-apps-title">应用</div>
             <div class="hema-apps-sub">把常见任务收成快捷入口。点开后我会帮你补全更明确的提示词，再带回聊天继续执行；适合直接做 PPT、科研、PDF、表格和 Word 工作流。</div>
-            <div class="hema-apps-meta">
-              <span class="hema-app-pill">简约渐变视图</span>
-              <span class="hema-app-pill">保留左侧导航</span>
-              <span class="hema-app-pill">点击卡片后继续进入聊天</span>
-            </div>
           </div>
         </div>
         <div class="hema-app-grid"></div>
@@ -573,12 +569,21 @@
     function ensureAppModeTag() {
       const inputWrap = findChatInput()?.closest("form, .input-wrapper, .chat-input-area, .message-input") || document.querySelector(".chat-input-area, form");
       if (!inputWrap) return;
-      inputWrap.querySelector(".hema-mode-tag")?.remove();
+      let tag = inputWrap.querySelector(".hema-mode-tag");
+      tag?.remove();
       const mode = getAppMode();
       if (!mode?.name) return;
-      const tag = document.createElement("div");
+      tag = document.createElement("div");
       tag.className = "hema-mode-tag";
-      tag.innerHTML = `<span>当前应用</span><strong>${mode.name}</strong>`;
+      tag.innerHTML = `<span>当前应用</span><strong>${mode.name}</strong><button class="hema-mode-tag-close" type="button" aria-label="关闭应用模式" title="关闭应用模式">×</button>`;
+      tag.querySelector(".hema-mode-tag-close")?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setAppMode(null);
+        localStorage.removeItem(PROMPT_KEY);
+        ensureAppModeTag();
+        toast("已退出应用模式。");
+      });
       inputWrap.prepend(tag);
     }
 
@@ -631,11 +636,13 @@
     }
 
     document.addEventListener("click", (event) => {
-      const link = event.target?.closest ? event.target.closest("a") : null;
-      if (link && !link.classList.contains("hema-app-link")) {
-        closeAppsView();
-        setTimeout(renderSoon, 0);
-      }
+      const target = event.target?.closest ? event.target.closest("a, button") : null;
+      if (!target) return;
+      if (target.closest(".hema-apps-view")) return;
+      if (target.closest(".hema-app-modal-mask, .hema-shutdown-modal-mask")) return;
+      if (target.classList.contains("hema-app-link")) return;
+      closeAppsView();
+      setTimeout(renderSoon, 0);
     }, true);
 
     window.addEventListener("hashchange", renderSoon);
