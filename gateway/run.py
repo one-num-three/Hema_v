@@ -5964,8 +5964,42 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     )
     cron_thread.start()
     
+    # Start config file watcher to automatically restart on .env / config.yaml change
+    async def _config_watcher():
+        cfg_path = _hermes_home / 'config.yaml'
+        mtimes = {}
+        for p, path in [("env", _env_path), ("cfg", cfg_path)]:
+            if path.exists():
+                mtimes[p] = path.stat().st_mtime
+        while True:
+            await asyncio.sleep(2)
+            changed = False
+            for p, path in [("env", _env_path), ("cfg", cfg_path)]:
+                if path.exists():
+                    current = path.stat().st_mtime
+                    if p not in mtimes:
+                        mtimes[p] = current
+                    elif current != mtimes[p]:
+                        changed = True
+                        break
+            if changed:
+                logger.info("Configuration file changed. Restarting gateway...")
+                try:
+                    for h in logging.getLogger().handlers[:]:
+                        h.close()
+                        logging.getLogger().removeHandler(h)
+                except Exception:
+                    pass
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+                sys.exit(0)
+
+    watcher_task = asyncio.create_task(_config_watcher())
+
     # Wait for shutdown
-    await runner.wait_for_shutdown()
+    try:
+        await runner.wait_for_shutdown()
+    finally:
+        watcher_task.cancel()
 
     if runner.should_exit_with_failure:
         if runner.exit_reason:

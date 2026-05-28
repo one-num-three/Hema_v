@@ -207,7 +207,7 @@
     let redirected = false;
     let webuiUpStreak = 0;
     const MAX_WEBUI_ATTEMPTS = 70;
-    const MAX_GATEWAY_ATTEMPTS = 90;
+    const MAX_GATEWAY_ATTEMPTS = 120;  // 120 × 450ms ≈ 54s — enough for first-run Python startup
 
     function paint(label, value, footnote) {
       text.textContent = label;
@@ -230,14 +230,15 @@
         }
         if (data.webui_up) {
           webuiUpStreak += 1;
-          if (webuiUpStreak >= 2) {
-            paint("控制台已启动", 90, "已经检测到 8648 页面可访问，正在直接进入控制台。");
-            redirected = true;
-            setTimeout(() => location.replace(targetUrl), 180);
-            return;
-          }
+          // Do NOT redirect here just because webui is up — always wait for
+          // gateway_running first.  On a new machine the Python gateway can
+          // take 15-30 s to start; redirecting early leaves the user stuck
+          // on "未连接" with no auto-recovery.
           if (attempts >= MAX_GATEWAY_ATTEMPTS) {
             paint("已打开页面但仍未连接", 66, "Web UI 已启动，但网关没有连上。请返回检查 Hermes gateway 是否正常运行。");
+            // Give up waiting and redirect anyway so the user can at least see the UI.
+            redirected = true;
+            setTimeout(() => location.replace(targetUrl), 2000);
             return;
           }
           paint(...(attempts > 2 ? stages.restore : stages.connect));
