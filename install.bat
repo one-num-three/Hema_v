@@ -69,6 +69,10 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set "PYTHON_DIR=%SCRIPT_DIR%\python_embedded"
 set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 
+:: pip mirror — primary: Tsinghua (fast in CN); fallbacks: Aliyun, USTC, official PyPI
+:: --extra-index-url lets pip try all sources; if one returns 403/timeout the others work.
+set "PIP_MIRROR=-i https://pypi.tuna.tsinghua.edu.cn/simple --extra-index-url https://mirrors.aliyun.com/pypi/simple/ --extra-index-url https://mirrors.ustc.edu.cn/pypi/simple/ --extra-index-url https://pypi.org/simple/"
+
 set "PYTHON_VERSION=3.13.12"
 set "PYTHON_URL=https://www.python.org/ftp/python/3.13.12/python-3.13.12-embed-amd64.zip"
 set "PYTHON_ZIP=%SCRIPT_DIR%python_embedded.zip"
@@ -183,7 +187,7 @@ if %errorlevel% neq 0 (
 :: Step 4: Install setuptools (needed for editable installs)
 :: ============================================
 echo [STEP 4/%TOTAL_STEPS%] Installing build tools...
-"%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+"%PYTHON_EXE%" -m pip install setuptools wheel !PIP_MIRROR! --no-warn-script-location
 
 :: ============================================
 :: Step 5: Install Tkinter (GUI support)
@@ -266,13 +270,13 @@ echo        (this may take several minutes on first run)
 :: Main package — three-level fallback so partial network failures don't leave
 :: a broken install.  Every level is tested; on total failure we abort clearly.
 echo        Installing core package...
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\." !PIP_MIRROR! --no-warn-script-location
 if errorlevel 1 (
     echo [WARN] Editable install failed, trying requirements.txt...
-    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install -r "%SCRIPT_DIR%\requirements.txt" !PIP_MIRROR! --no-warn-script-location
     if errorlevel 1 (
         echo [WARN] requirements.txt install also failed, installing critical packages individually...
-        "%PYTHON_EXE%" -m pip install pyyaml python-dotenv openai rich httpx tenacity prompt_toolkit requests jinja2 "pydantic>=2.0" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+        "%PYTHON_EXE%" -m pip install pyyaml python-dotenv openai rich httpx tenacity prompt_toolkit requests jinja2 "pydantic>=2.0" !PIP_MIRROR! --no-warn-script-location
         if errorlevel 1 (
             echo [ERROR] All install methods failed. Check your network and rerun install.bat.
             pause
@@ -292,15 +296,15 @@ echo [OK] hermes_project.pth created.
 
 :: All optional extras
 echo        Installing optional extras (messaging, cron, mcp...)
-"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+"%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\.[messaging,cron,cli,mcp,honcho,pty,tts-premium,homeassistant]" !PIP_MIRROR! --no-warn-script-location
 
 :: Mini-swe-agent
 if exist "%SCRIPT_DIR%\mini-swe-agent\pyproject.toml" (
-    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install -e "%SCRIPT_DIR%\mini-swe-agent" !PIP_MIRROR! --no-warn-script-location
 )
 
 :: Extra packages needed for Windows GUI
-"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+"%PYTHON_EXE%" -m pip install Pillow ddgs lmstudio !PIP_MIRROR! --no-warn-script-location
 
 :: ── Import-level verification for packages that crash Hermes at startup ──────
 :: Any pip step above can partially fail (network glitch, write lock, etc.).
@@ -311,7 +315,7 @@ echo        Verifying critical runtime packages...
 "%PYTHON_EXE%" -c "import yaml" >nul 2>&1
 if errorlevel 1 (
     echo [WARN] pyyaml missing -- repairing...
-    "%PYTHON_EXE%" -m pip install pyyaml -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install pyyaml !PIP_MIRROR! --no-warn-script-location
     "%PYTHON_EXE%" -c "import yaml" >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] pyyaml could not be installed. Check network and rerun install.bat.
@@ -323,7 +327,7 @@ if errorlevel 1 (
 "%PYTHON_EXE%" -c "import dotenv" >nul 2>&1
 if errorlevel 1 (
     echo [WARN] python-dotenv missing -- repairing...
-    "%PYTHON_EXE%" -m pip install python-dotenv -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install python-dotenv !PIP_MIRROR! --no-warn-script-location
     "%PYTHON_EXE%" -c "import dotenv" >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] python-dotenv could not be installed. Check network and rerun install.bat.
@@ -335,7 +339,7 @@ if errorlevel 1 (
 "%PYTHON_EXE%" -c "import openai" >nul 2>&1
 if errorlevel 1 (
     echo [WARN] openai missing -- repairing...
-    "%PYTHON_EXE%" -m pip install openai -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
+    "%PYTHON_EXE%" -m pip install openai !PIP_MIRROR! --no-warn-script-location
     "%PYTHON_EXE%" -c "import openai" >nul 2>&1
     if errorlevel 1 (
         echo [ERROR] openai could not be installed. Check network and rerun install.bat.
