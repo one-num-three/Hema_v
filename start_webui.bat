@@ -113,14 +113,14 @@ if exist "%WEBUI_PID_FILE%" (
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
                     del "%WEBUI_PID_FILE%" 2>nul
                     del "%WEBUI_MODE_FILE%" 2>nul
-                    taskkill /F /PID !EXISTING_PID! >nul 2>&1
+                    start "" /B taskkill /F /PID !EXISTING_PID! >nul 2>&1
                     ping 127.0.0.1 -n 2 >nul 2>&1
                 )
             )
         ) else (
             echo [WARN] Existing Web UI PID belongs to another install, restarting it...
             del "%WEBUI_PID_FILE%" 2>nul
-            taskkill /F /PID !EXISTING_PID! >nul 2>&1
+            start "" /B taskkill /F /PID !EXISTING_PID! >nul 2>&1
             ping 127.0.0.1 -n 2 >nul 2>&1
         )
     )
@@ -132,8 +132,9 @@ netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [WARN] Port %WEBUI_PORT% in use, freeing it...
     for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
-        taskkill /F /PID %%p >nul 2>&1
+        start "" /B taskkill /F /PID %%p >nul 2>&1
         echo [INFO] Killed PID %%p that held port %WEBUI_PORT%
+    )
     ping 127.0.0.1 -n 2 >nul 2>&1
 )
 
@@ -265,11 +266,7 @@ if defined WEBUI_LAUNCHER_PORT (
     set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/hermes/chat"
 )
 echo [INFO] Opening browser: %BROWSER_URL%
-powershell -NoProfile -Command ^
-    "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
-if %errorlevel% neq 0 (
-    start "" "%BROWSER_URL%"
-)
+start "" "%BROWSER_URL%"
 :after_browser_open
 call :is_webui_gateway_connected
 if errorlevel 1 (
