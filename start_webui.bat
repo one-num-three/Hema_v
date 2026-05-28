@@ -143,8 +143,11 @@ if %errorlevel% equ 0 (
 )
 
 :: Backfill old Web UI databases where assistant messages were not persisted.
+:: Run in background so it does not delay Node.js startup.
 if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" (
-    "%PATCH_PY%" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
+    powershell -NoProfile -Command ^
+        "$py='%PATCH_PY%';$s='%SCRIPT_DIR%scripts\recover-webui-assistant-history.py';" ^
+        "Start-Process -FilePath $py -ArgumentList $s -WindowStyle Hidden | Out-Null" >nul 2>&1
 )
 
 :: Env vars consumed by hermes-web-ui server
@@ -293,16 +296,15 @@ powershell -NoProfile -Command ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
-rem Wait up to 10s. The gateway was already kicked off above; the launcher
-rem page server just needs enough time for Python to start its HTTP listener.
-rem If it misses the window, open_launcher_browser falls back to direct URL.
-for /l %%i in (1,1,20) do (
+rem Wait up to ~10s (7 rounds x 1.5s). The launcher server only imports
+rem Python stdlib so it starts fast. Falling back to direct WebUI URL is safe.
+for /l %%i in (1,1,7) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0
     powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
 )
-echo [WARN] Launcher page server did not start in 30s, browser will open WebUI directly.
+echo [WARN] Launcher page server did not start in time, browser will open WebUI directly.
 set "WEBUI_LAUNCHER_PORT="
 exit /b 0
 
