@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>河马正在启动</title>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(37, 99, 235, .18), transparent 26%),
+        radial-gradient(circle at 82% 20%, rgba(14, 116, 144, .16), transparent 24%),
+        linear-gradient(145deg, #f8fbff 0%, #eef5fb 48%, #e8eef6 100%);
+      color: #10233a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .card {
+      position: relative;
+      overflow: hidden;
+      width: min(520px, calc(100vw - 32px));
+      padding: 30px 30px 24px;
+      border-radius: 30px;
+      background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.84));
+      border: 1px solid rgba(148,163,184,.22);
+      box-shadow: 0 30px 80px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.6);
+      backdrop-filter: blur(18px);
+    }
+    .card:before {
+      content: "";
+      position: absolute;
+      inset: -30% auto auto -10%;
+      width: 220px;
+      height: 220px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(37,99,235,.18), transparent 68%);
+      filter: blur(8px);
+      animation: float 4.8s ease-in-out infinite;
+    }
+    .card:after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -46px;
+      width: 170px;
+      height: 170px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(15,118,110,.16), transparent 70%);
+      filter: blur(8px);
+      animation: float 5.6s ease-in-out infinite reverse;
+    }
+    .row { position: relative; display: flex; align-items: center; gap: 18px; }
+    .logo {
+      position: relative;
+      width: 68px;
+      height: 68px;
+      flex: 0 0 68px;
+      border-radius: 22px;
+      background: linear-gradient(145deg, #0f172a 0%, #163760 42%, #1d4ed8 100%);
+      box-shadow: 0 18px 40px rgba(29,78,216,.28), inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .logo:before {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border-radius: 28px;
+      background: conic-gradient(from 180deg, rgba(37,99,235,0) 0deg, rgba(37,99,235,.46) 90deg, rgba(14,116,144,.5) 210deg, rgba(37,99,235,0) 360deg);
+      filter: blur(10px);
+      animation: spin 4.2s linear infinite;
+    }
+    .logo:after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 21px;
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    .mark {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -.06em;
+      color: #f8fbff;
+    }
+    .pulse {
+      position: absolute;
+      inset: -10px;
+      border-radius: 30px;
+      border: 1px solid rgba(37,99,235,.18);
+      animation: pulse 2.4s ease-out infinite;
+    }
+    .kicker { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #4f6b8f; }
+    .title { margin-top: 6px; font-size: 27px; font-weight: 800; letter-spacing: -.04em; color: #10233a; }
+    .text { margin-top: 8px; font-size: 14px; line-height: 1.65; color: #51657e; min-height: 24px; }
+    .meta { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #70829a; }
+    .stage { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #21466b; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(145deg, #2563eb, #0f766e); box-shadow: 0 0 0 6px rgba(37,99,235,.10); }
+    .progress { position: relative; margin-top: 18px; height: 10px; border-radius: 999px; background: rgba(148,163,184,.16); overflow: hidden; }
+    .bar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 18%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #2563eb 0%, #0f766e 52%, #60a5fa 100%);
+      box-shadow: 0 0 18px rgba(37,99,235,.28);
+      transition: width .45s ease;
+    }
+    .bar:after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-100%);
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.72), rgba(255,255,255,0));
+      animation: sheen 1.8s linear infinite;
+    }
+    .foot { margin-top: 12px; font-size: 12px; color: #789; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0% { transform: scale(.92); opacity: .22; }
+      60% { transform: scale(1.06); opacity: .10; }
+      100% { transform: scale(1.14); opacity: 0; }
+    }
+    @keyframes sheen { to { transform: translateX(180%); } }
+    @keyframes float {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(0, 10px, 0); }
+    }
+    @media (max-width: 640px) {
+      .card { width: min(100vw - 24px, 520px); padding: 24px 20px 20px; border-radius: 24px; }
+      .row { align-items: flex-start; }
+      .logo { width: 58px; height: 58px; flex-basis: 58px; border-radius: 18px; }
+      .mark { font-size: 24px; }
+      .title { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="row">
+      <div class="logo" aria-hidden="true">
+        <div class="pulse"></div>
+        <div class="mark">H</div>
+      </div>
+      <div>
+        <div class="kicker">HERMES WEB UI</div>
+        <div class="title">正在启动控制台</div>
+        <div class="text" id="statusText">正在连接 Hermes 服务…</div>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="stage"><span class="dot"></span><span id="stageText">初始化连接</span></div>
+      <div id="percentText">18%</div>
+    </div>
+    <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+    <div class="foot" id="footText">正在准备页面与网关通信。</div>
+  </div>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const targetPort = Number(params.get("targetPort") || "8648");
+    const targetUrl = `http://localhost:${targetPort}/#/hermes/chat`;
+    const probeUrl = `/__probe__?targetPort=${encodeURIComponent(String(targetPort))}&ts=`;
+    const stages = {
+      boot: ["正在连接 Hermes 服务…", 18, "正在准备页面与网关通信。"],
+      webui: ["正在唤起本地服务…", 34, "浏览器已经打开，后台正在继续启动。"],
+      connect: ["正在连接网关…", 62, "页面已经就绪，正在等待左下角连接状态变成已连接。"],
+      restore: ["正在恢复会话", 82, "服务都已就绪，正在恢复会话状态。"],
+      ready: ["即将就绪", 96, "连接已经建立，正在进入 Web 管理界面。"],
+      fail: ["启动稍慢一点", 56, "还在继续等待本地服务，请不要关闭这个页面。"],
+    };
+
+    const text = document.getElementById("statusText");
+    const stage = document.getElementById("stageText");
+    const percent = document.getElementById("percentText");
+    const bar = document.getElementById("bar");
+    const foot = document.getElementById("footText");
+
+    let attempts = 0;
+    let redirected = false;
+
+    function paint(label, value, footnote) {
+      text.textContent = label;
+      stage.textContent = label;
+      percent.textContent = `${value}%`;
+      bar.style.width = `${value}%`;
+      foot.textContent = footnote;
+    }
+
+    async function probe() {
+      attempts += 1;
+      try {
+        const response = await fetch(probeUrl + Date.now(), { cache: "no-store" });
+        const data = await response.json();
+        if (data.gateway_running) {
+          paint(...stages.ready);
+          redirected = true;
+          setTimeout(() => location.replace(targetUrl), 180);
+          return;
+        }
+        if (data.webui_up) {
+          paint(...(attempts > 2 ? stages.restore : stages.connect));
+        } else {
+          paint(...(attempts > 3 ? stages.webui : stages.boot));
+        }
+      } catch {
+        paint(...(attempts > 6 ? stages.fail : stages.boot));
+      }
+      setTimeout(probe, 450);
+    }
+
+    paint(...stages.boot);
+    window.addEventListener("beforeunload", () => {
+      redirected = true;
+    });
+    setTimeout(() => {
+      if (!redirected) probe();
+    }, 120);
+  </script>
+</body>
+</html>

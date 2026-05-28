@@ -252,7 +252,8 @@ if not exist "%SCRIPT_DIR%python_embedded\python.exe" exit /b 0
 powershell -NoProfile -Command ^
     "$python=[IO.Path]::GetFullPath('%SCRIPT_DIR%python_embedded\python.exe');" ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
-    "Start-Process -FilePath $python -ArgumentList '-m','http.server','%WEBUI_LAUNCHER_PORT%','--bind','127.0.0.1' -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
+    "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
+    "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
 for /l %%i in (1,1,12) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
