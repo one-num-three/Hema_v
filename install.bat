@@ -69,9 +69,15 @@ if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set "PYTHON_DIR=%SCRIPT_DIR%\python_embedded"
 set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 
-:: pip mirror — primary: Tsinghua (fast in CN); fallbacks: Aliyun, USTC, official PyPI
-:: --extra-index-url lets pip try all sources; if one returns 403/timeout the others work.
-set "PIP_MIRROR=-i https://pypi.tuna.tsinghua.edu.cn/simple --extra-index-url https://mirrors.aliyun.com/pypi/simple/ --extra-index-url https://mirrors.ustc.edu.cn/pypi/simple/ --extra-index-url https://pypi.org/simple/"
+:: pip install flags — try local bundled wheels first (no network needed),
+:: fall back to CN mirrors then official PyPI only for packages not in wheels/.
+set "WHEELS_DIR=%SCRIPT_DIR%\wheels"
+set "PIP_MIRRORS=-i https://pypi.tuna.tsinghua.edu.cn/simple --extra-index-url https://mirrors.aliyun.com/pypi/simple/ --extra-index-url https://mirrors.ustc.edu.cn/pypi/simple/ --extra-index-url https://pypi.org/simple/"
+if exist "%WHEELS_DIR%" (
+    set "PIP_MIRROR=--find-links %WHEELS_DIR% %PIP_MIRRORS%"
+) else (
+    set "PIP_MIRROR=%PIP_MIRRORS%"
+)
 
 set "PYTHON_VERSION=3.13.12"
 set "PYTHON_URL=https://www.python.org/ftp/python/3.13.12/python-3.13.12-embed-amd64.zip"
