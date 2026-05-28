@@ -63,10 +63,11 @@ def make_handler(root: Path):
             result = {
                 "webui_up": False,
                 "gateway_running": False,
+                "gateway_direct": False,
                 "health": None,
             }
             try:
-                with urlopen(upstream, timeout=1.5) as response:
+                with urlopen(upstream, timeout=0.5) as response:
                     body = response.read().decode("utf-8", errors="replace")
                     result["webui_up"] = True
                     try:
@@ -78,6 +79,14 @@ def make_handler(root: Path):
                 pass
             except Exception as exc:
                 result["error"] = str(exc)
+
+            # Probe the gateway directly so the launcher page can report its
+            # status even before the Web UI server is ready.
+            try:
+                with urlopen("http://127.0.0.1:8642/health", timeout=0.5) as _:
+                    result["gateway_direct"] = True
+            except Exception:
+                pass
 
             _json_response(self, result)
 

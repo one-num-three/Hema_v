@@ -271,20 +271,23 @@
       }
       if (data.webui_up) {
         setV(diagWebui, "ok", "✓ 就绪");
-        diagGwRow.style.display = "flex";
-        if (data.gateway_running) {
-          setV(diagGw, "ok", "✓ 已连接");
-        } else {
-          const gw = data.health && data.health.gateway;
-          setV(diagGw, "wait", gw ? `${gw}…` : "启动中…");
-        }
-        if (data.error) {
-          diagErrRow.style.display = "flex";
-          diagErr.textContent = data.error;
-        }
       } else {
         setV(diagWebui, "wait", `等待中… (已检测 ${attempts} 次)`);
-        diagGwRow.style.display = "none";
+      }
+      // Always show gateway row once we have a probe response — the gateway
+      // is usually the bottleneck on first run (60-90s cold start) and hiding
+      // it left users with no useful status while they waited.
+      diagGwRow.style.display = "flex";
+      if (data.gateway_running) {
+        setV(diagGw, "ok", "✓ 已连接");
+      } else if (data.gateway_direct) {
+        setV(diagGw, "wait", "就绪，等待 Web UI 连接…");
+      } else {
+        setV(diagGw, "wait", "启动中… (首次启动需 60-90 秒)");
+      }
+      if (data.error) {
+        diagErrRow.style.display = "flex";
+        diagErr.textContent = data.error;
       }
     }
 
