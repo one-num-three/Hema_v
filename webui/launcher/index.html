@@ -122,6 +122,21 @@
       animation: sheen 1.8s linear infinite;
     }
     .foot { margin-top: 12px; font-size: 12px; color: #789; }
+    .diag {
+      margin-top: 14px;
+      padding: 11px 14px;
+      background: rgba(148,163,184,.08);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .diag-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+    .diag-k { flex: 0 0 82px; color: #8398b0; font-size: 11px; }
+    .diag-v { font-weight: 600; color: #94a3b8; }
+    .diag-v.ok { color: #16a34a; }
+    .diag-v.wait { color: #d97706; }
+    .diag-v.err { color: #dc2626; }
     .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
     .actions button {
       border: 0;
@@ -176,6 +191,24 @@
     </div>
     <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
     <div class="foot" id="footText">正在准备页面与网关通信。</div>
+    <div class="diag">
+      <div class="diag-row">
+        <span class="diag-k">已等待</span>
+        <span class="diag-v" id="diagElapsed">0 秒</span>
+      </div>
+      <div class="diag-row">
+        <span class="diag-k">Web UI :8648</span>
+        <span class="diag-v" id="diagWebui">检测中…</span>
+      </div>
+      <div class="diag-row" id="diagGwRow" style="display:none">
+        <span class="diag-k">网关 :8642</span>
+        <span class="diag-v" id="diagGw">等待中…</span>
+      </div>
+      <div class="diag-row" id="diagErrRow" style="display:none">
+        <span class="diag-k">错误</span>
+        <span class="diag-v err" id="diagErr"></span>
+      </div>
+    </div>
     <div class="actions">
       <button type="button" id="retryBtn">重新检测</button>
       <button type="button" class="primary" id="enterBtn">直接进入</button>
@@ -202,6 +235,51 @@
     const foot = document.getElementById("footText");
     const enterBtn = document.getElementById("enterBtn");
     const retryBtn = document.getElementById("retryBtn");
+    const diagElapsed = document.getElementById("diagElapsed");
+    const diagWebui  = document.getElementById("diagWebui");
+    const diagGw     = document.getElementById("diagGw");
+    const diagGwRow  = document.getElementById("diagGwRow");
+    const diagErr    = document.getElementById("diagErr");
+    const diagErrRow = document.getElementById("diagErrRow");
+
+    const startTime = Date.now();
+    function elapsed() {
+      const s = Math.floor((Date.now() - startTime) / 1000);
+      return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`;
+    }
+    // Keep elapsed ticking even between slow-poll intervals
+    setInterval(() => { if (!redirected) diagElapsed.textContent = elapsed(); }, 1000);
+
+    function setV(el, cls, txt) { el.className = `diag-v${cls ? ' ' + cls : ''}`; el.textContent = txt; }
+
+    function updateDiag(data, errMsg) {
+      diagElapsed.textContent = elapsed();
+      diagErrRow.style.display = "none";
+      if (errMsg) {
+        setV(diagWebui, "err", "连接失败");
+        diagGwRow.style.display = "none";
+        diagErrRow.style.display = "flex";
+        diagErr.textContent = errMsg;
+        return;
+      }
+      if (data.webui_up) {
+        setV(diagWebui, "ok", "✓ 就绪");
+        diagGwRow.style.display = "flex";
+        if (data.gateway_running) {
+          setV(diagGw, "ok", "✓ 已连接");
+        } else {
+          const gw = data.health && data.health.gateway;
+          setV(diagGw, "wait", gw ? `${gw}…` : "启动中…");
+        }
+        if (data.error) {
+          diagErrRow.style.display = "flex";
+          diagErr.textContent = data.error;
+        }
+      } else {
+        setV(diagWebui, "wait", `等待中… (已检测 ${attempts} 次)`);
+        diagGwRow.style.display = "none";
+      }
+    }
 
     let attempts = 0;
     let redirected = false;
@@ -232,6 +310,7 @@
       try {
         const response = await fetch(probeUrl + Date.now(), { cache: "no-store" });
         const data = await response.json();
+        updateDiag(data, null);
         if (data.gateway_running) {
           paint(...stages.ready);
           redirected = true;
@@ -271,7 +350,8 @@
           }
           paint(...(attempts > 3 ? stages.webui : stages.boot));
         }
-      } catch {
+      } catch (e) {
+        updateDiag(null, e?.message || "launcher 无响应");
         if (attempts >= MAX_WEBUI_ATTEMPTS) {
           paint("本地服务尚未启动", 42, "还没有连到 8648。常见原因是安装目录不对，或当前目录缺少 node_embedded 和 webui。");
           return;
@@ -288,7 +368,12 @@
     retryBtn.addEventListener("click", () => {
       attempts = 0;
       webuiUpStreak = 0;
+      slowMode = false;
+      slowAttempts = 0;
       redirected = false;
+      setV(diagWebui, "", "检测中…");
+      diagGwRow.style.display = "none";
+      diagErrRow.style.display = "none";
       paint(...stages.boot);
       setTimeout(probe, 80);
     });
