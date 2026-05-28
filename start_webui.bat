@@ -292,9 +292,9 @@ powershell -NoProfile -Command ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
-:: Wait up to 30s — embedded Python cold-starts can take 10-20s on new machines.
-:: If the server never comes up, clear WEBUI_LAUNCHER_PORT so open_launcher_browser
-:: falls back to opening the Web UI directly on port %WEBUI_PORT%.
+rem Wait up to 30s. Embedded Python cold-starts can take 10-20s on new machines.
+rem If the server never comes up, clear WEBUI_LAUNCHER_PORT so open_launcher_browser
+rem falls back to opening the Web UI directly on port %WEBUI_PORT%.
 for /l %%i in (1,1,60) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
