@@ -35,6 +35,7 @@ if exist "%ENV_FILE%" (
 
 set "PYTHON_EXE=%SCRIPT_DIR%python_embedded\python.exe"
 set "GATEWAY_PORT=8642"
+set "GATEWAY_PORT_SOURCE=default (8642)"
 set "GATEWAY_HOST=127.0.0.1"
 set "HERMES_HOME=%USERPROFILE%\.hermes"
 set "GATEWAY_PID_FILE=%USERPROFILE%\.hermes\gateway.pid"
@@ -80,6 +81,8 @@ set "HERMES_ROOT=%SCRIPT_DIR%"
 
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
+echo [INFO] HERMES_HOME: %HERMES_HOME%
+echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
 echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"
 
@@ -161,20 +164,52 @@ exit /b 0
 
 :resolve_gateway_port
 if not exist "%HERMES_HOME%\config.yaml" exit /b 0
-for /f %%p in ('powershell -NoProfile -Command ^
-    "$path=[IO.Path]::GetFullPath('%HERMES_HOME%\config.yaml');" ^
-    "$inPlatforms=$false;$inApi=$false;$inExtra=$false;$port='';" ^
-    "foreach($line in Get-Content -LiteralPath $path){" ^
-    "  if($line -match '^\S'){ $inPlatforms=$false;$inApi=$false;$inExtra=$false }" ^
-    "  if($line -match '^\s*platforms:\s*$'){ $inPlatforms=$true; $inApi=$false; $inExtra=$false; continue }" ^
-    "  if($inPlatforms -and $line -match '^\s{2}api_server:\s*$'){ $inApi=$true; $inExtra=$false; continue }" ^
-    "  if($inApi -and $line -match '^\s{4}extra:\s*$'){ $inExtra=$true; continue }" ^
-    "  if($inExtra -and $line -match '^\s{6}port:\s*(\d+)\s*$'){ $port=$matches[1]; break }" ^
-    "}" ^
-    "if($port){ Write-Output $port }"') do (
-    if not defined RESOLVED_GATEWAY_PORT set "RESOLVED_GATEWAY_PORT=%%p"
+
+:: 1. Try resolving using Python first
+set "PORT_PY="
+if exist "%SCRIPT_DIR%python_embedded\python.exe" (
+    set "PORT_PY=%SCRIPT_DIR%python_embedded\python.exe"
+) else (
+    where python >nul 2>&1
+    if not errorlevel 1 set "PORT_PY=python"
 )
-if defined RESOLVED_GATEWAY_PORT set "GATEWAY_PORT=%RESOLVED_GATEWAY_PORT%"
+if defined PORT_PY (
+    for /f %%p in ('"%PORT_PY%" -c "import pathlib,sys,yaml; p=pathlib.Path(r'''%HERMES_HOME%\config.yaml'''); data=yaml.safe_load(p.read_text(encoding='utf-8')) or {}; extra=((data.get('platforms') or {}).get('api_server') or {}).get('extra') or {}; v=extra.get('port'); sys.stdout.write(str(int(v)) if str(v).strip().isdigit() else '')" 2^>nul') do (
+        if not defined RESOLVED_GATEWAY_PORT (
+            set "RESOLVED_GATEWAY_PORT=%%p"
+            set "GATEWAY_PORT_SOURCE=%HERMES_HOME%\config.yaml platforms.api_server.extra.port (via PyYAML)"
+        )
+    )
+)
+
+:: 2. Fallback to robust PowerShell indentation-aware scanning
+if not defined RESOLVED_GATEWAY_PORT (
+    for /f %%p in ('powershell -NoProfile -Command ^
+        "$path=[IO.Path]::GetFullPath('%HERMES_HOME%\config.yaml');" ^
+        "$inPlatforms=$false;$inApi=$false;$inExtra=$false;$port='';" ^
+        "foreach($line in Get-Content -LiteralPath $path){" ^
+        "  if($line -match '^\s*(#|$)'){ continue }" ^
+        "  $indent = 0;" ^
+        "  if($line -match '^(\s*)'){ $indent = $matches[1].Length }" ^
+        "  if($indent -le 2){ $inApi=$false; $inExtra=$false }" ^
+        "  if($indent -le 4){ $inExtra=$false }" ^
+        "  if($indent -eq 0){ $inPlatforms=$false }" ^
+        "  if($line -match '^\s*platforms:\s*$'){ $inPlatforms=$true; continue }" ^
+        "  if($inPlatforms -and $indent -eq 2 -and $line -match '^\s{2}api_server:\s*$'){ $inApi=$true; continue }" ^
+        "  if($inApi -and $indent -eq 4 -and $line -match '^\s{4}extra:\s*$'){ $inExtra=$true; continue }" ^
+        "  if($inExtra -and $indent -eq 6 -and $line -match '^\s{6}port:\s*(\d+)\s*$'){ $port=$matches[1]; break }" ^
+        "}" ^
+        "if($port){ Write-Output $port }"') do (
+        if not defined RESOLVED_GATEWAY_PORT (
+            set "RESOLVED_GATEWAY_PORT=%%p"
+            set "GATEWAY_PORT_SOURCE=%HERMES_HOME%\config.yaml platforms.api_server.extra.port (via PowerShell)"
+        )
+    )
+)
+
+if defined RESOLVED_GATEWAY_PORT (
+    set "GATEWAY_PORT=%RESOLVED_GATEWAY_PORT%"
+)
 exit /b 0
 
 :is_current_gateway
