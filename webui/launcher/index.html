@@ -218,7 +218,14 @@
     const params = new URLSearchParams(location.search);
     const targetPort = Number(params.get("targetPort") || "8648");
     const targetUrl = `http://localhost:${targetPort}/#/hermes/chat`;
-    const probeUrl = `/__probe__?targetPort=${encodeURIComponent(String(targetPort))}&ts=`;
+
+    // Use an absolute probe URL so fetch() works regardless of browser security context.
+    // A relative "/__probe__?..." silently fails when location.origin is "null"
+    // (e.g. page opened via file:// because the launcher HTTP server wasn't ready).
+    const _origin = (location.origin && location.origin !== "null") ? location.origin : null;
+    const probeUrl = _origin
+      ? `${_origin}/__probe__?targetPort=${encodeURIComponent(String(targetPort))}&ts=`
+      : null;
     const stages = {
       boot: ["正在连接 Hermes 服务…", 18, "正在准备页面与网关通信。"],
       webui: ["正在唤起本地服务…", 34, "浏览器已经打开，后台正在继续启动。"],
@@ -305,6 +312,13 @@
     }
 
     async function probe() {
+      if (!probeUrl) {
+        paint("页面打开方式不对", 0,
+          "此页面需通过 start_webui.bat 启动，不能直接双击 HTML 文件打开。");
+        updateDiag(null, "页面以文件协议打开，无法连接本地服务。请关闭后运行 start_webui.bat。");
+        clearInterval(timer);
+        return;
+      }
       attempts += 1;
       if (slowMode) slowAttempts += 1;
       try {
