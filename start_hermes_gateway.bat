@@ -114,8 +114,8 @@ if defined GATEWAY_PID (
     set "GATEWAY_PID="
 )
 
-:: Poll /health up to 15 seconds
-set "MAX_WAIT=15"
+:: Poll /health — new-machine first run can take 60-90 s (cold Python import)
+set "MAX_WAIT=90"
 set "WAITED=0"
 :wait_gateway
 powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
@@ -137,7 +137,7 @@ if %errorlevel% equ 0 (
 )
 if %WAITED% LSS %MAX_WAIT% goto :wait_gateway
 
-echo [WARN] Gateway did not respond in %MAX_WAIT%s.
+echo [WARN] Gateway did not respond within %MAX_WAIT%s.
 echo        Check log: %GATEWAY_LOG%
 echo.
 echo [DIAG] Expected files:
