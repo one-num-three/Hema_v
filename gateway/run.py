@@ -1651,10 +1651,26 @@ class GatewayRunner:
         7. Return response
         """
         source = event.source
+        if source.platform == Platform.WEIXIN:
+            logger.info(
+                "[Weixin] gateway received event chat_id=%s user_id=%s type=%s text_len=%d msg_id=%s",
+                source.chat_id,
+                source.user_id,
+                event.message_type.value if event.message_type else "",
+                len(event.text or ""),
+                event.message_id or "",
+            )
 
         # Check if user is authorized
         if not self._is_user_authorized(source):
             logger.warning("Unauthorized user: %s (%s) on %s", source.user_id, source.user_name, source.platform.value)
+            if source.platform == Platform.WEIXIN:
+                logger.warning(
+                    "[Weixin] blocked by authorization user_id=%s chat_id=%s behavior=%s",
+                    source.user_id,
+                    source.chat_id,
+                    self._get_unauthorized_dm_behavior(source.platform),
+                )
             # In DMs: offer pairing code. In groups: silently ignore.
             if source.chat_type == "dm" and self._get_unauthorized_dm_behavior(source.platform) == "pair":
                 platform_name = source.platform.value if source.platform else "unknown"
@@ -1662,6 +1678,8 @@ class GatewayRunner:
                     platform_name, source.user_id, source.user_name or ""
                 )
                 if code:
+                    if source.platform == Platform.WEIXIN:
+                        logger.info("[Weixin] pairing code generated for user_id=%s", source.user_id)
                     adapter = self.adapters.get(source.platform)
                     if adapter:
                         await adapter.send(
@@ -1672,6 +1690,11 @@ class GatewayRunner:
                             f"`hermes pairing approve {platform_name} {code}`"
                         )
                 else:
+                    if source.platform == Platform.WEIXIN:
+                        logger.warning(
+                            "[Weixin] pairing code not generated for user_id=%s; rate limit, lockout, or pending cap",
+                            source.user_id,
+                        )
                     adapter = self.adapters.get(source.platform)
                     if adapter:
                         await adapter.send(
@@ -2013,6 +2036,14 @@ class GatewayRunner:
         # Get or create session
         session_entry = self.session_store.get_or_create_session(source)
         session_key = session_entry.session_key
+        if source.platform == Platform.WEIXIN:
+            logger.info(
+                "[Weixin] session routed session_key=%s session_id=%s new_or_reset=%s",
+                session_key,
+                session_entry.session_id,
+                session_entry.created_at == session_entry.updated_at
+                or getattr(session_entry, "was_auto_reset", False),
+            )
         
         # Emit session:start for new or auto-reset sessions
         _is_new_session = (
@@ -2406,9 +2437,12 @@ class GatewayRunner:
         if not history and source.platform and source.platform != Platform.LOCAL:
             platform_name = source.platform.value
             env_key = f"{platform_name.upper()}_HOME_CHANNEL"
-            if not os.getenv(env_key):
+            has_home_channel = bool(os.getenv(env_key) or self.config.get_home_channel(source.platform))
+            if not has_home_channel:
                 adapter = self.adapters.get(source.platform)
                 if adapter:
+                    if source.platform == Platform.WEIXIN:
+                        logger.info("[Weixin] no home channel configured; sending one-time prompt")
                     await adapter.send(
                         source.chat_id,
                         f"📬 No home channel is set for {platform_name.title()}. "
@@ -5645,7 +5679,16 @@ class GatewayRunner:
         try:
             # Run in thread pool to not block
             loop = asyncio.get_event_loop()
+            if source.platform == Platform.WEIXIN:
+                logger.info("[Weixin] agent starting session_key=%s", session_key)
             response = await loop.run_in_executor(None, run_sync)
+            if source.platform == Platform.WEIXIN:
+                final_len = 0
+                if isinstance(response, dict):
+                    final_len = len(str(response.get("final_response") or ""))
+                else:
+                    final_len = len(str(response or ""))
+                logger.info("[Weixin] agent finished session_key=%s response_len=%d", session_key, final_len)
 
             # Track fallback model state: if the agent switched to a
             # fallback model during this run, persist it so /model shows

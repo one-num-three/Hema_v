@@ -63,6 +63,29 @@ def test_adapter_normalizes_inbound_text_message(tmp_path, monkeypatch):
     assert event.message_type == MessageType.TEXT
 
 
+def test_extract_updates_accepts_nested_data_msgs(tmp_path, monkeypatch):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config = PlatformConfig(enabled=True, token="tok", extra={"account_id": "acct"})
+    adapter = WeixinAdapter(config)
+
+    updates = adapter._extract_updates(
+        {
+            "ret": 0,
+            "data": {
+                "msgs": [
+                    {
+                        "from_user_id": "wx-user-1@im.wechat",
+                        "item_list": [{"type": 1, "text_item": {"text": "hello"}}],
+                    }
+                ]
+            },
+        }
+    )
+
+    assert len(updates) == 1
+    assert updates[0]["from_user_id"] == "wx-user-1@im.wechat"
+
+
 def test_note_verification_code_updates_status_snapshot(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     config = PlatformConfig(enabled=True, token="tok", extra={"account_id": "acct"})
@@ -115,4 +138,3 @@ async def test_send_uses_cached_context_token(tmp_path, monkeypatch):
     assert calls[0][0] == "/ilink/bot/sendmessage"
     assert calls[0][1]["msg"]["to_user_id"] == "wx-user-1@im.wechat"
     assert calls[0][1]["msg"]["context_token"] == "ctx-1"
-

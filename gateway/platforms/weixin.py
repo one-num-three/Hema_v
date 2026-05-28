@@ -195,15 +195,18 @@ class WeixinAdapter(BasePlatformAdapter):
         }
 
     def _extract_updates(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        nested_data = data.get("data") if isinstance(data.get("data"), dict) else {}
         candidates = [
             data.get("msgs"),           # iLink actual key
             data.get("update_list"),
             data.get("updates"),
             data.get("items"),
             data.get("msg_list"),
-            data.get("data", {}).get("update_list") if isinstance(data.get("data"), dict) else None,
-            data.get("data", {}).get("updates") if isinstance(data.get("data"), dict) else None,
-            data.get("data", {}).get("msg_list") if isinstance(data.get("data"), dict) else None,
+            nested_data.get("msgs"),
+            nested_data.get("update_list"),
+            nested_data.get("updates"),
+            nested_data.get("items"),
+            nested_data.get("msg_list"),
         ]
         for candidate in candidates:
             if isinstance(candidate, list):
@@ -238,6 +241,7 @@ class WeixinAdapter(BasePlatformAdapter):
         return payload
 
     async def handle_inbound_payload(self, payload: Dict[str, Any]) -> Optional[MessageEvent]:
+        raw_keys = list(payload.keys())
         payload = self._unwrap_payload(payload)
         from_user_id = (
             payload.get("from_user_id")
@@ -248,9 +252,12 @@ class WeixinAdapter(BasePlatformAdapter):
         context_token = payload.get("context_token") or payload.get("msg", {}).get("context_token")
         if from_user_id and context_token:
             self._context_tokens[str(from_user_id)] = str(context_token)
+            self._append_log(f"context_token_cached from={from_user_id}")
         event = self._build_message_event(payload)
         if not event.text:
-            self._append_log(f"skipped_empty_text from={from_user_id} keys={list(payload.keys())}")
+            self._append_log(
+                f"skipped_empty_text from={from_user_id} raw_keys={raw_keys} keys={list(payload.keys())}"
+            )
             return None
         match = _VERIFY_CODE_RE.search(event.text)
         lowered_text = event.text.lower()
@@ -261,7 +268,10 @@ class WeixinAdapter(BasePlatformAdapter):
             or "驗證碼" in event.text
         ):
             self.note_verification_code(match.group(1), event.text)
-        self._append_log(f"inbound from={from_user_id} text={event.text[:300]}")
+        self._append_log(
+            f"inbound from={from_user_id} msg_id={event.message_id or ''} "
+            f"has_context={bool(context_token)} text={event.text[:300]}"
+        )
         self._set_status(status="connected", message="Received inbound Weixin message")
         return event
 
@@ -270,7 +280,17 @@ class WeixinAdapter(BasePlatformAdapter):
         updates = self._extract_updates(data)
         self._update_cursor_from_response(data, updates)
         if updates:
-            self._append_log(f"poll_updates count={len(updates)} keys={list(data.keys())}")
+            first_keys = list(updates[0].keys()) if isinstance(updates[0], dict) else []
+            self._append_log(
+                f"poll_updates count={len(updates)} keys={list(data.keys())} "
+                f"first_keys={first_keys}"
+            )
+        else:
+            nested = data.get("data") if isinstance(data.get("data"), dict) else {}
+            self._append_log(
+                f"poll_empty keys={list(data.keys())} nested_keys={list(nested.keys())} "
+                f"cursor_set={bool(self._cursor)}"
+            )
         return updates
 
 
@@ -336,6 +356,7 @@ class WeixinAdapter(BasePlatformAdapter):
     ) -> SendResult:
         context_token = self._context_tokens.get(str(chat_id))
         if not context_token:
+            self._append_log(f"send_error to={chat_id} error=missing_context_token")
             return SendResult(success=False, error="Missing Weixin context token")
         body = {
             "msg": {
@@ -359,7 +380,9 @@ class WeixinAdapter(BasePlatformAdapter):
         }
         try:
             data = await self._post_json("/ilink/bot/sendmessage", body)
-            self._append_log(f"outbound to={chat_id} text={content[:300]}")
+            self._append_log(
+                f"outbound to={chat_id} response_keys={list(data.keys())} text={content[:300]}"
+            )
             self._set_status(status="connected", message="Sent outbound Weixin reply")
             return SendResult(
                 success=True,

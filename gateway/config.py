@@ -643,6 +643,13 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
         config.platforms[Platform.WEIXIN].extra["base_url"] = (
             weixin_base_url or "https://ilinkai.weixin.qq.com"
         )
+    weixin_home = os.getenv("WEIXIN_HOME_CHANNEL", "").strip()
+    if weixin_home and Platform.WEIXIN in config.platforms:
+        config.platforms[Platform.WEIXIN].home_channel = HomeChannel(
+            platform=Platform.WEIXIN,
+            chat_id=weixin_home,
+            name=os.getenv("WEIXIN_HOME_CHANNEL_NAME", "Home"),
+        )
     
     discord_home = os.getenv("DISCORD_HOME_CHANNEL")
     if discord_home and Platform.DISCORD in config.platforms:

@@ -16,6 +16,20 @@ def test_load_gateway_config_enables_weixin_from_env(monkeypatch):
     assert weixin.extra["base_url"] == "https://example.invalid"
 
 
+def test_load_gateway_config_sets_weixin_home_channel(monkeypatch):
+    monkeypatch.setenv("WEIXIN_ACCOUNT_ID", "bot-account")
+    monkeypatch.setenv("WEIXIN_TOKEN", "bot-token")
+    monkeypatch.setenv("WEIXIN_HOME_CHANNEL", "wx-user-1@im.wechat")
+    monkeypatch.setenv("WEIXIN_HOME_CHANNEL_NAME", "Weixin DM")
+
+    config = load_gateway_config()
+
+    home = config.get_home_channel(Platform.WEIXIN)
+    assert home is not None
+    assert home.chat_id == "wx-user-1@im.wechat"
+    assert home.name == "Weixin DM"
+
+
 def test_load_gateway_config_skips_weixin_without_required_token(monkeypatch):
     monkeypatch.delenv("WEIXIN_ACCOUNT_ID", raising=False)
     monkeypatch.delenv("WEIXIN_TOKEN", raising=False)
