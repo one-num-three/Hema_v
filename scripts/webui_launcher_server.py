@@ -9,6 +9,8 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
+PROBE_TIMEOUT = 1.5
+
 
 def _json_response(handler: BaseHTTPRequestHandler, payload: dict, status: int = 200) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -58,35 +60,59 @@ def make_handler(root: Path):
                 port = int((query.get("targetPort") or ["8648"])[0])
             except ValueError:
                 port = 8648
+            try:
+                gateway_port = int((query.get("gatewayPort") or ["8642"])[0])
+            except ValueError:
+                gateway_port = 8642
 
-            upstream = f"http://127.0.0.1:{port}/health"
+            health_url = f"http://127.0.0.1:{port}/health"
+            root_url = f"http://127.0.0.1:{port}/"
             result = {
                 "webui_up": False,
                 "gateway_running": False,
                 "gateway_direct": False,
                 "health": None,
+                "webui_source": None,
+                "gateway_port": gateway_port,
             }
+            errors: list[str] = []
             try:
-                with urlopen(upstream, timeout=0.5) as response:
+                with urlopen(health_url, timeout=PROBE_TIMEOUT) as response:
                     body = response.read().decode("utf-8", errors="replace")
                     result["webui_up"] = True
+                    result["webui_source"] = "health"
                     try:
                         result["health"] = json.loads(body)
                     except json.JSONDecodeError:
                         result["health"] = {"raw": body}
                     result["gateway_running"] = result["health"].get("gateway") == "running"
-            except URLError:
-                pass
+            except URLError as exc:
+                errors.append(str(exc.reason or exc))
             except Exception as exc:
-                result["error"] = str(exc)
+                errors.append(str(exc))
+
+            if not result["webui_up"]:
+                try:
+                    with urlopen(root_url, timeout=PROBE_TIMEOUT) as response:
+                        _ = response.status
+                        result["webui_up"] = True
+                        result["webui_source"] = "root"
+                except URLError as exc:
+                    errors.append(str(exc.reason or exc))
+                except Exception as exc:
+                    errors.append(str(exc))
 
             # Probe the gateway directly so the launcher page can report its
             # status even before the Web UI server is ready.
             try:
-                with urlopen("http://127.0.0.1:8642/health", timeout=0.5) as _:
+                with urlopen(f"http://127.0.0.1:{gateway_port}/health", timeout=PROBE_TIMEOUT) as _:
                     result["gateway_direct"] = True
             except Exception:
                 pass
+
+            if errors:
+                result["error"] = errors[-1]
+                result["recent_errors"] = errors[-3:]
 
             _json_response(self, result)
 

@@ -18,6 +18,7 @@ set "WEBUI_NPM_SERVER=%WEBUI_DIR%\node_modules\hermes-web-ui\dist\server\index.j
 set "WEBUI_SOCKETIO=%WEBUI_DIR%\node_modules\socket.io\package.json"
 set "WEBUI_PORT=8648"
 set "GATEWAY_PORT=8642"
+set "HERMES_HOME=%USERPROFILE%\.hermes"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
 set "WEBUI_MODE_FILE=%USERPROFILE%\.hermes-web-ui\server.mode"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
@@ -31,6 +32,9 @@ if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     where python >nul 2>&1
     if not errorlevel 1 set "PATCH_PY=python"
 )
+
+call :resolve_hermes_home
+call :resolve_gateway_port
 
 :: Pre-flight checks
 if not exist "%NODE_EXE%" (
@@ -78,9 +82,6 @@ if %errorlevel% equ 0 (
         "Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
 )
 
-call :start_launcher_page
-call :open_launcher_browser
-
 :: Local desktop launcher: Web UI binds to localhost, so auth is disabled by default.
 :: If you expose the Web UI to LAN/Internet later, re-enable auth and use HTTPS.
 set "AUTH_DISABLED=1"
@@ -102,9 +103,8 @@ if exist "%WEBUI_PID_FILE%" (
                         echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
                         goto :open_browser
                     ) else (
-                        echo [WARN] Existing Web UI is running but reports gateway disconnected, restarting it...
-                        taskkill /F /PID !EXISTING_PID! >nul 2>&1
-                        powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
+                        echo [INFO] Existing Web UI is running and will keep waiting for the gateway inside the startup page.
+                        goto :open_browser
                     )
                 ) else (
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
@@ -249,7 +249,23 @@ if defined WEBUI_PID (
     echo [INFO] Web UI PID: !WEBUI_PID!
 )
 
+call :start_launcher_page
+
 :open_browser
+if "%BROWSER_OPENED%"=="1" goto :after_browser_open
+set "BROWSER_OPENED=1"
+if defined WEBUI_LAUNCHER_PORT (
+    set "BROWSER_URL=http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/?targetPort=%WEBUI_PORT%^&gatewayPort=%GATEWAY_PORT%"
+) else (
+    set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/hermes/chat"
+)
+echo [INFO] Opening browser: %BROWSER_URL%
+powershell -NoProfile -Command ^
+    "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
+if %errorlevel% neq 0 (
+    start "" "%BROWSER_URL%"
+)
+:after_browser_open
 call :is_webui_gateway_connected
 if errorlevel 1 (
     echo [INFO] Hermes connection will finish inside the startup page.
@@ -258,6 +274,35 @@ echo [OK] Web UI is running at http://localhost:%WEBUI_PORT%
 echo.
 echo [INFO] Web UI startup will continue in background.
 endlocal
+exit /b 0
+
+:resolve_hermes_home
+set "ACTIVE_PROFILE_FILE=%USERPROFILE%\.hermes\active_profile"
+if not exist "%ACTIVE_PROFILE_FILE%" exit /b 0
+set "ACTIVE_PROFILE_NAME="
+set /p ACTIVE_PROFILE_NAME=<"%ACTIVE_PROFILE_FILE%"
+if not defined ACTIVE_PROFILE_NAME exit /b 0
+if exist "%USERPROFILE%\.hermes\profiles\%ACTIVE_PROFILE_NAME%\config.yaml" (
+    set "HERMES_HOME=%USERPROFILE%\.hermes\profiles\%ACTIVE_PROFILE_NAME%"
+)
+exit /b 0
+
+:resolve_gateway_port
+if not exist "%HERMES_HOME%\config.yaml" exit /b 0
+for /f %%p in ('powershell -NoProfile -Command ^
+    "$path=[IO.Path]::GetFullPath('%HERMES_HOME%\config.yaml');" ^
+    "$inPlatforms=$false;$inApi=$false;$inExtra=$false;$port='';" ^
+    "foreach($line in Get-Content -LiteralPath $path){" ^
+    "  if($line -match '^\S'){ $inPlatforms=$false;$inApi=$false;$inExtra=$false }" ^
+    "  if($line -match '^\s*platforms:\s*$'){ $inPlatforms=$true; $inApi=$false; $inExtra=$false; continue }" ^
+    "  if($inPlatforms -and $line -match '^\s{2}api_server:\s*$'){ $inApi=$true; $inExtra=$false; continue }" ^
+    "  if($inApi -and $line -match '^\s{4}extra:\s*$'){ $inExtra=$true; continue }" ^
+    "  if($inExtra -and $line -match '^\s{6}port:\s*(\d+)\s*$'){ $port=$matches[1]; break }" ^
+    "}" ^
+    "if($port){ Write-Output $port }"') do (
+    if not defined RESOLVED_GATEWAY_PORT set "RESOLVED_GATEWAY_PORT=%%p"
+)
+if defined RESOLVED_GATEWAY_PORT set "GATEWAY_PORT=%RESOLVED_GATEWAY_PORT%"
 exit /b 0
 
 :resolve_install_root
@@ -297,31 +342,16 @@ powershell -NoProfile -Command ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
 rem Wait up to ~10s (7 rounds x 1.5s). The launcher server only imports
-rem Python stdlib so it starts fast. Falling back to direct WebUI URL is safe.
-for /l %%i in (1,1,7) do (
+rem Python stdlib so it starts fast. Keep this wait very short: the launcher
+rem page is only a visual bridge and must never block WebUI startup.
+for /l %%i in (1,1,2) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0
-    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
+    powershell -NoProfile -Command "Start-Sleep -Milliseconds 150" >nul 2>&1
 )
 echo [WARN] Launcher page server did not start in time, browser will open WebUI directly.
 set "WEBUI_LAUNCHER_PORT="
-exit /b 0
-
-:open_launcher_browser
-if "%BROWSER_OPENED%"=="1" exit /b 0
-set "BROWSER_OPENED=1"
-if defined WEBUI_LAUNCHER_PORT (
-    set "BROWSER_URL=http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/?targetPort=%WEBUI_PORT%"
-) else (
-    set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/hermes/chat"
-)
-echo [INFO] Opening browser: %BROWSER_URL%
-powershell -NoProfile -Command ^
-    "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
-if %errorlevel% neq 0 (
-    start "" "%BROWSER_URL%"
-)
 exit /b 0
 
 :is_current_webui

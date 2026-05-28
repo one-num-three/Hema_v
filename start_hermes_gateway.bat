@@ -5,10 +5,9 @@ set "SCRIPT_DIR=%~dp0"
 set "ENV_FILE=%SCRIPT_DIR%.env"
 for /f %%g in ('powershell -NoProfile -Command "[guid]::NewGuid().ToString()"') do set "ENV_LOAD_SCRIPT=%TEMP%\hermes_env_%%g.cmd"
 
-:: Load .env first so user vars are available, then set local vars after
-:: (so local vars are not accidentally overridden by .env content).
-:: Use PowerShell to generate a temporary .cmd file because plain FOR/CALL
-:: parsing breaks easily when .env values contain characters like (), %, &.
+rem Load .env first so user vars are available, then set local vars after.
+rem Use PowerShell to generate a temporary .cmd file because plain FOR/CALL
+rem parsing breaks easily when .env values contain (), %, or &.
 if exist "%ENV_FILE%" (
     powershell -NoProfile -Command ^
         "$envFile = [IO.Path]::GetFullPath('%ENV_FILE%');" ^
@@ -34,15 +33,17 @@ if exist "%ENV_FILE%" (
     )
 )
 
-:: Local script vars
 set "PYTHON_EXE=%SCRIPT_DIR%python_embedded\python.exe"
 set "GATEWAY_PORT=8642"
 set "GATEWAY_HOST=127.0.0.1"
+set "HERMES_HOME=%USERPROFILE%\.hermes"
 set "GATEWAY_PID_FILE=%USERPROFILE%\.hermes\gateway.pid"
 set "GATEWAY_LOG=%USERPROFILE%\.hermes\gateway.log"
 set "GATEWAY_ERR_LOG=%USERPROFILE%\.hermes\gateway.err.log"
 
-:: Verify Python exists
+call :resolve_hermes_home
+call :resolve_gateway_port
+
 if not exist "%PYTHON_EXE%" (
     echo [ERROR] Python not found at %PYTHON_EXE%
     echo         Please run install.bat first.
@@ -56,7 +57,6 @@ if not exist "%SCRIPT_DIR%hermes_cli\main.py" (
     exit /b 1
 )
 
-:: If the health endpoint answers, the gateway is already running.
 powershell -NoProfile -Command ^
     "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
 if %errorlevel% equ 0 (
@@ -70,7 +70,6 @@ if %errorlevel% equ 0 (
 )
 if exist "%GATEWAY_PID_FILE%" del "%GATEWAY_PID_FILE%" 2>nul
 
-:: Env vars for the gateway process
 set "PATH=%SCRIPT_DIR%python_embedded;%SCRIPT_DIR%python_embedded\Scripts;%PATH%"
 set "PYTHONIOENCODING=utf-8"
 set "PYTHONUTF8=1"
@@ -79,12 +78,8 @@ set "API_SERVER_HOST=%GATEWAY_HOST%"
 set "HERMES_PYTHON=%PYTHON_EXE%"
 set "HERMES_ROOT=%SCRIPT_DIR%"
 
-:: Ensure ~/.hermes exists
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
-:: Start gateway in background. Use Start-Process so the gateway stays alive
-:: after this batch file exits; "start /b" is not reliable for detached
-:: Python processes on Windows.
 echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"
 
@@ -114,7 +109,6 @@ if defined GATEWAY_PID (
     set "GATEWAY_PID="
 )
 
-:: Poll /health — new-machine first run can take 60-90 s (cold Python import)
 set "MAX_WAIT=90"
 set "WAITED=0"
 :wait_gateway
@@ -153,6 +147,35 @@ powershell -NoProfile -Command "if(Test-Path -LiteralPath '%GATEWAY_ERR_LOG%'){G
 echo.
 echo [ERROR] Hermes gateway failed to start.
 exit /b 1
+
+:resolve_hermes_home
+set "ACTIVE_PROFILE_FILE=%USERPROFILE%\.hermes\active_profile"
+if not exist "%ACTIVE_PROFILE_FILE%" exit /b 0
+set "ACTIVE_PROFILE_NAME="
+set /p ACTIVE_PROFILE_NAME=<"%ACTIVE_PROFILE_FILE%"
+if not defined ACTIVE_PROFILE_NAME exit /b 0
+if exist "%USERPROFILE%\.hermes\profiles\%ACTIVE_PROFILE_NAME%\config.yaml" (
+    set "HERMES_HOME=%USERPROFILE%\.hermes\profiles\%ACTIVE_PROFILE_NAME%"
+)
+exit /b 0
+
+:resolve_gateway_port
+if not exist "%HERMES_HOME%\config.yaml" exit /b 0
+for /f %%p in ('powershell -NoProfile -Command ^
+    "$path=[IO.Path]::GetFullPath('%HERMES_HOME%\config.yaml');" ^
+    "$inPlatforms=$false;$inApi=$false;$inExtra=$false;$port='';" ^
+    "foreach($line in Get-Content -LiteralPath $path){" ^
+    "  if($line -match '^\S'){ $inPlatforms=$false;$inApi=$false;$inExtra=$false }" ^
+    "  if($line -match '^\s*platforms:\s*$'){ $inPlatforms=$true; $inApi=$false; $inExtra=$false; continue }" ^
+    "  if($inPlatforms -and $line -match '^\s{2}api_server:\s*$'){ $inApi=$true; $inExtra=$false; continue }" ^
+    "  if($inApi -and $line -match '^\s{4}extra:\s*$'){ $inExtra=$true; continue }" ^
+    "  if($inExtra -and $line -match '^\s{6}port:\s*(\d+)\s*$'){ $port=$matches[1]; break }" ^
+    "}" ^
+    "if($port){ Write-Output $port }"') do (
+    if not defined RESOLVED_GATEWAY_PORT set "RESOLVED_GATEWAY_PORT=%%p"
+)
+if defined RESOLVED_GATEWAY_PORT set "GATEWAY_PORT=%RESOLVED_GATEWAY_PORT%"
+exit /b 0
 
 :is_current_gateway
 if not exist "%GATEWAY_PID_FILE%" exit /b 1

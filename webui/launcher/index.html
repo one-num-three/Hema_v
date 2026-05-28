@@ -22,7 +22,7 @@
     .card {
       position: relative;
       overflow: hidden;
-      width: min(520px, calc(100vw - 32px));
+      width: min(760px, calc(100vw - 32px));
       padding: 30px 30px 24px;
       border-radius: 30px;
       background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.84));
@@ -56,10 +56,10 @@
     .row { position: relative; display: flex; align-items: center; gap: 18px; }
     .logo {
       position: relative;
-      width: 68px;
-      height: 68px;
-      flex: 0 0 68px;
-      border-radius: 22px;
+      width: 92px;
+      height: 92px;
+      flex: 0 0 92px;
+      border-radius: 28px;
       background: linear-gradient(145deg, #0f172a 0%, #163760 42%, #1d4ed8 100%);
       box-shadow: 0 18px 40px rgba(29,78,216,.28), inset 0 1px 0 rgba(255,255,255,.18);
     }
@@ -67,7 +67,7 @@
       content: "";
       position: absolute;
       inset: -8px;
-      border-radius: 28px;
+      border-radius: 32px;
       background: conic-gradient(from 180deg, rgba(37,99,235,0) 0deg, rgba(37,99,235,.46) 90deg, rgba(14,116,144,.5) 210deg, rgba(37,99,235,0) 360deg);
       filter: blur(10px);
       animation: spin 4.2s linear infinite;
@@ -76,7 +76,7 @@
       content: "";
       position: absolute;
       inset: 1px;
-      border-radius: 21px;
+      border-radius: 27px;
       border: 1px solid rgba(255,255,255,.14);
     }
     .mark {
@@ -85,7 +85,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
+      font-size: 42px;
       font-weight: 800;
       letter-spacing: -.06em;
       color: #f8fbff;
@@ -93,17 +93,25 @@
     .pulse {
       position: absolute;
       inset: -10px;
-      border-radius: 30px;
+      border-radius: 36px;
       border: 1px solid rgba(37,99,235,.18);
       animation: pulse 2.4s ease-out infinite;
     }
     .kicker { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #4f6b8f; }
-    .title { margin-top: 6px; font-size: 27px; font-weight: 800; letter-spacing: -.04em; color: #10233a; }
-    .text { margin-top: 8px; font-size: 14px; line-height: 1.65; color: #51657e; min-height: 24px; }
-    .meta { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: #70829a; }
-    .stage { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: #21466b; }
-    .dot { width: 8px; height: 8px; border-radius: 999px; background: linear-gradient(145deg, #2563eb, #0f766e); box-shadow: 0 0 0 6px rgba(37,99,235,.10); }
-    .progress { position: relative; margin-top: 18px; height: 10px; border-radius: 999px; background: rgba(148,163,184,.16); overflow: hidden; }
+    .title { margin-top: 10px; font-size: 64px; line-height: 1.08; font-weight: 800; letter-spacing: -.05em; color: #10233a; }
+    .text { margin-top: 22px; font-size: 28px; line-height: 1.45; color: #51657e; min-height: 40px; }
+    .meta {
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      font-size: 18px;
+      color: #70829a;
+    }
+    .stage { display: inline-flex; align-items: center; gap: 12px; font-weight: 700; color: #21466b; }
+    .dot { width: 14px; height: 14px; border-radius: 999px; background: linear-gradient(145deg, #2563eb, #0f766e); box-shadow: 0 0 0 10px rgba(37,99,235,.10); }
+    .progress { position: relative; margin-top: 18px; height: 12px; border-radius: 999px; background: rgba(148,163,184,.16); overflow: hidden; }
     .bar {
       position: absolute;
       inset: 0 auto 0 0;
@@ -121,28 +129,47 @@
       background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.72), rgba(255,255,255,0));
       animation: sheen 1.8s linear infinite;
     }
-    .foot { margin-top: 12px; font-size: 12px; color: #789; }
+    .foot { margin-top: 16px; font-size: 18px; color: #789; }
     .diag {
-      margin-top: 14px;
-      padding: 11px 14px;
+      margin-top: 28px;
+      padding: 20px 24px;
       background: rgba(148,163,184,.08);
-      border-radius: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      border-radius: 22px;
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 10px 18px;
+      align-items: baseline;
     }
-    .diag-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
-    .diag-k { flex: 0 0 82px; color: #8398b0; font-size: 11px; }
-    .diag-v { font-weight: 600; color: #94a3b8; }
+    .diag-k { color: #8398b0; font-size: 18px; }
+    .diag-v { font-size: 18px; font-weight: 700; color: #94a3b8; }
     .diag-v.ok { color: #16a34a; }
     .diag-v.wait { color: #d97706; }
     .diag-v.err { color: #dc2626; }
-    .actions { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .details {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(15,23,42,.04);
+      color: #54657d;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .details strong { color: #203755; }
+    .raw {
+      margin-top: 8px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #7a2f2f;
+    }
+    .actions { margin-top: 22px; display: flex; gap: 14px; justify-content: flex-end; }
     .actions button {
       border: 0;
       border-radius: 999px;
-      padding: 10px 14px;
+      padding: 14px 26px;
       font: inherit;
+      font-size: 18px;
       cursor: pointer;
       background: rgba(37,99,235,.10);
       color: #143a66;
@@ -163,12 +190,15 @@
       0%, 100% { transform: translate3d(0, 0, 0); }
       50% { transform: translate3d(0, 10px, 0); }
     }
-    @media (max-width: 640px) {
-      .card { width: min(100vw - 24px, 520px); padding: 24px 20px 20px; border-radius: 24px; }
+    @media (max-width: 900px) {
+      .card { width: min(100vw - 24px, 760px); padding: 24px 20px 20px; border-radius: 24px; }
       .row { align-items: flex-start; }
-      .logo { width: 58px; height: 58px; flex-basis: 58px; border-radius: 18px; }
-      .mark { font-size: 24px; }
-      .title { font-size: 23px; }
+      .logo { width: 68px; height: 68px; flex-basis: 68px; border-radius: 20px; }
+      .mark { font-size: 30px; }
+      .title { font-size: 44px; }
+      .text { font-size: 22px; }
+      .meta, .foot, .diag-k, .diag-v, .actions button { font-size: 16px; }
+      .diag { grid-template-columns: 120px 1fr; }
     }
   </style>
 </head>
@@ -182,7 +212,7 @@
       <div>
         <div class="kicker">HERMES WEB UI</div>
         <div class="title">正在启动控制台</div>
-        <div class="text" id="statusText">正在连接 Hermes 服务…</div>
+        <div class="text" id="statusText">正在连接本地服务…</div>
       </div>
     </div>
     <div class="meta">
@@ -190,24 +220,17 @@
       <div id="percentText">18%</div>
     </div>
     <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
-    <div class="foot" id="footText">正在准备页面与网关通信。</div>
+    <div class="foot" id="footText">浏览器已经打开，后台正在继续启动。</div>
     <div class="diag">
-      <div class="diag-row">
-        <span class="diag-k">已等待</span>
-        <span class="diag-v" id="diagElapsed">0 秒</span>
-      </div>
-      <div class="diag-row">
-        <span class="diag-k">Web UI :8648</span>
-        <span class="diag-v" id="diagWebui">检测中…</span>
-      </div>
-      <div class="diag-row" id="diagGwRow" style="display:none">
-        <span class="diag-k">网关 :8642</span>
-        <span class="diag-v" id="diagGw">等待中…</span>
-      </div>
-      <div class="diag-row" id="diagErrRow" style="display:none">
-        <span class="diag-k">错误</span>
-        <span class="diag-v err" id="diagErr"></span>
-      </div>
+      <div class="diag-k">已等待</div><div class="diag-v" id="diagElapsed">0 秒</div>
+      <div class="diag-k">Web UI :8648</div><div class="diag-v" id="diagWebui">检测中…</div>
+      <div class="diag-k" id="diagGwLabel">网关 :8642</div><div class="diag-v" id="diagGw">检测中…</div>
+      <div class="diag-k">最近错误</div><div class="diag-v" id="diagErr">暂无</div>
+    </div>
+    <div class="details">
+      <strong>技术提示</strong>
+      <div id="detailText">短暂的 timeout 或“远程连接被关闭”通常只是服务刚启动或正在重启，页面会自动继续检测。</div>
+      <div class="raw" id="rawError">暂无原始错误</div>
     </div>
     <div class="actions">
       <button type="button" id="retryBtn">重新检测</button>
@@ -217,22 +240,24 @@
   <script>
     const params = new URLSearchParams(location.search);
     const targetPort = Number(params.get("targetPort") || "8648");
-    const targetUrl = `http://localhost:${targetPort}/#/hermes/chat`;
-
-    // Use an absolute probe URL so fetch() works regardless of browser security context.
-    // A relative "/__probe__?..." silently fails when location.origin is "null"
-    // (e.g. page opened via file:// because the launcher HTTP server wasn't ready).
-    const _origin = (location.origin && location.origin !== "null") ? location.origin : null;
-    const probeUrl = _origin
-      ? `${_origin}/__probe__?targetPort=${encodeURIComponent(String(targetPort))}&ts=`
+    const gatewayPort = Number(params.get("gatewayPort") || "8642");
+    const targetHost = (location.hostname && location.hostname !== "localhost")
+      ? location.hostname
+      : "127.0.0.1";
+    const targetUrl = `http://${targetHost}:${targetPort}/#/hermes/chat`;
+    const origin = (location.origin && location.origin !== "null") ? location.origin : null;
+    const probeUrl = origin
+      ? `${origin}/__probe__?targetPort=${encodeURIComponent(String(targetPort))}&gatewayPort=${encodeURIComponent(String(gatewayPort))}&ts=`
       : null;
+
     const stages = {
-      boot: ["正在连接 Hermes 服务…", 18, "正在准备页面与网关通信。"],
-      webui: ["正在唤起本地服务…", 34, "浏览器已经打开，后台正在继续启动。"],
-      connect: ["正在连接网关…", 62, "页面已经就绪，正在等待左下角连接状态变成已连接。"],
-      restore: ["正在恢复会话", 82, "服务都已就绪，正在恢复会话状态。"],
-      ready: ["即将就绪", 96, "连接已经建立，正在进入 Web 管理界面。"],
-      fail: ["启动稍慢一点", 56, "还在继续等待本地服务，请不要关闭这个页面。"],
+      boot: ["正在连接本地服务…", 18, "浏览器已经打开，后台正在继续启动。"],
+      webui: ["正在唤起本地服务…", 34, "正在等待 Web UI 监听 8648 端口。"],
+      connect: ["Web UI 已就绪，正在等待网关…", 62, "你已经可以直接进入页面；左下角连接状态会稍后变成已连接。"],
+      restore: ["正在恢复会话…", 82, "本地页面已经准备好，正在等待网关完全接通。"],
+      ready: ["即将进入控制台…", 96, "检测到服务可用，马上进入 Web 管理界面。"],
+      slow: ["首次启动稍慢一点…", 72, "新机器第一次启动可能需要 1 到 3 分钟，请再等一会。"],
+      fail: ["本地服务还在启动", 52, "启动比预期更慢，但页面会继续自动检测。"],
     };
 
     const text = document.getElementById("statusText");
@@ -243,68 +268,70 @@
     const enterBtn = document.getElementById("enterBtn");
     const retryBtn = document.getElementById("retryBtn");
     const diagElapsed = document.getElementById("diagElapsed");
-    const diagWebui  = document.getElementById("diagWebui");
-    const diagGw     = document.getElementById("diagGw");
-    const diagGwRow  = document.getElementById("diagGwRow");
-    const diagErr    = document.getElementById("diagErr");
-    const diagErrRow = document.getElementById("diagErrRow");
+    const diagWebui = document.getElementById("diagWebui");
+    const diagGwLabel = document.getElementById("diagGwLabel");
+    const diagGw = document.getElementById("diagGw");
+    const diagErr = document.getElementById("diagErr");
+    const detailText = document.getElementById("detailText");
+    const rawError = document.getElementById("rawError");
 
     const startTime = Date.now();
+    let attempts = 0;
+    let redirected = false;
+
+    function goTarget(delayMs = 0) {
+      if (redirected) return;
+      redirected = true;
+      const jump = () => {
+        try {
+          location.replace(targetUrl);
+        } catch (_) {
+          try {
+            location.href = targetUrl;
+          } catch (_) {}
+        }
+        setTimeout(() => {
+          if (location.href !== targetUrl) {
+            try {
+              location.href = targetUrl;
+            } catch (_) {}
+          }
+        }, 220);
+      };
+      if (delayMs > 0) {
+        setTimeout(jump, delayMs);
+      } else {
+        jump();
+      }
+    }
+    let slowMode = false;
+    let slowAttempts = 0;
+    let lastRawError = "";
+
+    const FAST_INTERVAL = 450;
+    const SLOW_INTERVAL = 3000;
+    const MAX_WEBUI_ATTEMPTS = 70;
+    const MAX_FAST_GATEWAY = 120;
+    const MAX_SLOW_GATEWAY = 80;
+
+    diagGwLabel.textContent = `网关 :${gatewayPort}`;
+
     function elapsed() {
       const s = Math.floor((Date.now() - startTime) / 1000);
       return s < 60 ? `${s} 秒` : `${Math.floor(s / 60)} 分 ${s % 60} 秒`;
     }
-    // Keep elapsed ticking even between slow-poll intervals
-    setInterval(() => { if (!redirected) diagElapsed.textContent = elapsed(); }, 1000);
 
-    function setV(el, cls, txt) { el.className = `diag-v${cls ? ' ' + cls : ''}`; el.textContent = txt; }
-
-    function updateDiag(data, errMsg) {
-      diagElapsed.textContent = elapsed();
-      diagErrRow.style.display = "none";
-      if (errMsg) {
-        setV(diagWebui, "err", "连接失败");
-        diagGwRow.style.display = "none";
-        diagErrRow.style.display = "flex";
-        diagErr.textContent = errMsg;
-        return;
-      }
-      if (data.webui_up) {
-        setV(diagWebui, "ok", "✓ 就绪");
-      } else {
-        setV(diagWebui, "wait", `等待中… (已检测 ${attempts} 次)`);
-      }
-      // Always show gateway row once we have a probe response — the gateway
-      // is usually the bottleneck on first run (60-90s cold start) and hiding
-      // it left users with no useful status while they waited.
-      diagGwRow.style.display = "flex";
-      if (data.gateway_running) {
-        setV(diagGw, "ok", "✓ 已连接");
-      } else if (data.gateway_direct) {
-        setV(diagGw, "wait", "就绪，等待 Web UI 连接…");
-      } else {
-        setV(diagGw, "wait", "启动中… (首次启动需 60-90 秒)");
-      }
-      if (data.error) {
-        diagErrRow.style.display = "flex";
-        diagErr.textContent = data.error;
-      }
+    function setV(el, cls, txt) {
+      el.className = `diag-v${cls ? " " + cls : ""}`;
+      el.textContent = txt;
     }
 
-    let attempts = 0;
-    let redirected = false;
-    let webuiUpStreak = 0;
-    let slowMode = false;      // true after fast-poll window closes
-    let slowAttempts = 0;
-
-    // Phase 1 (fast): 450 ms/tick — webui must appear within this window
-    const MAX_WEBUI_ATTEMPTS = 70;       // 70 × 450ms ≈ 31s
-    // Phase 1 (fast): gateway window
-    const MAX_FAST_GATEWAY = 120;        // 120 × 450ms ≈ 54s
-    // Phase 2 (slow): keep waiting after fast window closes.
-    // First run on a new machine can take 60-120 s; give up to 4 more minutes.
-    const MAX_SLOW_GATEWAY = 80;         // 80 × 3000ms ≈ 4 min
-    const SLOW_INTERVAL = 3000;
+    // True only once we've genuinely waited past the expected startup window.
+    // Connection-refused/timeout to 8648 is normal for the first 60-90s, so a
+    // transient error should stay amber until we cross this threshold.
+    function isStuck() {
+      return attempts >= MAX_WEBUI_ATTEMPTS || (slowMode && slowAttempts >= MAX_SLOW_GATEWAY);
+    }
 
     function paint(label, value, footnote) {
       text.textContent = label;
@@ -314,104 +341,156 @@
       foot.textContent = footnote;
     }
 
-    async function probe() {
-      if (!probeUrl) {
-        if (location.protocol === "file:") {
-          // Opened directly from disk — cannot reach the launcher HTTP server.
-          paint("页面打开方式不对", 0,
-            "此页面需通过 start_webui.bat 启动，不能直接双击 HTML 文件打开。");
-          updateDiag(null, "页面以文件协议打开，无法连接本地服务。请关闭后运行 start_webui.bat。");
-          clearInterval(timer);
-        } else {
-          // HTTP origin is unexpectedly null — launcher server may still be starting.
-          // Auto-reload in 3s to retry after the server comes up.
-          paint("等待启动页面服务…", 8, "启动页面服务器正在初始化，即将自动重试…");
-          updateDiag(null, "页面来源未就绪，3 秒后自动刷新重试。");
-          clearInterval(timer);
-          setTimeout(() => location.reload(), 3000);
-        }
-        return;
+    function classifyError(message) {
+      const raw = String(message || "").trim();
+      if (!raw) return { transient: false, friendly: "暂无错误" };
+      const lower = raw.toLowerCase();
+      if (
+        lower.includes("timed out") ||
+        lower.includes("timeout") ||
+        lower.includes("remote end closed") ||
+        lower.includes("remotedisconnected") ||
+        lower.includes("connection reset") ||
+        lower.includes("forcibly closed") ||
+        lower.includes("target machine actively refused")
+      ) {
+        return {
+          transient: true,
+          friendly: "本地服务正在启动或切换进程，已自动继续重试。",
+        };
       }
+      return {
+        transient: false,
+        friendly: "检测到一个可用于排障的技术错误，请查看下面原始信息。",
+      };
+    }
+
+    function updateDiagnostics(data, errMsg) {
+      diagElapsed.textContent = elapsed();
+
+      const stuck = isStuck();
+
+      if (!data) {
+        setV(diagWebui, stuck ? "err" : "wait", `等待中…（已检测 ${attempts} 次）`);
+        setV(diagGw, "wait", "检测中…");
+      } else {
+        if (data.webui_up) {
+          const sourceText = data.webui_source === "root" ? "首页可达" : "健康检查可达";
+          setV(diagWebui, "ok", `已就绪（${sourceText}）`);
+        } else {
+          setV(diagWebui, stuck ? "err" : "wait", `等待中…（已检测 ${attempts} 次）`);
+        }
+
+        if (data.gateway_running) {
+          setV(diagGw, "ok", "已连接");
+        } else if (data.gateway_direct) {
+          setV(diagGw, "wait", "网关已启动，等待 Web UI 完成连接…");
+        } else {
+          setV(diagGw, "wait", "启动中 / 未连接");
+        }
+      }
+
+      // A transient error (refused/timeout/reset) stays amber for the whole
+      // startup window; it only turns red once we're genuinely stuck. A
+      // non-transient error is a real fault, so it escalates immediately.
+      if (errMsg) {
+        const info = classifyError(errMsg);
+        const hard = !info.transient || stuck;
+        setV(diagErr, hard ? "err" : "wait", hard ? "需要排障" : "短暂波动，已自动重试");
+        detailText.textContent = info.friendly;
+        rawError.textContent = errMsg;
+      } else if (lastRawError) {
+        const info = classifyError(lastRawError);
+        const hard = !info.transient || stuck;
+        setV(diagErr, hard ? "err" : "wait", hard ? "最近有技术错误" : "最近有短暂波动");
+        detailText.textContent = info.friendly;
+        rawError.textContent = lastRawError;
+      } else {
+        setV(diagErr, "", "暂无");
+        detailText.textContent = "短暂的 timeout 或“远程连接被关闭”通常只是服务刚启动或正在重启，页面会自动继续检测。";
+        rawError.textContent = "暂无原始错误";
+      }
+    }
+
+    async function probe() {
+      if (redirected) return;
       attempts += 1;
       if (slowMode) slowAttempts += 1;
+
+      if (!probeUrl) {
+        paint("启动页来源不正确", 12, "请通过 start_webui.bat 启动，而不是直接双击这个 HTML 文件。");
+        lastRawError = "当前页面不是通过本地 launcher 服务打开，无法执行探测。";
+        updateDiagnostics(null, lastRawError);
+        return;
+      }
+
       try {
         const response = await fetch(probeUrl + Date.now(), { cache: "no-store" });
         const data = await response.json();
-        updateDiag(data, null);
-        if (data.gateway_running) {
-          paint(...stages.ready);
-          redirected = true;
-          setTimeout(() => location.replace(targetUrl), 180);
+        const currentError = data.error || "";
+        if (currentError) lastRawError = currentError;
+
+        updateDiagnostics(data, currentError || "");
+
+        if (data.webui_up) {
+          const nextStage = data.gateway_running
+            ? stages.ready
+            : (attempts > 2 ? stages.restore : stages.connect);
+          paint(...nextStage);
+          goTarget(data.gateway_running ? 120 : 220);
           return;
         }
-        if (data.webui_up) {
-          webuiUpStreak += 1;
-          if (!slowMode && attempts >= MAX_FAST_GATEWAY) {
-            // Switch to slow-poll: gateway not ready after 54s — normal on new machines.
-            slowMode = true;
-            paint(
-              "首次启动较慢，请耐心等待…",
-              70,
-              "新机器首次运行可能需要 1-3 分钟，网关就绪后将自动进入。如不想等，点「直接进入」。"
-            );
-          } else if (slowMode && slowAttempts >= MAX_SLOW_GATEWAY) {
-            // Hard cap (~5 min total) — something is likely wrong, redirect and let user check logs.
-            paint(
-              "已打开页面但仍未连接",
-              66,
-              "网关长时间未响应。请查看 %USERPROFILE%\\.hermes\\gateway.log，或重新运行 start_hermes_gateway.bat。"
-            );
-            redirected = true;
-            setTimeout(() => location.replace(targetUrl), 2000);
-            return;
-          } else if (!slowMode) {
-            paint(...(attempts > 2 ? stages.restore : stages.connect));
-          }
-          // In slowMode with slowAttempts < MAX_SLOW_GATEWAY: keep painting the slow-mode message
-          // (already painted above on first entry, no need to repaint every tick)
+
+        if (!slowMode && attempts >= MAX_FAST_GATEWAY) {
+          slowMode = true;
+          paint(...stages.slow);
+        } else if (slowMode && slowAttempts >= MAX_SLOW_GATEWAY) {
+          paint(...stages.fail);
+        } else if (attempts >= MAX_WEBUI_ATTEMPTS) {
+          paint("还没检测到 8648", 42, "Web UI 仍未监听 8648。请检查安装目录、Node 依赖或查看 server.log。");
         } else {
-          webuiUpStreak = 0;
-          if (attempts >= MAX_WEBUI_ATTEMPTS) {
-            paint("未检测到本地服务", 42, "没有发现 8648 服务。请确认你是从完整安装目录启动，或重新运行 install.bat full。");
-            return;
-          }
           paint(...(attempts > 3 ? stages.webui : stages.boot));
         }
-      } catch (e) {
-        updateDiag(null, e?.message || "launcher 无响应");
+      } catch (error) {
+        lastRawError = error?.message || String(error) || "launcher 无响应";
+        updateDiagnostics(null, lastRawError);
+
         if (attempts >= MAX_WEBUI_ATTEMPTS) {
-          paint("本地服务尚未启动", 42, "还没有连到 8648。常见原因是安装目录不对，或当前目录缺少 node_embedded 和 webui。");
-          return;
+          paint("本地服务尚未启动", 42, "仍未连到 8648。常见原因是安装目录不对，或当前目录缺少 node_embedded / webui。");
+        } else if (slowMode) {
+          paint(...stages.slow);
+        } else {
+          paint(...(attempts > 6 ? stages.fail : stages.boot));
         }
-        paint(...(attempts > 6 ? stages.fail : stages.boot));
       }
-      setTimeout(probe, slowMode ? SLOW_INTERVAL : 450);
+
+      setTimeout(probe, slowMode ? SLOW_INTERVAL : FAST_INTERVAL);
     }
 
     enterBtn.addEventListener("click", () => {
-      redirected = true;
-      location.replace(targetUrl);
+      goTarget(0);
     });
+
     retryBtn.addEventListener("click", () => {
       attempts = 0;
-      webuiUpStreak = 0;
-      slowMode = false;
       slowAttempts = 0;
+      slowMode = false;
+      lastRawError = "";
       redirected = false;
-      setV(diagWebui, "", "检测中…");
-      diagGwRow.style.display = "none";
-      diagErrRow.style.display = "none";
       paint(...stages.boot);
+      updateDiagnostics(null, "");
       setTimeout(probe, 80);
     });
 
     paint(...stages.boot);
+    updateDiagnostics(null, "");
     window.addEventListener("beforeunload", () => {
       redirected = true;
     });
-    setTimeout(() => {
-      if (!redirected) probe();
-    }, 120);
+    setInterval(() => {
+      if (!redirected) diagElapsed.textContent = elapsed();
+    }, 1000);
+    setTimeout(probe, 120);
   </script>
 </body>
 </html>

@@ -90,7 +90,20 @@ def patch_webui(filepath: str) -> bool:
             print("ERROR: Could not find child process exec options")
             return False
 
-    if 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content and 'this.activeProfile||"default"' in content:
+    upstream_read_patch = 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content and 'this.activeProfile||"default"' in content
+    upstream_resolve_patch = 'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c}' in content
+    upstream_write_patch = 'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;' in content
+    upstream_start_patch = "Skipping gateway auto-start" in content
+    upstream_stop_patch = 'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;' in content
+    duplicate_start_guard = (
+        'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+        's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
+        'return this.waitForReady(G,0,l,c,Z)}'
+        'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+        's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
+        'return this.waitForReady(G,0,l,c,Z)}'
+    )
+    if upstream_read_patch and upstream_resolve_patch and upstream_write_patch and upstream_start_patch and upstream_stop_patch and duplicate_start_guard not in content:
         print("Gateway UPSTREAM patch already applied")
     else:
         old_gateway_port_logic = (
@@ -110,10 +123,117 @@ def patch_webui(filepath: str) -> bool:
             'catch{return{port:8642,host:c}}}'
         )
         if old_gateway_port_logic not in content:
-            print("ERROR: Could not find GatewayManager readProfilePort() call site")
-            return False
-        content = content.replace(old_gateway_port_logic, new_gateway_port_logic, 1)
-        changed = True
+            if not upstream_read_patch:
+                print("ERROR: Could not find GatewayManager readProfilePort() call site")
+                return False
+        else:
+            content = content.replace(old_gateway_port_logic, new_gateway_port_logic, 1)
+            changed = True
+
+        old_write_profile_port = (
+            'writeProfilePort(G,l,c){let b=(0,Ml.join)(this.profileDir(G),"config.yaml");'
+            'try{let Z=(0,yI.existsSync)(b)?(0,yI.readFileSync)(b,"utf-8"):"",W=_I.load(Z)||{};'
+            'W.platforms||(W.platforms={}),W.platforms.api_server||(W.platforms.api_server={}),'
+            'W.platforms.api_server.extra||(W.platforms.api_server.extra={}),W.platforms.api_server.enabled=!0,'
+            'W.platforms.api_server.key="",W.platforms.api_server.cors_origins="*",W.platforms.api_server.extra.port=l,'
+            'W.platforms.api_server.extra.host=c,W.platforms.api_server.port!==void 0&&delete W.platforms.api_server.port,'
+            'W.platforms.api_server.host!==void 0&&delete W.platforms.api_server.host,'
+            '(0,yI.writeFileSync)(b,_I.dump(W,{lineWidth:-1}),"utf-8"),s.debug("Updated %s: api_server.extra.port = %d",b,l)}'
+            'catch(Z){s.error(Z,\'Failed to write config for profile "%s"\',G)}}'
+        )
+        new_write_profile_port = (
+            'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;'
+            'let b=(0,Ml.join)(this.profileDir(G),"config.yaml");'
+            'try{let Z=(0,yI.existsSync)(b)?(0,yI.readFileSync)(b,"utf-8"):"",W=_I.load(Z)||{};'
+            'W.platforms||(W.platforms={}),W.platforms.api_server||(W.platforms.api_server={}),'
+            'W.platforms.api_server.extra||(W.platforms.api_server.extra={}),W.platforms.api_server.enabled=!0,'
+            'W.platforms.api_server.key="",W.platforms.api_server.cors_origins="*",W.platforms.api_server.extra.port=l,'
+            'W.platforms.api_server.extra.host=c,W.platforms.api_server.port!==void 0&&delete W.platforms.api_server.port,'
+            'W.platforms.api_server.host!==void 0&&delete W.platforms.api_server.host,'
+            '(0,yI.writeFileSync)(b,_I.dump(W,{lineWidth:-1}),"utf-8"),s.debug("Updated %s: api_server.extra.port = %d",b,l)}'
+            'catch(Z){s.error(Z,\'Failed to write config for profile "%s"\',G)}}'
+        )
+        if old_write_profile_port not in content:
+            if not upstream_write_patch:
+                print("ERROR: Could not find GatewayManager writeProfilePort() call site")
+                return False
+        else:
+            content = content.replace(old_write_profile_port, new_write_profile_port, 1)
+            changed = True
+
+        old_resolve_port = (
+            'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G),b=new Set(this.allocatedPorts);'
+            'for(let Z of Array.from(this.gateways.values()))Z.host===c&&this.isProcessAlive(Z.pid)&&b.add(Z.port);'
+            'if(b.has(l)){let Z=await this.findFreePort(l,c,b);s.info(\'Port %d is in use for profile "%s", reassigning to %d\',l,G,Z),this.writeProfilePort(G,Z,c),l=Z}'
+            'else if(await this.checkPortAvailable(l,c))this.writeProfilePort(G,l,c);'
+            'else{let W=await this.findFreePort(l,c,b);s.info(\'Port %d is occupied by another process for profile "%s", reassigning to %d\',l,G,W),this.writeProfilePort(G,W,c),l=W}'
+            'return this.allocatedPorts.add(l),{port:l,host:c}}'
+        )
+        new_resolve_port = (
+            'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);'
+            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c};'
+            'let b=new Set(this.allocatedPorts);'
+            'for(let Z of Array.from(this.gateways.values()))Z.host===c&&this.isProcessAlive(Z.pid)&&b.add(Z.port);'
+            'if(b.has(l)){let Z=await this.findFreePort(l,c,b);s.info(\'Port %d is in use for profile "%s", reassigning to %d\',l,G,Z),this.writeProfilePort(G,Z,c),l=Z}'
+            'else if(await this.checkPortAvailable(l,c))this.writeProfilePort(G,l,c);'
+            'else{let W=await this.findFreePort(l,c,b);s.info(\'Port %d is occupied by another process for profile "%s", reassigning to %d\',l,G,W),this.writeProfilePort(G,W,c),l=W}'
+            'return this.allocatedPorts.add(l),{port:l,host:c}}'
+        )
+        if old_resolve_port not in content:
+            if not upstream_resolve_patch:
+                print("ERROR: Could not find GatewayManager resolvePort() call site")
+                return False
+        else:
+            content = content.replace(old_resolve_port, new_resolve_port, 1)
+            changed = True
+
+        # start() must also become a no-op under UPSTREAM + active profile.
+        # resolvePort() no longer drifts the port, but start() would still
+        # spawn its own gateway ("gateway run --replace" / "gateway start"),
+        # replacing the one start_webui.bat already owns. We keep only the
+        # readiness wait (pid=0) so the WebUI tracks the external gateway
+        # without ever spawning a second owner.
+        old_start_prefix = (
+            'async start(G){let{port:l,host:c}=await this.resolvePort(G),'
+            'b=this.profileDir(G),Z=oY(c,l);'
+        )
+        new_start_prefix = (
+            'async start(G){let{port:l,host:c}=await this.resolvePort(G),'
+            'b=this.profileDir(G),Z=oY(c,l);'
+            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+            's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
+            'return this.waitForReady(G,0,l,c,Z)}'
+        )
+        if old_start_prefix not in content:
+            if not upstream_start_patch:
+                print("ERROR: Could not find GatewayManager start() call site")
+                return False
+        else:
+            content = content.replace(old_start_prefix, new_start_prefix, 1)
+            changed = True
+
+        start_guard = (
+            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+            's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
+            'return this.waitForReady(G,0,l,c,Z)}'
+        )
+        duplicate_guard = start_guard + start_guard
+        while duplicate_guard in content:
+            content = content.replace(duplicate_guard, start_guard, 1)
+            changed = True
+
+        old_stop_prefix = 'async stop(G,l=1e4){'
+        new_stop_prefix = (
+            'async stop(G,l=1e4){'
+            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;'
+        )
+        if old_stop_prefix not in content:
+            if not upstream_stop_patch:
+                print("ERROR: Could not find GatewayManager stop() call site")
+                return False
+        else:
+            content = content.replace(old_stop_prefix, new_stop_prefix, 1)
+            changed = True
 
     malformed_direct_logs = 'split(/\n?\n/)' in content
 
