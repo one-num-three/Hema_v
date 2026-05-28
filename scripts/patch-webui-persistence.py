@@ -35,6 +35,7 @@ HEMA_APPS_SCRIPT = r"""
   const CHAT_HASH = "#/hermes/chat";
   const PROMPT_KEY = "hema.pendingAppPrompt";
   const MODE_KEY = "hema.activeAppMode";
+  const SHUTDOWN_MODAL_ID = "hema-shutdown-modal";
   const STARTUP_OVERLAY_ID = "hema-startup-overlay";
   const STARTUP_STYLE_ID = "hema-startup-style";
   const STARTUP_STATE = window.__hemaStartupState || (window.__hemaStartupState = {
@@ -277,6 +278,7 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-link .nav-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 18px}
       .hema-app-link svg{width:18px;height:18px;stroke-width:1.8}
       .hema-app-link .nav-label{line-height:1}
+      .hema-more-link .nav-icon{font-size:18px;font-weight:700;letter-spacing:.08em}
       .sidebar.collapsed .hema-app-link,.collapsed .hema-app-link{justify-content:center!important;gap:0!important;padding:10px 4px!important}
       .sidebar.collapsed .hema-app-link .nav-label,.collapsed .hema-app-link .nav-label{display:none!important}
       .hema-apps-view{position:absolute;inset:0;z-index:40;background:#fff;display:none;overflow:auto}
@@ -317,6 +319,25 @@ HEMA_APPS_SCRIPT = r"""
       .hema-app-mode-tag strong{font-weight:650;color:#1d2d5f}
       .hema-app-mode-tag button{width:18px;height:18px;border:0;border-radius:999px;background:rgba(37,99,235,.12);color:#1f3f8f;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:18px;padding:0}
       .hema-app-mode-tag button:hover{background:rgba(37,99,235,.2)}
+      .hema-shutdown-modal-mask{position:fixed;inset:0;z-index:120;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.36);backdrop-filter:blur(8px)}
+      .hema-shutdown-modal-mask.is-open{display:flex}
+      .hema-shutdown-modal{width:min(520px,calc(100vw - 28px));padding:26px 24px 22px;border-radius:24px;background:linear-gradient(180deg,#fff,#f9fbfd);box-shadow:0 30px 80px rgba(15,23,42,.22);border:1px solid rgba(148,163,184,.2)}
+      .hema-shutdown-kicker{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#6b7f95;font-weight:700}
+      .hema-shutdown-title{margin-top:8px;font-size:26px;line-height:1.1;font-weight:800;color:#132238}
+      .hema-shutdown-text{margin-top:10px;font-size:14px;line-height:1.7;color:#5b6b80}
+      .hema-shutdown-card{margin-top:18px;padding:16px 16px 14px;border-radius:18px;background:linear-gradient(145deg,rgba(255,245,245,.96),rgba(255,250,250,.98));border:1px solid rgba(239,68,68,.14)}
+      .hema-shutdown-card-title{font-size:14px;font-weight:700;color:#8f1d1d}
+      .hema-shutdown-hint{margin-top:7px;font-size:12px;line-height:1.6;color:#9a5757}
+      .hema-shutdown-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+      .hema-shutdown-actions button{border:0;border-radius:12px;padding:10px 15px;font-size:14px;cursor:pointer}
+      .hema-shutdown-cancel{background:#eef2f7;color:#435469}
+      .hema-shutdown-confirm{background:linear-gradient(135deg,#b91c1c,#dc2626);color:#fff;box-shadow:0 10px 24px rgba(220,38,38,.24)}
+      .hema-shutdown-confirm[disabled]{opacity:.7;cursor:wait}
+      .hema-exit-overlay{position:fixed;inset:0;z-index:140;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at top,rgba(37,99,235,.12),transparent 30%),linear-gradient(180deg,#f8fbff 0%,#eef4fb 48%,#e7eef5 100%)}
+      .hema-exit-card{width:min(460px,calc(100vw - 32px));padding:28px 28px 24px;border-radius:28px;background:rgba(255,255,255,.9);border:1px solid rgba(148,163,184,.2);box-shadow:0 24px 70px rgba(15,23,42,.12);text-align:center}
+      .hema-exit-spinner{width:56px;height:56px;margin:0 auto 14px;border-radius:999px;border:3px solid rgba(37,99,235,.12);border-top-color:#2563eb;border-right-color:#0f766e;animation:hema-spin 1s linear infinite}
+      .hema-exit-title{font-size:24px;font-weight:800;color:#132238}
+      .hema-exit-text{margin-top:8px;font-size:14px;line-height:1.7;color:#607286}
       @media (max-width:1100px){.hema-apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.hema-apps-shell{padding:30px 22px 44px}}
       @media (max-width:640px){.hema-apps-grid{grid-template-columns:1fr}.hema-app-card{height:236px}.hema-nature-options{grid-template-columns:1fr}}
     `;
@@ -325,6 +346,10 @@ HEMA_APPS_SCRIPT = r"""
 
   function icon() {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>';
+  }
+
+  function moreIcon() {
+    return '<span aria-hidden="true">···</span>';
   }
 
   function ensureSidebarLink() {
@@ -357,6 +382,40 @@ HEMA_APPS_SCRIPT = r"""
       event.preventDefault();
       window.location.hash = APPS_HASH;
       render();
+    });
+  }
+
+  function ensureMoreLink() {
+    const appsLink = document.querySelector(".hema-app-link");
+    const relay = document.querySelector(".nav-item.fun-link");
+    const anchor = appsLink || relay;
+    if (!anchor) return;
+    let link = document.querySelector(".hema-more-link");
+    if (link && link.dataset.hemaMoreReady === "1") return;
+    if (!link) {
+      link = document.createElement("a");
+      anchor.insertAdjacentElement("afterend", link);
+    }
+    for (const attr of Array.from(anchor.attributes)) {
+      if (attr.name.startsWith("data-v-")) {
+        link.setAttribute(attr.name, attr.value);
+      }
+    }
+    link.className = "nav-item hema-app-link hema-more-link";
+    link.href = "#";
+    link.innerHTML = `<span class="nav-icon">${moreIcon()}</span><span class="nav-label">更多</span>`;
+    const scopeAttr = Array.from(link.attributes).find((attr) => attr.name.startsWith("data-v-"));
+    if (scopeAttr) {
+      for (const child of link.querySelectorAll("span")) {
+        child.setAttribute(scopeAttr.name, scopeAttr.value);
+      }
+    }
+    if (link.__hemaMoreClickBound) return;
+    link.__hemaMoreClickBound = true;
+    link.dataset.hemaMoreReady = "1";
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openShutdownModal();
     });
   }
 
@@ -438,6 +497,100 @@ HEMA_APPS_SCRIPT = r"""
       setTimeout(fillChatInput, 450);
     });
     return modal;
+  }
+
+  function ensureShutdownModal() {
+    let modal = document.getElementById(SHUTDOWN_MODAL_ID);
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.id = SHUTDOWN_MODAL_ID;
+    modal.className = "hema-shutdown-modal-mask";
+    modal.innerHTML = `
+      <div class="hema-shutdown-modal" role="dialog" aria-modal="true" aria-label="更多">
+        <div class="hema-shutdown-kicker">More</div>
+        <div class="hema-shutdown-title">完全退出</div>
+        <div class="hema-shutdown-text">关闭当前 Web 管理界面，同时停止 Web UI 和网关。这个操作更适合你确定这次会话已经结束的时候使用。</div>
+        <div class="hema-shutdown-card">
+          <div class="hema-shutdown-card-title">完全退出并关闭网关</div>
+          <div class="hema-shutdown-hint">你将无法在微信上和河马对话哦</div>
+        </div>
+        <div class="hema-shutdown-actions">
+          <button class="hema-shutdown-cancel" type="button">取消</button>
+          <button class="hema-shutdown-confirm" type="button">完全退出</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector(".hema-shutdown-cancel").addEventListener("click", () => modal.classList.remove("is-open"));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.classList.remove("is-open");
+    });
+    modal.querySelector(".hema-shutdown-confirm").addEventListener("click", () => {
+      requestFullShutdown(modal);
+    });
+    return modal;
+  }
+
+  function openShutdownModal() {
+    const modal = ensureShutdownModal();
+    modal.classList.add("is-open");
+  }
+
+  function showExitOverlay() {
+    let overlay = document.querySelector(".hema-exit-overlay");
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.className = "hema-exit-overlay";
+    overlay.innerHTML = `
+      <div class="hema-exit-card">
+        <div class="hema-exit-spinner" aria-hidden="true"></div>
+        <div class="hema-exit-title">正在完全退出</div>
+        <div class="hema-exit-text">Web 管理界面和网关正在关闭。稍后你可以重新通过快捷方式启动。</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  async function requestFullShutdown(modal) {
+    const button = modal?.querySelector(".hema-shutdown-confirm");
+    if (button?.dataset.busy === "1") return;
+    if (button) {
+      button.dataset.busy = "1";
+      button.disabled = true;
+      button.textContent = "正在退出…";
+    }
+    try {
+      const res = await fetch("/__hema/shutdown-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!res.ok) {
+        let message = `退出失败（${res.status}）`;
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch {}
+        throw new Error(message);
+      }
+      modal?.classList.remove("is-open");
+      showExitOverlay();
+      setTimeout(() => {
+        try { window.open("", "_self"); } catch {}
+        try { window.close(); } catch {}
+      }, 700);
+      setTimeout(() => {
+        try { window.location.replace("about:blank"); } catch {}
+      }, 1800);
+    } catch (error) {
+      toast(error?.message || "完全退出失败，请稍后再试。");
+      if (button) {
+        button.dataset.busy = "0";
+        button.disabled = false;
+        button.textContent = "完全退出";
+      }
+    }
   }
 
   function ensureNatureModal() {
@@ -792,6 +945,7 @@ HEMA_APPS_SCRIPT = r"""
     ensureStartupOverlay();
     ensureStyle();
     ensureSidebarLink();
+    ensureMoreLink();
     ensureAppModeTag();
     const open = window.location.hash === APPS_HASH;
     if (!open) {
@@ -948,6 +1102,49 @@ def patch_webui(filepath: str) -> bool:
             return False
         changed = True
 
+    if '"/__hema/shutdown-all"' in content and "Shutting down Web UI and gateway" in content:
+        print("Shutdown-all route patch already applied")
+    else:
+        old_shutdown_router = 'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);'
+        legacy_shutdown_router = 'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);An.post("/api/hermes/shutdown-all",BgI);'
+        new_shutdown_router = (
+            'async function BgI(I){try{let G=String(I.ip||I.request?.ip||"").replace(/^::ffff:/,"");'
+            'if(G&&G!=="127.0.0.1"&&G!=="::1"&&G!=="localhost"){I.status=403,I.body={error:"Localhost only"};return}'
+            'let l=require("child_process"),c=process.env.ComSpec||"cmd.exe",b=String(process.pid),Z=["ping 127.0.0.1 -n 3 >nul"],W=(0,Ml.join)(tI(),"gateway.pid");'
+            'try{let d=(0,yI.readFileSync)(W,"utf-8").trim();/^\\d+$/.test(d)&&Z.push(`taskkill /F /PID ${d} >nul 2>&1`)}catch{}'
+            'Z.push(`taskkill /F /PID ${b} >nul 2>&1`),l.spawn(c,["/d","/s","/c",Z.join(" & ")],{detached:!0,windowsHide:!0,stdio:"ignore"}).unref(),I.body={success:!0,message:"Shutting down Web UI and gateway"}}catch(G){I.status=500,I.body={error:G.message}}}'
+            'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);An.post("/__hema/shutdown-all",BgI);'
+        )
+        if legacy_shutdown_router in content:
+            content = content.replace(legacy_shutdown_router, new_shutdown_router, 1)
+        elif old_shutdown_router in content:
+            content = content.replace(old_shutdown_router, new_shutdown_router, 1)
+        else:
+            print("ERROR: Could not find logs router for shutdown-all patch")
+            return False
+        changed = True
+
+    duplicate_shutdown = re.compile(r'(async function BgI\(I\)\{.*?\})(async function BgI\(I\)\{.*?\})(var An=new O;An\.get\("/api/hermes/logs",xg\);An\.get\("/api/hermes/logs/:name",Ug\);An\.post\("/__hema/shutdown-all",BgI\);)', re.DOTALL)
+    if duplicate_shutdown.search(content):
+        content = duplicate_shutdown.sub(r"\2\3", content, count=1)
+        changed = True
+        print("Removed duplicate shutdown-all handler")
+
+    shutdown_impl_pattern = re.compile(r'async function BgI\(I\)\{.*?\}var An=new O;An\.get\("/api/hermes/logs",xg\);An\.get\("/api/hermes/logs/:name",Ug\);An\.post\("/__hema/shutdown-all",BgI\);', re.DOTALL)
+    desired_shutdown_impl = (
+        'async function BgI(I){try{let G=String(I.ip||I.request?.ip||"").replace(/^::ffff:/,"");'
+        'if(G&&G!=="127.0.0.1"&&G!=="::1"&&G!=="localhost"){I.status=403,I.body={error:"Localhost only"};return}'
+        'let l=require("child_process"),c=process.env.ComSpec||"cmd.exe",b=String(process.pid),Z=["ping 127.0.0.1 -n 3 >nul"],W=(0,Ml.join)(tI(),"gateway.pid");'
+        'try{let d=(0,yI.readFileSync)(W,"utf-8").trim();/^\\d+$/.test(d)&&Z.push(`taskkill /F /PID ${d} >nul 2>&1`)}catch{}'
+        'Z.push(`taskkill /F /PID ${b} >nul 2>&1`),l.spawn(c,["/d","/s","/c",Z.join(" & ")],{detached:!0,windowsHide:!0,stdio:"ignore"}).unref(),I.body={success:!0,message:"Shutting down Web UI and gateway"}}catch(G){I.status=500,I.body={error:G.message}}}'
+        'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);An.post("/__hema/shutdown-all",BgI);'
+    )
+    if '"/__hema/shutdown-all"' in content and ("stop_webui.bat" in content or "gateway stop >nul 2>&1" in content or "gateway.pid" not in content):
+        content, replacements = shutdown_impl_pattern.subn(lambda _m: desired_shutdown_impl, content, count=1)
+        if replacements:
+            changed = True
+            print("Normalized shutdown-all handler implementation")
+
     if not changed:
         malformed_count = content.count('split(/\n?\n/)')
         if malformed_count:
@@ -997,6 +1194,38 @@ def patch_client(filepath: str) -> bool:
 
     ok = patch_hema_apps(path.parents[2])
     return ok
+
+
+def patch_app_bundle(filepath: str) -> bool:
+    path = Path(filepath)
+    if not path.exists():
+        print(f"App bundle not found, skipping: {path}")
+        return True
+
+    content = path.read_text(encoding="utf-8", errors="replace")
+    old_poll = (
+        'function V(e=3e4){w(),c(),l.value=setInterval(c,e)}'
+    )
+    new_poll = (
+        'function V(e){w(),c();let I=typeof e=="number"&&e>0?e:null,'
+        'm=()=>I??(typeof document<"u"&&document.visibilityState==="hidden"?1e4:3e3),'
+        'N=()=>{l.value&&(w(),l.value=setInterval(c,m()))};'
+        'l.value=setInterval(c,m()),typeof document<"u"&&!document.__hermesHealthPollVisibilityBound&&'
+        '(document.__hermesHealthPollVisibilityBound=!0,document.addEventListener("visibilitychange",N))}'
+    )
+
+    if new_poll in content:
+        print("App health polling patch already applied")
+        return True
+
+    if old_poll not in content:
+        print("ERROR: Could not find app health polling call site")
+        return False
+
+    content = content.replace(old_poll, new_poll, 1)
+    path.write_text(content, encoding="utf-8")
+    print(f"Patched app health polling: {path}")
+    return True
 
 
 def patch_hema_apps(client_root: Path) -> bool:
@@ -1075,6 +1304,8 @@ def patch_install(root: Path) -> bool:
         client_root = server_target.parents[1] / "client" / "assets" / "js"
         for client_target in client_root.glob("index-*.js"):
             ok = patch_client(str(client_target)) and ok
+        for app_target in client_root.glob("app-*.js"):
+            ok = patch_app_bundle(str(app_target)) and ok
     return ok
 
 

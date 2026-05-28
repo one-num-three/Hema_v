@@ -14,6 +14,8 @@ set "GATEWAY_PORT=8642"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
 set "WEBUI_MODE_FILE=%USERPROFILE%\.hermes-web-ui\server.mode"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
+set "WEBUI_LAUNCHER_PORT="
+set "WEBUI_LAUNCHER_DIR=%WEBUI_DIR%\launcher"
 
 :: Pre-flight checks
 if not exist "%NODE_EXE%" (
@@ -40,14 +42,27 @@ if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" if exist "%SCRIPT_DIR%
     "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
 )
 
-:: Make sure the gateway belongs to this install before opening Web UI.
+call :start_launcher_page
+call :open_launcher_browser
+
+:: Kick the gateway in the background when needed, but do not block the browser.
+:: The page already has its own startup animation and can wait for gateway there.
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
-call "%SCRIPT_DIR%start_hermes_gateway.bat"
-if errorlevel 1 (
-    echo [ERROR] Failed to start Hermes gateway.
-    echo         Web UI requires gateway on port %GATEWAY_PORT%.
-    pause
-    exit /b 1
+powershell -NoProfile -Command ^
+    "try{Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
+) else (
+    echo [INFO] Starting Hermes gateway in background...
+    if not exist "%SCRIPT_DIR%start_hermes_gateway.bat" (
+        echo [ERROR] Gateway launcher not found: "%SCRIPT_DIR%start_hermes_gateway.bat"
+        pause
+        exit /b 1
+    )
+    powershell -NoProfile -Command ^
+        "$cmd='call ""' + [IO.Path]::GetFullPath('%SCRIPT_DIR%start_hermes_gateway.bat') + '""';" ^
+        "$work=[IO.Path]::GetFullPath('%SCRIPT_DIR%');" ^
+        "Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
 )
 
 :: Local desktop launcher: Web UI binds to localhost, so auth is disabled by default.
@@ -215,64 +230,47 @@ if defined WEBUI_PID (
     echo [INFO] Web UI PID: !WEBUI_PID!
 )
 
-:: Poll /health up to 20 seconds
-set "MAX_WAIT=40"
-set "WAITED=0"
-:wait_webui
-powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
-set /a WAITED+=1
-powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
-if %errorlevel% equ 0 (
-    if not defined WEBUI_PID (
-        for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
-            if not defined WEBUI_PID set "WEBUI_PID=%%p"
-        )
-        if defined WEBUI_PID (
-            echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
-            echo auth-disabled:%GATEWAY_PORT%:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
-            echo [INFO] Web UI PID: !WEBUI_PID!
-        )
-    )
-    echo [OK] hermes-web-ui ready.
-    goto :open_browser
-)
-if %WAITED% LSS %MAX_WAIT% goto :wait_webui
-echo [WARN] Web UI did not respond within the startup window.
-echo        Check log: %WEBUI_LOG%
-echo.
-echo [DIAG] Expected files:
-if exist "%NODE_EXE%" (echo        [OK] "%NODE_EXE%") else (echo        [MISS] "%NODE_EXE%")
-if exist "%WEBUI_SERVER%" (echo        [OK] "%WEBUI_SERVER%") else (echo        [MISS] "%WEBUI_SERVER%")
-echo.
-echo [DIAG] Recent Web UI log:
-powershell -NoProfile -Command "if(Test-Path -LiteralPath '%WEBUI_LOG%'){Get-Content -LiteralPath '%WEBUI_LOG%' -Tail 30}else{Write-Host 'Log file does not exist.'}" 2>nul
-echo.
-echo [DIAG] Common causes:
-echo        - The installer copied an old or incomplete webui directory from CDN.
-echo        - node_embedded was not installed or was removed by antivirus.
-echo        - port %WEBUI_PORT% is occupied by another process.
-echo        - node-pty failed to load on this Windows environment; check the log above.
-echo [ERROR] Web UI failed to start, browser will not be opened.
-pause
-exit /b 1
-
 :open_browser
 call :is_webui_gateway_connected
 if errorlevel 1 (
-    echo [INFO] Web UI page is opening now; Hermes connection will finish in the page.
+    echo [INFO] Hermes connection will finish inside the startup page.
 )
-:: Open local Web UI. Auth is disabled for localhost in this launcher.
-set "BROWSER_URL=http://localhost:%WEBUI_PORT%/"
+echo [OK] Web UI is running at http://localhost:%WEBUI_PORT%
+echo.
+echo [INFO] Web UI startup will continue in background.
+endlocal
+exit /b 0
+
+:start_launcher_page
+if not exist "%WEBUI_LAUNCHER_DIR%\index.html" exit /b 0
+set "WEBUI_LAUNCHER_PORT="
+for /f %%p in ('powershell -NoProfile -Command "$l=New-Object System.Net.Sockets.TcpListener([Net.IPAddress]::Loopback,0);$l.Start();$p=$l.LocalEndpoint.Port;$l.Stop();Write-Output $p"') do (
+    if not defined WEBUI_LAUNCHER_PORT set "WEBUI_LAUNCHER_PORT=%%p"
+)
+if not defined WEBUI_LAUNCHER_PORT set "WEBUI_LAUNCHER_PORT=8659"
+if not exist "%SCRIPT_DIR%python_embedded\python.exe" exit /b 0
+powershell -NoProfile -Command ^
+    "$python=[IO.Path]::GetFullPath('%SCRIPT_DIR%python_embedded\python.exe');" ^
+    "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
+    "Start-Process -FilePath $python -ArgumentList '-m','http.server','%WEBUI_LAUNCHER_PORT%','--bind','127.0.0.1' -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
+for /l %%i in (1,1,12) do (
+    powershell -NoProfile -Command ^
+        "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+    if !errorlevel! equ 0 exit /b 0
+    powershell -NoProfile -Command "Start-Sleep -Milliseconds 150" >nul 2>&1
+)
+exit /b 0
+
+:open_launcher_browser
+if "%BROWSER_OPENED%"=="1" exit /b 0
+set "BROWSER_OPENED=1"
+set "BROWSER_URL=http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/?targetPort=%WEBUI_PORT%"
 echo [INFO] Opening browser: %BROWSER_URL%
 powershell -NoProfile -Command ^
     "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
 if %errorlevel% neq 0 (
     start "" "%BROWSER_URL%"
 )
-echo [OK] Web UI is running at http://localhost:%WEBUI_PORT%
-echo.
-endlocal
 exit /b 0
 
 :is_current_webui
