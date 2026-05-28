@@ -314,6 +314,54 @@ def patch_hema_apps(client_root: Path) -> bool:
     return True
 
 
+def patch_weixin_route(server_root: Path) -> bool:
+    route_path = server_root / "routes" / "hermes" / "weixin.js"
+    if not route_path.exists():
+        print(f"Weixin route not found, skipping: {route_path}")
+        return True
+
+    content = route_path.read_text(encoding="utf-8", errors="replace")
+    if "/api/hermes/weixin/status" in content:
+        print("Weixin status route already applied")
+        return True
+
+    marker = "exports.weixinRoutes.post('/api/hermes/weixin/save', async (ctx) => {"
+    if marker not in content:
+        print("ERROR: Could not find Weixin save route call site")
+        return False
+
+    inject = (
+        "exports.weixinRoutes.get('/api/hermes/weixin/status', async (ctx) => {\n"
+        "    try {\n"
+        "        const profileDir = (0, hermes_profile_1.getActiveProfileDir)();\n"
+        "        const statusPath = require('path').join(profileDir, 'weixin_status.json');\n"
+        "        const raw = await (0, promises_1.readFile)(statusPath, 'utf-8');\n"
+        "        ctx.body = JSON.parse(raw);\n"
+        "    }\n"
+        "    catch (err) {\n"
+        "        if ((err === null || err === void 0 ? void 0 : err.code) === 'ENOENT') {\n"
+        "            ctx.body = {\n"
+        "                status: 'not_configured',\n"
+        "                message: 'Weixin not configured',\n"
+        "                verification_code: '',\n"
+        "                last_event_at: '',\n"
+        "                account_id: '',\n"
+        "                last_error: '',\n"
+        "            };\n"
+        "            return;\n"
+        "        }\n"
+        "        ctx.status = 500;\n"
+        "        ctx.body = { error: (err === null || err === void 0 ? void 0 : err.message) || 'Failed to read Weixin status' };\n"
+        "    }\n"
+        "});\n"
+    )
+
+    content = content.replace(marker, inject + marker, 1)
+    route_path.write_text(content, encoding="utf-8")
+    print(f"Patched Weixin status route: {route_path}")
+    return True
+
+
 def patch_install(root: Path) -> bool:
     candidates = [
         root / "dist" / "server" / "index.js",
@@ -327,6 +375,7 @@ def patch_install(root: Path) -> bool:
     ok = True
     for server_target in server_targets:
         ok = patch_webui(str(server_target)) and ok
+        ok = patch_weixin_route(server_target.parent) and ok
         client_root = server_target.parents[1] / "client" / "assets" / "js"
         for client_target in client_root.glob("index-*.js"):
             ok = patch_client(str(client_target)) and ok

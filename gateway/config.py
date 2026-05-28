@@ -46,6 +46,7 @@ class Platform(Enum):
     LOCAL = "local"
     TELEGRAM = "telegram"
     DISCORD = "discord"
+    WEIXIN = "weixin"
     WHATSAPP = "whatsapp"
     SLACK = "slack"
     SIGNAL = "signal"
@@ -628,6 +629,20 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             config.platforms[Platform.DISCORD] = PlatformConfig()
         config.platforms[Platform.DISCORD].enabled = True
         config.platforms[Platform.DISCORD].token = discord_token
+
+    # Weixin iLink
+    weixin_account_id = os.getenv("WEIXIN_ACCOUNT_ID", "").strip()
+    weixin_token = os.getenv("WEIXIN_TOKEN", "").strip()
+    weixin_base_url = os.getenv("WEIXIN_BASE_URL", "").strip()
+    if weixin_account_id and weixin_token:
+        if Platform.WEIXIN not in config.platforms:
+            config.platforms[Platform.WEIXIN] = PlatformConfig()
+        config.platforms[Platform.WEIXIN].enabled = True
+        config.platforms[Platform.WEIXIN].token = weixin_token
+        config.platforms[Platform.WEIXIN].extra["account_id"] = weixin_account_id
+        config.platforms[Platform.WEIXIN].extra["base_url"] = (
+            weixin_base_url or "https://ilinkai.weixin.qq.com"
+        )
     
     discord_home = os.getenv("DISCORD_HOME_CHANNEL")
     if discord_home and Platform.DISCORD in config.platforms:

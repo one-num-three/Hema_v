@@ -184,6 +184,8 @@
 
     let attempts = 0;
     let redirected = false;
+    const MAX_WEBUI_ATTEMPTS = 70;
+    const MAX_GATEWAY_ATTEMPTS = 90;
 
     function paint(label, value, footnote) {
       text.textContent = label;
@@ -205,11 +207,23 @@
           return;
         }
         if (data.webui_up) {
+          if (attempts >= MAX_GATEWAY_ATTEMPTS) {
+            paint("已打开页面但仍未连接", 66, "Web UI 已启动，但网关没有连上。请返回检查 Hermes gateway 是否正常运行。");
+            return;
+          }
           paint(...(attempts > 2 ? stages.restore : stages.connect));
         } else {
+          if (attempts >= MAX_WEBUI_ATTEMPTS) {
+            paint("未检测到本地服务", 42, "没有发现 8648 服务。请确认你是从完整安装目录启动，或重新运行 install.bat full。");
+            return;
+          }
           paint(...(attempts > 3 ? stages.webui : stages.boot));
         }
       } catch {
+        if (attempts >= MAX_WEBUI_ATTEMPTS) {
+          paint("本地服务尚未启动", 42, "还没有连到 8648。常见原因是安装目录不对，或当前目录缺少 node_embedded 和 webui。");
+          return;
+        }
         paint(...(attempts > 6 ? stages.fail : stages.boot));
       }
       setTimeout(probe, 450);

@@ -2,6 +2,13 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set "ORIGINAL_SCRIPT_DIR=%SCRIPT_DIR%"
+call :resolve_install_root "%SCRIPT_DIR%"
+if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
+    echo [INFO] Resolved install root from "%ORIGINAL_SCRIPT_DIR%" to "%SCRIPT_DIR%"
+)
+set "SCRIPT_DIR=%SCRIPT_DIR%\"
 set "NODE_DIR=%SCRIPT_DIR%node_embedded"
 set "NODE_EXE=%NODE_DIR%\node.exe"
 set "NPM_CMD=%NODE_DIR%\npm.cmd"
@@ -16,6 +23,14 @@ set "WEBUI_MODE_FILE=%USERPROFILE%\.hermes-web-ui\server.mode"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
 set "WEBUI_LAUNCHER_PORT="
 set "WEBUI_LAUNCHER_DIR=%WEBUI_DIR%\launcher"
+set "PATCH_PY="
+
+if exist "%SCRIPT_DIR%python_embedded\python.exe" (
+    set "PATCH_PY=%SCRIPT_DIR%python_embedded\python.exe"
+) else (
+    where python >nul 2>&1
+    if not errorlevel 1 set "PATCH_PY=python"
+)
 
 :: Pre-flight checks
 if not exist "%NODE_EXE%" (
@@ -38,8 +53,8 @@ if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
 if exist "%WEBUI_NPM_SERVER%" set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
 
 :: Apply local Web UI compatibility patches even when an existing server is reused.
-if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
-    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
+if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" (
+    "%PATCH_PY%" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
 )
 
 call :start_launcher_page
@@ -127,8 +142,8 @@ if %errorlevel% equ 0 (
 )
 
 :: Backfill old Web UI databases where assistant messages were not persisted.
-if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" if exist "%SCRIPT_DIR%python_embedded\python.exe" (
-    "%SCRIPT_DIR%python_embedded\python.exe" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
+if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" (
+    "%PATCH_PY%" "%SCRIPT_DIR%scripts\recover-webui-assistant-history.py" >nul 2>&1
 )
 
 :: Env vars consumed by hermes-web-ui server
@@ -241,6 +256,29 @@ echo [INFO] Web UI startup will continue in background.
 endlocal
 exit /b 0
 
+:resolve_install_root
+set "RESOLVE_DIR=%~1"
+if not defined RESOLVE_DIR exit /b 0
+if exist "%RESOLVE_DIR%\node_embedded\node.exe" goto :resolve_install_root_done
+if exist "%RESOLVE_DIR%\webui\dist\server\index.js" goto :resolve_install_root_done
+if exist "%RESOLVE_DIR%\webui\node_modules\hermes-web-ui\dist\server\index.js" goto :resolve_install_root_done
+for %%D in ("%RESOLVE_DIR%\.." "%RESOLVE_DIR%\..\..") do (
+    if exist "%%~fD\node_embedded\node.exe" (
+        set "SCRIPT_DIR=%%~fD"
+        goto :resolve_install_root_done
+    )
+    if exist "%%~fD\webui\dist\server\index.js" (
+        set "SCRIPT_DIR=%%~fD"
+        goto :resolve_install_root_done
+    )
+    if exist "%%~fD\webui\node_modules\hermes-web-ui\dist\server\index.js" (
+        set "SCRIPT_DIR=%%~fD"
+        goto :resolve_install_root_done
+    )
+)
+:resolve_install_root_done
+exit /b 0
+
 :start_launcher_page
 if not exist "%WEBUI_LAUNCHER_DIR%\index.html" exit /b 0
 set "WEBUI_LAUNCHER_PORT="
@@ -248,9 +286,9 @@ for /f %%p in ('powershell -NoProfile -Command "$l=New-Object System.Net.Sockets
     if not defined WEBUI_LAUNCHER_PORT set "WEBUI_LAUNCHER_PORT=%%p"
 )
 if not defined WEBUI_LAUNCHER_PORT set "WEBUI_LAUNCHER_PORT=8659"
-if not exist "%SCRIPT_DIR%python_embedded\python.exe" exit /b 0
+if not defined PATCH_PY exit /b 0
 powershell -NoProfile -Command ^
-    "$python=[IO.Path]::GetFullPath('%SCRIPT_DIR%python_embedded\python.exe');" ^
+    "$python='%PATCH_PY%';" ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
