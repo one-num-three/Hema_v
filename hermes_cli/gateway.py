@@ -1076,16 +1076,32 @@ def run_gateway(verbose: bool = False, replace: bool = False):
                  hasn't fully exited yet.
     """
     sys.path.insert(0, str(PROJECT_ROOT))
-    
+
+    # Fix Windows GBK encoding issue: force UTF-8 on stdout/stderr
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     from gateway.run import start_gateway
-    
-    print("┌─────────────────────────────────────────────────────────┐")
-    print("│           ⚕ Hermes Gateway Starting...                 │")
-    print("├─────────────────────────────────────────────────────────┤")
-    print("│  Messaging platforms + cron scheduler                    │")
-    print("│  Press Ctrl+C to stop                                   │")
-    print("└─────────────────────────────────────────────────────────┘")
-    print()
+
+    try:
+        print("┌─────────────────────────────────────────────────────────┐")
+        print("│           ⚕ Hermes Gateway Starting...                 │")
+        print("├─────────────────────────────────────────────────────────┤")
+        print("│  Messaging platforms + cron scheduler                    │")
+        print("│  Press Ctrl+C to stop                                   │")
+        print("└─────────────────────────────────────────────────────────┘")
+        print()
+    except UnicodeEncodeError:
+        print("--- Hermes Gateway Starting ---")
+        print()
     
     # Exit with code 1 if gateway fails to connect any platform,
     # so systemd Restart=on-failure will retry on transient errors

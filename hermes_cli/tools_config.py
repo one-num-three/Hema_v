@@ -140,8 +140,9 @@ PLATFORMS = {
     "homeassistant": {"label": "🏠 Home Assistant", "default_toolset": "hermes-homeassistant"},
     "email":    {"label": "📧 Email",      "default_toolset": "hermes-email"},
     "matrix":   {"label": "💬 Matrix",     "default_toolset": "hermes-matrix"},
- "dingtalk": {"label": "💬 DingTalk", "default_toolset": "hermes-dingtalk"},
+    "dingtalk": {"label": "💬 DingTalk", "default_toolset": "hermes-dingtalk"},
     "feishu": {"label": "🪽 Feishu", "default_toolset": "hermes-feishu"},
+    "weixin": {"label": "💬 WeChat", "default_toolset": "hermes-telegram"},
     "api_server": {"label": "🌐 API Server", "default_toolset": "hermes-api-server"},
     "mattermost": {"label": "💬 Mattermost", "default_toolset": "hermes-mattermost"},
 }
@@ -428,7 +429,12 @@ def _get_platform_tools(
     toolset_names = platform_toolsets.get(platform)
 
     if toolset_names is None or not isinstance(toolset_names, list):
-        default_ts = PLATFORMS[platform]["default_toolset"]
+        platform_entry = PLATFORMS.get(platform)
+        if platform_entry:
+            default_ts = platform_entry["default_toolset"]
+        else:
+            # Unknown/new platform: fall back to telegram-style messaging toolset
+            default_ts = "hermes-telegram"
         toolset_names = [default_ts]
 
     configurable_keys = {ts_key for ts_key, _, _ in CONFIGURABLE_TOOLSETS}

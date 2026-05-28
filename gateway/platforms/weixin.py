@@ -166,7 +166,11 @@ class WeixinAdapter(BasePlatformAdapter):
     async def _post_json(self, path: str, body: Dict[str, Any]) -> Dict[str, Any]:
         if not self._client:
             raise RuntimeError("Weixin client is not connected")
-        response = await asyncio.wait_for(self._client.post(path, json=body), timeout=45.0)
+        headers = self._build_api_headers()
+        response = await asyncio.wait_for(
+            self._client.post(path, json=body, headers=headers),
+            timeout=65.0,
+        )
         response.raise_for_status()
         data = response.json()
         if isinstance(data, dict) and data.get("ret") not in (None, 0):
@@ -186,12 +190,13 @@ class WeixinAdapter(BasePlatformAdapter):
         return {
             "get_updates_buf": self._cursor or "",
             "base_info": {
-                "channel_version": "1.0.0",
+                "channel_version": "2.0.0",
             },
         }
 
     def _extract_updates(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         candidates = [
+            data.get("msgs"),           # iLink actual key
             data.get("update_list"),
             data.get("updates"),
             data.get("items"),
@@ -204,6 +209,7 @@ class WeixinAdapter(BasePlatformAdapter):
             if isinstance(candidate, list):
                 return [item for item in candidate if isinstance(item, dict)]
         return []
+
 
     def _update_cursor_from_response(self, data: Dict[str, Any], updates: List[Dict[str, Any]]) -> None:
         for key in ("get_updates_buf", "next_cursor", "cursor", "next_key"):
@@ -244,6 +250,7 @@ class WeixinAdapter(BasePlatformAdapter):
             self._context_tokens[str(from_user_id)] = str(context_token)
         event = self._build_message_event(payload)
         if not event.text:
+            self._append_log(f"skipped_empty_text from={from_user_id} keys={list(payload.keys())}")
             return None
         match = _VERIFY_CODE_RE.search(event.text)
         lowered_text = event.text.lower()
@@ -262,7 +269,10 @@ class WeixinAdapter(BasePlatformAdapter):
         data = await self._post_json("/ilink/bot/getupdates", self._build_getupdates_body())
         updates = self._extract_updates(data)
         self._update_cursor_from_response(data, updates)
+        if updates:
+            self._append_log(f"poll_updates count={len(updates)} keys={list(data.keys())}")
         return updates
+
 
     async def _poll_loop(self) -> None:
         while self._running:
@@ -294,8 +304,7 @@ class WeixinAdapter(BasePlatformAdapter):
             return False
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
-            headers=self._build_api_headers(),
-            timeout=30.0,
+            timeout=60.0,
         )
         self._mark_connected()
         self._set_status(status="connected", message="Weixin gateway connected")
@@ -345,7 +354,7 @@ class WeixinAdapter(BasePlatformAdapter):
                 ],
             },
             "base_info": {
-                "channel_version": "1.0.0",
+                "channel_version": "2.0.0",
             },
         }
         try:
