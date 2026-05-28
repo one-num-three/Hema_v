@@ -58,8 +58,7 @@ if not exist "%SCRIPT_DIR%hermes_cli\main.py" (
     exit /b 1
 )
 
-powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+"%PYTHON_EXE%" -c "import urllib.request; urllib.request.urlopen('http://%GATEWAY_HOST%:%GATEWAY_PORT%/health', timeout=2)" >nul 2>&1
 if %errorlevel% equ 0 (
     call :is_current_gateway
     if !errorlevel! equ 0 (
@@ -115,10 +114,9 @@ if defined GATEWAY_PID (
 set "MAX_WAIT=90"
 set "WAITED=0"
 :wait_gateway
-powershell -NoProfile -Command "Start-Sleep -Seconds 1" >nul 2>&1
+ping 127.0.0.1 -n 2 >nul 2>&1
 set /a WAITED+=1
-powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://%GATEWAY_HOST%:%GATEWAY_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+"%PYTHON_EXE%" -c "import urllib.request; urllib.request.urlopen('http://%GATEWAY_HOST%:%GATEWAY_PORT%/health', timeout=2)" >nul 2>&1
 if %errorlevel% equ 0 (
     for /f %%p in ('powershell -NoProfile -Command ^
         "$root=[IO.Path]::GetFullPath('%SCRIPT_DIR%').TrimEnd('\');" ^

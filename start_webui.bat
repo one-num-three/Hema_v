@@ -68,8 +68,7 @@ rem on cold first-run (Python import + platform adapter setup).
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
 echo [INFO] HERMES_HOME: %HERMES_HOME%
 echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
-powershell -NoProfile -Command ^
-    "try{Invoke-WebRequest 'http://127.0.0.1:%GATEWAY_PORT%/health' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+"%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%GATEWAY_PORT%/health', timeout=1)" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
 ) else (
@@ -96,8 +95,7 @@ if exist "%WEBUI_PID_FILE%" (
     if !errorlevel! equ 0 (
         call :is_current_webui
         if !errorlevel! equ 0 (
-            powershell -NoProfile -Command ^
-                "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+            "%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%WEBUI_PORT%/health', timeout=1)" >nul 2>&1
             if !errorlevel! equ 0 (
                 call :is_expected_webui_mode
                 if !errorlevel! equ 0 (
@@ -379,8 +377,7 @@ rem Wait up to ~10s (7 rounds x 1.5s). The launcher server only imports
 rem Python stdlib so it starts fast. Keep this wait very short: the launcher
 rem page is only a visual bridge and must never block WebUI startup.
 for /l %%i in (1,1,2) do (
-    powershell -NoProfile -Command ^
-        "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
+    "%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/', timeout=1)" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0
     ping 127.0.0.1 -n 2 >nul 2>&1
 )
@@ -406,6 +403,5 @@ if /i "%WEBUI_MODE%"=="auth-disabled:%GATEWAY_PORT%:%EXISTING_PID%" exit /b 0
 exit /b 1
 
 :is_webui_gateway_connected
-powershell -NoProfile -Command ^
-    "try{$h=Invoke-RestMethod 'http://127.0.0.1:%WEBUI_PORT%/health' -TimeoutSec 2; if($h.gateway -eq 'running'){exit 0}else{exit 1}}catch{exit 1}" >nul 2>&1
+"%PATCH_PY%" -c "import json, urllib.request; r=urllib.request.urlopen('http://127.0.0.1:%WEBUI_PORT%/health', timeout=2); exit(0 if json.loads(r.read().decode('utf-8')).get('gateway') == 'running' else 1)" >nul 2>&1
 exit /b %errorlevel%
