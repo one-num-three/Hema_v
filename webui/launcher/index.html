@@ -313,10 +313,20 @@
 
     async function probe() {
       if (!probeUrl) {
-        paint("页面打开方式不对", 0,
-          "此页面需通过 start_webui.bat 启动，不能直接双击 HTML 文件打开。");
-        updateDiag(null, "页面以文件协议打开，无法连接本地服务。请关闭后运行 start_webui.bat。");
-        clearInterval(timer);
+        if (location.protocol === "file:") {
+          // Opened directly from disk — cannot reach the launcher HTTP server.
+          paint("页面打开方式不对", 0,
+            "此页面需通过 start_webui.bat 启动，不能直接双击 HTML 文件打开。");
+          updateDiag(null, "页面以文件协议打开，无法连接本地服务。请关闭后运行 start_webui.bat。");
+          clearInterval(timer);
+        } else {
+          // HTTP origin is unexpectedly null — launcher server may still be starting.
+          // Auto-reload in 3s to retry after the server comes up.
+          paint("等待启动页面服务…", 8, "启动页面服务器正在初始化，即将自动重试…");
+          updateDiag(null, "页面来源未就绪，3 秒后自动刷新重试。");
+          clearInterval(timer);
+          setTimeout(() => location.reload(), 3000);
+        }
         return;
       }
       attempts += 1;

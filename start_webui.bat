@@ -292,18 +292,27 @@ powershell -NoProfile -Command ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_LAUNCHER_DIR%');" ^
     "$script=[IO.Path]::GetFullPath('%SCRIPT_DIR%scripts\webui_launcher_server.py');" ^
     "Start-Process -FilePath $python -ArgumentList $script,'--port','%WEBUI_LAUNCHER_PORT%','--root',$work -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
-for /l %%i in (1,1,12) do (
+:: Wait up to 30s — embedded Python cold-starts can take 10-20s on new machines.
+:: If the server never comes up, clear WEBUI_LAUNCHER_PORT so open_launcher_browser
+:: falls back to opening the Web UI directly on port %WEBUI_PORT%.
+for /l %%i in (1,1,60) do (
     powershell -NoProfile -Command ^
         "try{Invoke-WebRequest 'http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/' -TimeoutSec 1 -UseBasicParsing|Out-Null;exit 0}catch{exit 1}" >nul 2>&1
     if !errorlevel! equ 0 exit /b 0
-    powershell -NoProfile -Command "Start-Sleep -Milliseconds 150" >nul 2>&1
+    powershell -NoProfile -Command "Start-Sleep -Milliseconds 500" >nul 2>&1
 )
+echo [WARN] Launcher page server did not start in 30s, browser will open WebUI directly.
+set "WEBUI_LAUNCHER_PORT="
 exit /b 0
 
 :open_launcher_browser
 if "%BROWSER_OPENED%"=="1" exit /b 0
 set "BROWSER_OPENED=1"
-set "BROWSER_URL=http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/?targetPort=%WEBUI_PORT%"
+if defined WEBUI_LAUNCHER_PORT (
+    set "BROWSER_URL=http://127.0.0.1:%WEBUI_LAUNCHER_PORT%/?targetPort=%WEBUI_PORT%"
+) else (
+    set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/hermes/chat"
+)
 echo [INFO] Opening browser: %BROWSER_URL%
 powershell -NoProfile -Command ^
     "try { Start-Process '%BROWSER_URL%'; exit 0 } catch { exit 1 }" >nul 2>&1
