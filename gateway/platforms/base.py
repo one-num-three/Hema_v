@@ -1026,16 +1026,24 @@ class BasePlatformAdapter(ABC):
             self._active_sessions[session_key].set()
             return  # Don't process now - will be handled after current task finishes
         
-        # Spawn background task to process this message
-        task = asyncio.create_task(self._process_message_background(event, session_key))
+        # Mark the session as active immediately to prevent races before the background task runs
+        self._active_sessions[session_key] = asyncio.Event()
+        
         try:
-            self._background_tasks.add(task)
-        except TypeError:
-            # Some tests stub create_task() with lightweight sentinels that are not
-            # hashable and do not support lifecycle callbacks.
-            return
-        if hasattr(task, "add_done_callback"):
-            task.add_done_callback(self._background_tasks.discard)
+            # Spawn background task to process this message
+            task = asyncio.create_task(self._process_message_background(event, session_key))
+            try:
+                self._background_tasks.add(task)
+            except TypeError:
+                # Some tests stub create_task() with lightweight sentinels that are not
+                # hashable and do not support lifecycle callbacks.
+                return
+            if hasattr(task, "add_done_callback"):
+                task.add_done_callback(self._background_tasks.discard)
+        except Exception:
+            if session_key in self._active_sessions:
+                del self._active_sessions[session_key]
+            raise
     
     @staticmethod
     def _get_human_delay() -> float:
@@ -1060,234 +1068,231 @@ class BasePlatformAdapter(ABC):
 
     async def _process_message_background(self, event: MessageEvent, session_key: str) -> None:
         """Background task that actually processes the message."""
-        # Create interrupt event for this session
-        interrupt_event = asyncio.Event()
-        self._active_sessions[session_key] = interrupt_event
-        
-        # Start continuous typing indicator (refreshes every 2 seconds)
-        _thread_metadata = {"thread_id": event.source.thread_id} if event.source.thread_id else None
-        typing_task = asyncio.create_task(self._keep_typing(event.source.chat_id, metadata=_thread_metadata))
-        
-        try:
-            # Call the handler (this can take a while with tool calls)
-            response = await self._message_handler(event)
+        while event is not None:
+            # Get or create interrupt event for this session (it should already be created in handle_message)
+            interrupt_event = self._active_sessions.get(session_key)
+            if interrupt_event is None:
+                interrupt_event = asyncio.Event()
+                self._active_sessions[session_key] = interrupt_event
             
-            # Send response if any
-            if not response:
-                logger.warning("[%s] Handler returned empty/None response for %s", self.name, event.source.chat_id)
-            if response:
-                # Extract MEDIA:<path> tags (from TTS tool) before other processing
-                media_files, response = self.extract_media(response)
+            # Start continuous typing indicator (refreshes every 2 seconds)
+            _thread_metadata = {"thread_id": event.source.thread_id} if event.source.thread_id else None
+            typing_task = asyncio.create_task(self._keep_typing(event.source.chat_id, metadata=_thread_metadata))
+            
+            next_event = None
+            try:
+                # Call the handler (this can take a while with tool calls)
+                response = await self._message_handler(event)
                 
-                # Extract image URLs and send them as native platform attachments
-                images, text_content = self.extract_images(response)
-                # Strip any remaining internal directives from message body (fixes #1561)
-                text_content = text_content.replace("[[audio_as_voice]]", "").strip()
-                text_content = re.sub(r"MEDIA:\s*\S+", "", text_content).strip()
-                if images:
-                    logger.info("[%s] extract_images found %d image(s) in response (%d chars)", self.name, len(images), len(response))
+                # Send response if any
+                if not response:
+                    logger.warning("[%s] Handler returned empty/None response for %s", self.name, event.source.chat_id)
+                if response:
+                    # Extract MEDIA:<path> tags (from TTS tool) before other processing
+                    media_files, response = self.extract_media(response)
+                    
+                    # Extract image URLs and send them as native platform attachments
+                    images, text_content = self.extract_images(response)
+                    # Strip any remaining internal directives from message body (fixes #1561)
+                    text_content = text_content.replace("[[audio_as_voice]]", "").strip()
+                    text_content = re.sub(r"MEDIA:\s*\S+", "", text_content).strip()
+                    if images:
+                        logger.info("[%s] extract_images found %d image(s) in response (%d chars)", self.name, len(images), len(response))
 
-                # Auto-detect bare local file paths for native media delivery
-                # (helps small models that don't use MEDIA: syntax)
-                local_files, text_content = self.extract_local_files(text_content)
-                if local_files:
-                    logger.info("[%s] extract_local_files found %d file(s) in response", self.name, len(local_files))
-                
-                # Auto-TTS: if voice message, generate audio FIRST (before sending text)
-                # Skipped when the chat has voice mode disabled (/voice off)
-                _tts_path = None
-                if (event.message_type == MessageType.VOICE
-                        and text_content
-                        and not media_files
-                        and event.source.chat_id not in self._auto_tts_disabled_chats):
-                    try:
-                        from tools.tts_tool import text_to_speech_tool, check_tts_requirements
-                        if check_tts_requirements():
-                            import json as _json
-                            speech_text = re.sub(r'[*_`#\[\]()]', '', text_content)[:4000].strip()
-                            if not speech_text:
-                                raise ValueError("Empty text after markdown cleanup")
-                            tts_result_str = await asyncio.to_thread(
-                                text_to_speech_tool, text=speech_text
+                    # Auto-detect bare local file paths for native media delivery
+                    # (helps small models that don't use MEDIA: syntax)
+                    local_files, text_content = self.extract_local_files(text_content)
+                    if local_files:
+                        logger.info("[%s] extract_local_files found %d file(s) in response", self.name, len(local_files))
+                    
+                    # Auto-TTS: if voice message, generate audio FIRST (before sending text)
+                    # Skipped when the chat has voice mode disabled (/voice off)
+                    _tts_path = None
+                    if (event.message_type == MessageType.VOICE
+                            and text_content
+                            and not media_files
+                            and event.source.chat_id not in self._auto_tts_disabled_chats):
+                        try:
+                            from tools.tts_tool import text_to_speech_tool, check_tts_requirements
+                            if check_tts_requirements():
+                                import json as _json
+                                speech_text = re.sub(r'[*_`#\[\]()]', '', text_content)[:4000].strip()
+                                if not speech_text:
+                                    raise ValueError("Empty text after markdown cleanup")
+                                tts_result_str = await asyncio.to_thread(
+                                    text_to_speech_tool, text=speech_text
+                                )
+                                tts_data = _json.loads(tts_result_str)
+                                _tts_path = tts_data.get("file_path")
+                        except Exception as tts_err:
+                            logger.warning("[%s] Auto-TTS failed: %s", self.name, tts_err)
+
+                    # Play TTS audio before text (voice-first experience)
+                    if _tts_path and Path(_tts_path).exists():
+                        try:
+                            await self.play_tts(
+                                chat_id=event.source.chat_id,
+                                audio_path=_tts_path,
+                                metadata=_thread_metadata,
                             )
-                            tts_data = _json.loads(tts_result_str)
-                            _tts_path = tts_data.get("file_path")
-                    except Exception as tts_err:
-                        logger.warning("[%s] Auto-TTS failed: %s", self.name, tts_err)
+                        finally:
+                            try:
+                                os.remove(_tts_path)
+                            except OSError:
+                                pass
 
-                # Play TTS audio before text (voice-first experience)
-                if _tts_path and Path(_tts_path).exists():
-                    try:
-                        await self.play_tts(
+                    # Send the text portion
+                    if text_content:
+                        logger.info("[%s] Sending response (%d chars) to %s", self.name, len(text_content), event.source.chat_id)
+                        result = await self._send_with_retry(
                             chat_id=event.source.chat_id,
-                            audio_path=_tts_path,
+                            content=text_content,
+                            reply_to=event.message_id,
                             metadata=_thread_metadata,
                         )
-                    finally:
-                        try:
-                            os.remove(_tts_path)
-                        except OSError:
-                            pass
 
-                # Send the text portion
-                if text_content:
-                    logger.info("[%s] Sending response (%d chars) to %s", self.name, len(text_content), event.source.chat_id)
-                    result = await self._send_with_retry(
+                    # Human-like pacing delay between text and media
+                    human_delay = self._get_human_delay()
+
+                    # Send extracted images as native attachments
+                    if images:
+                        logger.info("[%s] Extracted %d image(s) to send as attachments", self.name, len(images))
+                    for image_url, alt_text in images:
+                        if human_delay > 0:
+                            await asyncio.sleep(human_delay)
+                        try:
+                            logger.info("[%s] Sending image: %s (alt=%s)", self.name, image_url[:80], alt_text[:30] if alt_text else "")
+                            # Route animated GIFs through send_animation for proper playback
+                            if self._is_animation_url(image_url):
+                                img_result = await self.send_animation(
+                                    chat_id=event.source.chat_id,
+                                    animation_url=image_url,
+                                    caption=alt_text if alt_text else None,
+                                    metadata=_thread_metadata,
+                                )
+                            else:
+                                img_result = await self.send_image(
+                                    chat_id=event.source.chat_id,
+                                    image_url=image_url,
+                                    caption=alt_text if alt_text else None,
+                                    metadata=_thread_metadata,
+                                )
+                            if not img_result.success:
+                                logger.error("[%s] Failed to send image: %s", self.name, img_result.error)
+                        except Exception as img_err:
+                            logger.error("[%s] Error sending image: %s", self.name, img_err, exc_info=True)
+
+                    # Send extracted media files — route by file type
+                    _AUDIO_EXTS = {'.ogg', '.opus', '.mp3', '.wav', '.m4a'}
+                    _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
+                    _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+
+                    for media_path, is_voice in media_files:
+                        if human_delay > 0:
+                            await asyncio.sleep(human_delay)
+                        try:
+                            ext = Path(media_path).suffix.lower()
+                            if ext in _AUDIO_EXTS:
+                                media_result = await self.send_voice(
+                                    chat_id=event.source.chat_id,
+                                    audio_path=media_path,
+                                    metadata=_thread_metadata,
+                                )
+                            elif ext in _VIDEO_EXTS:
+                                media_result = await self.send_video(
+                                    chat_id=event.source.chat_id,
+                                    video_path=media_path,
+                                    metadata=_thread_metadata,
+                                )
+                            elif ext in _IMAGE_EXTS:
+                                media_result = await self.send_image_file(
+                                    chat_id=event.source.chat_id,
+                                    image_path=media_path,
+                                    metadata=_thread_metadata,
+                                )
+                            else:
+                                media_result = await self.send_document(
+                                    chat_id=event.source.chat_id,
+                                    file_path=media_path,
+                                    metadata=_thread_metadata,
+                                )
+
+                            if not media_result.success:
+                                logger.warning("[%s] Failed to send media (%s): %s", self.name, ext, media_result.error)
+                        except Exception as media_err:
+                            logger.warning("[%s] Error sending media: %s", self.name, media_err)
+
+                    # Send auto-detected local files as native attachments
+                    for file_path in local_files:
+                        if human_delay > 0:
+                            await asyncio.sleep(human_delay)
+                        try:
+                            ext = Path(file_path).suffix.lower()
+                            if ext in _IMAGE_EXTS:
+                                await self.send_image_file(
+                                    chat_id=event.source.chat_id,
+                                    image_path=file_path,
+                                    metadata=_thread_metadata,
+                                )
+                            elif ext in _VIDEO_EXTS:
+                                await self.send_video(
+                                    chat_id=event.source.chat_id,
+                                    video_path=file_path,
+                                    metadata=_thread_metadata,
+                                )
+                            else:
+                                await self.send_document(
+                                    chat_id=event.source.chat_id,
+                                    file_path=file_path,
+                                    metadata=_thread_metadata,
+                                )
+                        except Exception as file_err:
+                            logger.error("[%s] Error sending local file %s: %s", self.name, file_path, file_err)
+
+                # Check if there's a pending message that was queued during our processing
+                if session_key in self._pending_messages:
+                    next_event = self._pending_messages.pop(session_key)
+                    logger.debug("[%s] Processing queued message from interrupt", self.name)
+                    # Clean up current session before processing pending
+                    if session_key in self._active_sessions:
+                        del self._active_sessions[session_key]
+
+            except Exception as e:
+                logger.error("[%s] Error handling message: %s", self.name, e, exc_info=True)
+                # Send the error to the user so they aren't left with radio silence
+                try:
+                    error_type = type(e).__name__
+                    error_detail = str(e)[:300] if str(e) else "no details available"
+                    _thread_metadata = {"thread_id": event.source.thread_id} if event.source.thread_id else None
+                    await self.send(
                         chat_id=event.source.chat_id,
-                        content=text_content,
-                        reply_to=event.message_id,
+                        content=(
+                            f"Sorry, I encountered an error ({error_type}).\n"
+                            f"{error_detail}\n"
+                            "Try again or use /reset to start a fresh session."
+                        ),
                         metadata=_thread_metadata,
                     )
-
-                # Human-like pacing delay between text and media
-                human_delay = self._get_human_delay()
-
-                # Send extracted images as native attachments
-                if images:
-                    logger.info("[%s] Extracted %d image(s) to send as attachments", self.name, len(images))
-                for image_url, alt_text in images:
-                    if human_delay > 0:
-                        await asyncio.sleep(human_delay)
-                    try:
-                        logger.info("[%s] Sending image: %s (alt=%s)", self.name, image_url[:80], alt_text[:30] if alt_text else "")
-                        # Route animated GIFs through send_animation for proper playback
-                        if self._is_animation_url(image_url):
-                            img_result = await self.send_animation(
-                                chat_id=event.source.chat_id,
-                                animation_url=image_url,
-                                caption=alt_text if alt_text else None,
-                                metadata=_thread_metadata,
-                            )
-                        else:
-                            img_result = await self.send_image(
-                                chat_id=event.source.chat_id,
-                                image_url=image_url,
-                                caption=alt_text if alt_text else None,
-                                metadata=_thread_metadata,
-                            )
-                        if not img_result.success:
-                            logger.error("[%s] Failed to send image: %s", self.name, img_result.error)
-                    except Exception as img_err:
-                        logger.error("[%s] Error sending image: %s", self.name, img_err, exc_info=True)
-
-                # Send extracted media files — route by file type
-                _AUDIO_EXTS = {'.ogg', '.opus', '.mp3', '.wav', '.m4a'}
-                _VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.3gp'}
-                _IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
-
-                for media_path, is_voice in media_files:
-                    if human_delay > 0:
-                        await asyncio.sleep(human_delay)
-                    try:
-                        ext = Path(media_path).suffix.lower()
-                        if ext in _AUDIO_EXTS:
-                            media_result = await self.send_voice(
-                                chat_id=event.source.chat_id,
-                                audio_path=media_path,
-                                metadata=_thread_metadata,
-                            )
-                        elif ext in _VIDEO_EXTS:
-                            media_result = await self.send_video(
-                                chat_id=event.source.chat_id,
-                                video_path=media_path,
-                                metadata=_thread_metadata,
-                            )
-                        elif ext in _IMAGE_EXTS:
-                            media_result = await self.send_image_file(
-                                chat_id=event.source.chat_id,
-                                image_path=media_path,
-                                metadata=_thread_metadata,
-                            )
-                        else:
-                            media_result = await self.send_document(
-                                chat_id=event.source.chat_id,
-                                file_path=media_path,
-                                metadata=_thread_metadata,
-                            )
-
-                        if not media_result.success:
-                            logger.warning("[%s] Failed to send media (%s): %s", self.name, ext, media_result.error)
-                    except Exception as media_err:
-                        logger.warning("[%s] Error sending media: %s", self.name, media_err)
-
-                # Send auto-detected local files as native attachments
-                for file_path in local_files:
-                    if human_delay > 0:
-                        await asyncio.sleep(human_delay)
-                    try:
-                        ext = Path(file_path).suffix.lower()
-                        if ext in _IMAGE_EXTS:
-                            await self.send_image_file(
-                                chat_id=event.source.chat_id,
-                                image_path=file_path,
-                                metadata=_thread_metadata,
-                            )
-                        elif ext in _VIDEO_EXTS:
-                            await self.send_video(
-                                chat_id=event.source.chat_id,
-                                video_path=file_path,
-                                metadata=_thread_metadata,
-                            )
-                        else:
-                            await self.send_document(
-                                chat_id=event.source.chat_id,
-                                file_path=file_path,
-                                metadata=_thread_metadata,
-                            )
-                    except Exception as file_err:
-                        logger.error("[%s] Error sending local file %s: %s", self.name, file_path, file_err)
-
-            # Check if there's a pending message that was queued during our processing
-            if session_key in self._pending_messages:
-                pending_event = self._pending_messages.pop(session_key)
-                logger.debug("[%s] Processing queued message from interrupt", self.name)
-                # Clean up current session before processing pending
-                if session_key in self._active_sessions:
-                    del self._active_sessions[session_key]
+                except Exception:
+                    pass  # Last resort — don't let error reporting crash the handler
+            finally:
+                # Stop typing indicator
                 typing_task.cancel()
                 try:
                     await typing_task
                 except asyncio.CancelledError:
                     pass
-                # Process pending message in new background task
-                await self._process_message_background(pending_event, session_key)
-                return  # Already cleaned up
+                # Also cancel any platform-level persistent typing tasks (e.g. Discord)
+                try:
+                    if hasattr(self, "stop_typing"):
+                        await self.stop_typing(event.source.chat_id)
+                except Exception:
+                    pass
                 
-        except Exception as e:
-            logger.error("[%s] Error handling message: %s", self.name, e, exc_info=True)
-            # Send the error to the user so they aren't left with radio silence
-            try:
-                error_type = type(e).__name__
-                error_detail = str(e)[:300] if str(e) else "no details available"
-                _thread_metadata = {"thread_id": event.source.thread_id} if event.source.thread_id else None
-                await self.send(
-                    chat_id=event.source.chat_id,
-                    content=(
-                        f"Sorry, I encountered an error ({error_type}).\n"
-                        f"{error_detail}\n"
-                        "Try again or use /reset to start a fresh session."
-                    ),
-                    metadata=_thread_metadata,
-                )
-            except Exception:
-                pass  # Last resort — don't let error reporting crash the handler
-        finally:
-            # Stop typing indicator
-            typing_task.cancel()
-            try:
-                await typing_task
-            except asyncio.CancelledError:
-                pass
-            # Also cancel any platform-level persistent typing tasks (e.g. Discord)
-            # that may have been recreated by _keep_typing after the last stop_typing()
-            try:
-                if hasattr(self, "stop_typing"):
-                    await self.stop_typing(event.source.chat_id)
-            except Exception:
-                pass
-            # Clean up session tracking
-            if session_key in self._active_sessions:
-                del self._active_sessions[session_key]
+                # Clean up session tracking if we are not continuing with next_event
+                if next_event is None:
+                    if session_key in self._active_sessions:
+                        del self._active_sessions[session_key]
     
     async def cancel_background_tasks(self) -> None:
         """Cancel any in-flight background message-processing tasks.

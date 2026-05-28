@@ -6044,13 +6044,17 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
             if changed:
                 logger.info("Configuration file changed. Restarting gateway...")
                 try:
+                    await runner.stop()
+                except Exception as e:
+                    logger.debug("Error stopping runner during config reload: %s", e)
+                try:
                     for h in logging.getLogger().handlers[:]:
                         h.close()
                         logging.getLogger().removeHandler(h)
                 except Exception:
                     pass
                 os.execv(sys.executable, [sys.executable] + sys.argv)
-                sys.exit(0)
+                os._exit(0)
 
     watcher_task = asyncio.create_task(_config_watcher())
 
