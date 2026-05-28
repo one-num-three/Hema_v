@@ -33,6 +33,7 @@ set /p "MODE_CHOICE=  请输入 1 或 2 (直接回车 = 轻量版): "
 if "%MODE_CHOICE%"=="2" set "INSTALL_MODE=full"
 
 :mode_decided
+if "%INSTALL_MODE%"=="full" (set "TOTAL_STEPS=12") else (set "TOTAL_STEPS=10")
 echo.
 if "%INSTALL_MODE%"=="full" (
     echo   [已选择] 完整版 Full  - Python + Node.js + Web UI
@@ -93,7 +94,7 @@ echo [OK] Embedded Python already installed.
 goto :check_pip
 :python_need_install
 
-echo [STEP 1/10] Downloading Python %PYTHON_VERSION% embedded...
+echo [STEP 1/%TOTAL_STEPS%] Downloading Python %PYTHON_VERSION% embedded...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
     "$ProgressPreference = 'SilentlyContinue';" ^
@@ -105,7 +106,7 @@ if not exist "%PYTHON_ZIP%" (
     exit /b 1
 )
 
-echo [STEP 1/10] Extracting Python...
+echo [STEP 1/%TOTAL_STEPS%] Extracting Python...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "Expand-Archive -Path '%PYTHON_ZIP%' -DestinationPath '%PYTHON_DIR%' -Force"
 
@@ -127,7 +128,7 @@ del "%PYTHON_ZIP%" 2>nul
 :: ============================================
 :: Step 2: Configure ._pth for site-packages
 :: ============================================
-echo [STEP 2/10] Configuring Python for package installation...
+echo [STEP 2/%TOTAL_STEPS%] Configuring Python for package installation...
 
 if not exist "%PYTHON_DIR%\Lib\site-packages" mkdir "%PYTHON_DIR%\Lib\site-packages"
 if not exist "%PYTHON_DIR%\DLLs" mkdir "%PYTHON_DIR%\DLLs"
@@ -149,7 +150,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
 :check_pip
 "%PYTHON_EXE%" -m pip --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [STEP 3/10] Installing pip...
+    echo [STEP 3/%TOTAL_STEPS%] Installing pip...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
         "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;" ^
         "$ProgressPreference = 'SilentlyContinue';" ^
@@ -181,14 +182,14 @@ if %errorlevel% neq 0 (
 :: ============================================
 :: Step 4: Install setuptools (needed for editable installs)
 :: ============================================
-echo [STEP 4/10] Installing build tools...
+echo [STEP 4/%TOTAL_STEPS%] Installing build tools...
 "%PYTHON_EXE%" -m pip install setuptools wheel -i https://pypi.tuna.tsinghua.edu.cn/simple --no-warn-script-location
 
 :: ============================================
 :: Step 5: Install Tkinter (GUI support)
 :: ============================================
 if not exist "%PYTHON_DIR%\Lib\tkinter" (
-    echo [STEP 5/10] Installing Tkinter GUI support...
+    echo [STEP 5/%TOTAL_STEPS%] Installing Tkinter GUI support...
     set "TCLTK_MSI=%SCRIPT_DIR%\tcltk.msi"
     set "TCLTK_TEMP=%SCRIPT_DIR%\_tcltk_temp"
 
@@ -230,7 +231,7 @@ if not exist "%PYTHON_DIR%\Lib\tkinter" (
 :: ============================================
 :: Step 6: Git submodules
 :: ============================================
-echo [STEP 6/10] Initializing git submodules...
+echo [STEP 6/%TOTAL_STEPS%] Initializing git submodules...
 where git >nul 2>&1
 if %errorlevel% equ 0 (
     cd /d "%SCRIPT_DIR%"
@@ -259,7 +260,7 @@ echo [OK] run_py.sh created.
 powershell -NoProfile -Command ^
     "try{Set-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' LongPathsEnabled 1 -ErrorAction Stop}catch{}" >nul 2>&1
 
-echo [STEP 7/10] Installing Python dependencies...
+echo [STEP 7/%TOTAL_STEPS%] Installing Python dependencies...
 echo        (this may take several minutes on first run)
 
 :: Main package (清华镜像 + 显示进度，避免用户以为卡住)
@@ -296,7 +297,7 @@ echo [OK] Python dependencies installed.
 :: ============================================
 :: Step 8: Node.js dependencies
 :: ============================================
-echo [STEP 8/10] Installing Node.js dependencies...
+echo [STEP 8/%TOTAL_STEPS%] Installing Node.js dependencies...
 where node >nul 2>&1
 if errorlevel 1 goto :step8_no_node
 if not exist "%SCRIPT_DIR%\package.json" goto :step8_done
@@ -314,7 +315,7 @@ echo        Install Node.js from https://nodejs.org/ and re-run this installer.
 :: ============================================
 :: Step 9: Environment and config files
 :: ============================================
-echo [STEP 9/10] Setting up configuration...
+echo [STEP 9/%TOTAL_STEPS%] Setting up configuration...
 
 :: .env (flat \u7ed3\u6784\uff0c\u907f\u514d\u5d4c\u5957\u590d\u5408\u5757\u89e3\u6790\u95ee\u9898)
 if exist "%SCRIPT_DIR%\.env" goto :env_done
@@ -352,7 +353,7 @@ echo [OK] Default permissions created.
 :: ============================================
 :: Step 10: Sync skills
 :: ============================================
-echo [STEP 10/10] Syncing skills...
+echo [STEP 10/%TOTAL_STEPS%] Syncing skills...
 cd /d "%SCRIPT_DIR%"
 "%PYTHON_EXE%" "%SCRIPT_DIR%\tools\skills_sync.py" 2>nul
 if not errorlevel 1 goto :skills_done
