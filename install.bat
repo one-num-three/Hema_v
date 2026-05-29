@@ -406,12 +406,13 @@ echo [OK] Created cli-config.yaml.
 :: Create ~/.hermes directory
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
-rem Create default config.yaml if missing (gateway requires it)
+rem Create default config.yaml if missing.
+rem The gateway needs platforms.api_server.enabled: true to bind the REST API on port 8642.
+rem Do NOT copy cli-config.yaml.example here — that file is the CLI chat config and has
+rem no platforms section, so the gateway would silently skip creating the HTTP server.
 if not exist "%USERPROFILE%\.hermes\config.yaml" (
-    if exist "%SCRIPT_DIR%\cli-config.yaml.example" (
-        copy "%SCRIPT_DIR%\cli-config.yaml.example" "%USERPROFILE%\.hermes\config.yaml" >nul
-        echo [OK] Created ~/.hermes/config.yaml from template.
-    )
+    "%PYTHON_EXE%" -c "import pathlib; p=pathlib.Path(r'%USERPROFILE%\.hermes\config.yaml'); p.write_text('platforms:\n  api_server:\n    enabled: true\n    cors_origins: \'*\'\n    extra:\n      port: 8642\n      host: 127.0.0.1\n', encoding='utf-8')" 2>nul
+    echo [OK] Created ~/.hermes/config.yaml with default API server config.
 )
 
 :: Default permissions
