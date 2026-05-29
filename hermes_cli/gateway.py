@@ -28,24 +28,23 @@ from hermes_cli.colors import Colors, color
 # Process Management (for manual gateway runs)
 # =============================================================================
 
-def find_gateway_pids() -> list:
-    """Find PIDs of running gateway processes."""
-    pids = []
-    patterns = [
-        "hermes_cli.main gateway",
-        "hermes_cli/main.py gateway",
-        "hermes gateway",
-        "gateway/run.py",
-    ]
+def _enumerate_processes_windows() -> list:
+    """Return ``[(pid, commandline), ...]`` for all processes on Windows.
 
+    Tries ``wmic`` first (legacy, fast) and falls back to a PowerShell CIM
+    query. The fallback is essential: ``wmic`` has been removed from Windows 11
+    and Windows Server 2025, where the old ``subprocess.run(["wmic", ...])``
+    call raised ``FileNotFoundError`` and silently returned no processes — so
+    the gateway could never be found, stopped, or restarted.
+    """
+    # 1) wmic (present on older Windows; fast)
     try:
-        if is_windows():
-            # Windows: use wmic to search command lines
-            result = subprocess.run(
-                ["wmic", "process", "get", "ProcessId,CommandLine", "/FORMAT:LIST"],
-                capture_output=True, text=True
-            )
-            # Parse WMIC LIST output: blocks of "CommandLine=...\nProcessId=...\n"
+        result = subprocess.run(
+            ["wmic", "process", "get", "ProcessId,CommandLine", "/FORMAT:LIST"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if result.returncode == 0 and result.stdout and "ProcessId=" in result.stdout:
+            procs = []
             current_cmd = ""
             for line in result.stdout.split('\n'):
                 line = line.strip()
@@ -53,14 +52,75 @@ def find_gateway_pids() -> list:
                     current_cmd = line[len("CommandLine="):]
                 elif line.startswith("ProcessId="):
                     pid_str = line[len("ProcessId="):]
-                    if any(p in current_cmd for p in patterns):
-                        try:
-                            pid = int(pid_str)
-                            if pid != os.getpid() and pid not in pids:
-                                pids.append(pid)
-                        except ValueError:
-                            pass
+                    try:
+                        procs.append((int(pid_str), current_cmd))
+                    except ValueError:
+                        pass
                     current_cmd = ""
+            if procs:
+                return procs
+    except (OSError, ValueError):
+        pass
+
+    # 2) PowerShell CIM fallback (modern Windows)
+    try:
+        ps_cmd = (
+            "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
+            "Get-CimInstance Win32_Process | "
+            "ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }"
+        )
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        procs = []
+        if result.stdout:
+            for line in result.stdout.split('\n'):
+                line = line.rstrip('\r')
+                if '\t' not in line:
+                    continue
+                pid_str, _, cmd = line.partition('\t')
+                try:
+                    procs.append((int(pid_str.strip()), cmd))
+                except ValueError:
+                    pass
+        return procs
+    except (OSError, ValueError):
+        pass
+
+    return []
+
+
+def find_gateway_pids() -> list:
+    """Find PIDs of running gateway processes."""
+    pids = []
+    patterns = [
+        "hermes_cli.main gateway",
+        "hermes_cli/main.py gateway",
+        "hermes_cli\\main.py gateway",
+        "hermes gateway",
+        "gateway/run.py",
+        "gateway\\run.py",
+    ]
+
+    # Primary, reliable source of truth: the PID file the gateway writes for
+    # itself. This works even when OS process-enumeration tools are missing
+    # (e.g. wmic removed from modern Windows), so restart/stop keep working.
+    try:
+        from gateway.status import get_running_pid
+        recorded = get_running_pid()
+        if recorded and recorded != os.getpid() and recorded not in pids:
+            pids.append(recorded)
+    except Exception:
+        pass
+
+    try:
+        if is_windows():
+            for pid, cmd in _enumerate_processes_windows():
+                if pid == os.getpid() or pid in pids or not cmd:
+                    continue
+                if any(p in cmd for p in patterns):
+                    pids.append(pid)
         else:
             result = subprocess.run(
                 ["ps", "aux"],
@@ -1005,9 +1065,12 @@ def _wait_for_gateway_exit(timeout: float = 10.0, force_after: float = 5.0):
 
         if not force_sent and time.monotonic() >= force_deadline:
             # Grace period expired — force-kill the specific PID.
+            # signal.SIGKILL does not exist on Windows; SIGTERM there maps to
+            # TerminateProcess, which is already a hard kill.
+            _force_sig = getattr(signal, "SIGKILL", signal.SIGTERM)
             try:
-                os.kill(pid, signal.SIGKILL)
-                print(f"⚠ Gateway PID {pid} did not exit gracefully; sent SIGKILL")
+                os.kill(pid, _force_sig)
+                print(f"⚠ Gateway PID {pid} did not exit gracefully; force-killed")
             except (ProcessLookupError, PermissionError):
                 return  # Already gone or we can't touch it.
             force_sent = True
@@ -1065,6 +1128,79 @@ def launchd_status(deep: bool = False):
 # =============================================================================
 # Gateway Runner
 # =============================================================================
+
+def _spawn_gateway_detached_windows() -> bool:
+    """Spawn the gateway as a detached background process on Windows.
+
+    Used by ``hermes gateway restart``. On Windows there is no service manager,
+    so the manual restart path would otherwise call ``run_gateway()`` in the
+    foreground — which blocks forever (it's a server loop). That is fatal when
+    the Web UI invokes ``gateway restart`` via Node's ``execFile``: the call
+    times out after ~30s and Node then kills this child's process tree, taking
+    the freshly started gateway down with it. The user sees
+    "切换配置失败 / 未连接 / 用户加载失败".
+
+    Spawning the gateway detached lets this command return promptly while the
+    new gateway keeps running. Returns True on success.
+    """
+    log_dir = get_hermes_home() / "logs"
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    log_path = log_dir / "gateway.log"
+
+    # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP keep the child off this
+    # process's console and signal group. CREATE_BREAKAWAY_FROM_JOB lets it
+    # survive even when this process was launched inside a job object that
+    # kills its tree on close (Node's execFile timeout-kill). Not every job
+    # permits breakaway, so we retry without it.
+    DETACHED_PROCESS = 0x00000008
+    CREATE_NEW_PROCESS_GROUP = 0x00000200
+    CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+    base_flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+
+    # NOTE: deliberately no ``--replace`` here. The caller (the restart path)
+    # has already killed the previous gateway and waited for it to exit. Using
+    # ``--replace`` would make this detached child run kill_gateway_processes(),
+    # which would match and kill the *parent* restart process (its command line
+    # contains "hermes_cli.main gateway") — the parent would exit non-zero and
+    # the Web UI's execFile would report "切换配置失败" even on a successful
+    # restart.
+    cmd = [sys.executable, "-m", "hermes_cli.main", "gateway", "run"]
+    env = dict(os.environ)
+    env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+
+    try:
+        log_handle = open(log_path, "ab")
+    except Exception:
+        log_handle = subprocess.DEVNULL
+
+    try:
+        for flags in (base_flags | CREATE_BREAKAWAY_FROM_JOB, base_flags):
+            try:
+                subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log_handle,
+                    stderr=log_handle,
+                    creationflags=flags,
+                    cwd=str(PROJECT_ROOT),
+                    close_fds=True,
+                    env=env,
+                )
+                return True
+            except OSError:
+                continue
+    finally:
+        if log_handle not in (None, subprocess.DEVNULL):
+            try:
+                log_handle.close()
+            except Exception:
+                pass
+    return False
+
 
 def run_gateway(verbose: bool = False, replace: bool = False):
     """Run the gateway in foreground.
@@ -1985,7 +2121,17 @@ def gateway_command(args):
 
             # Start fresh
             print("Starting gateway...")
-            run_gateway(verbose=False)
+            if is_windows():
+                # Foreground run would block forever; the Web UI calls this via
+                # execFile with a timeout and would kill the child tree (and the
+                # new gateway) on timeout. Spawn detached and return promptly.
+                if _spawn_gateway_detached_windows():
+                    print("✓ Gateway restart triggered (starting in background).")
+                else:
+                    print("⚠ Failed to spawn background gateway; running in foreground.")
+                    run_gateway(verbose=False)
+            else:
+                run_gateway(verbose=False)
     
     elif subcmd == "status":
         deep = getattr(args, 'deep', False)
