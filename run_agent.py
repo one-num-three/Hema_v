@@ -2757,6 +2757,20 @@ class AIAgent:
                 f"not on any model name returned by the API."
             )
 
+        # In Windows local environment, terminal commands are executed via Git Bash.
+        # Inject OS/shell description so the agent uses Unix-style paths and bash syntax.
+        if platform.system() == "Windows" and os.getenv("TERMINAL_ENV", "local") == "local":
+            if any(t in self.valid_tool_names for t in ("terminal", "execute_code")):
+                prompt_parts.append(
+                    "# Windows Execution Environment (Git Bash)\n"
+                    "Your execution host is Windows. Shell commands are executed via **Git Bash** (not CMD or PowerShell).\n"
+                    "Guidelines for command execution:\n"
+                    "1. **Linux Syntax**: Git Bash supports Linux command syntax. You can use standard commands like `ls`, `grep`, `awk`, `sed`, `git`, `ssh`, etc.\n"
+                    "2. **Forward Slashes**: Always use Unix-style forward slashes `/` for paths (e.g. `/c/Users/...` or `/d/project/`). Do NOT use raw Windows backslashes `\\` as bash interprets them as escape characters.\n"
+                    "3. **Embedded Python**: The command environment automatically prepends the embedded Python path to `PATH`. Invoking `python` or `pip` automatically points to the project's embedded Python environment.\n"
+                    "4. **Native Windows Executables**: You can still run `.exe` files or Windows CLI tools (like `ipconfig` or `cmd.exe`) if needed, but invoke them using bash conventions and Unix-style paths."
+                )
+
         platform_key = (self.platform or "").lower().strip()
         if platform_key in PLATFORM_HINTS:
             prompt_parts.append(PLATFORM_HINTS[platform_key])
