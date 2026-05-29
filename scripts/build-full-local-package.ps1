@@ -29,6 +29,7 @@ foreach ($path in @($ZipPath, "$ZipPath.sha256", $ListPath, $LogPath)) {
 # contain .zip/.7z-like files such as python_embedded\python313.zip.
 $ExcludeDirs = @(
     ".git",
+    ".claude",
     "release",
     "logs",
     "data",
@@ -50,6 +51,7 @@ $ExcludeDirs = @(
 )
 
 $ExcludeFiles = @(
+    "2.0",
     ".env",
     ".env.local",
     ".env.development.local",
@@ -59,7 +61,10 @@ $ExcludeFiles = @(
     ".env.test",
     "cli-config.yaml",
     ".install-complete",
-    ".release_notes.md"
+    ".release_notes.md",
+    "task_556_output.txt",
+    "test_ilink_output.txt",
+    "test_ilink_run_log.txt"
 )
 
 $ExcludeExts = @(".pyc", ".pyo")

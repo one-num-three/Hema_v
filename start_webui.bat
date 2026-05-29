@@ -8,6 +8,14 @@ call :resolve_install_root "%SCRIPT_DIR%"
 if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
     echo [INFO] Resolved install root from "%ORIGINAL_SCRIPT_DIR%" to "%SCRIPT_DIR%"
 )
+call :resolve_appdata_install_root "%SCRIPT_DIR%"
+if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
+    if /i not "%SCRIPT_DIR%"=="%RESOLVED_FROM_APPDATA%" (
+        rem no-op: preserve the existing resolved-install-root log above
+    ) else (
+        echo [INFO] Resolved install root from source checkout to installed package "%SCRIPT_DIR%"
+    )
+)
 set "SCRIPT_DIR=%SCRIPT_DIR%\"
 set "NODE_DIR=%SCRIPT_DIR%node_embedded"
 set "NODE_EXE=%NODE_DIR%\node.exe"
@@ -396,6 +404,21 @@ for %%D in ("%RESOLVE_DIR%\.." "%RESOLVE_DIR%\..\..") do (
     )
 )
 :resolve_install_root_done
+exit /b 0
+
+:resolve_appdata_install_root
+set "RESOLVED_FROM_APPDATA="
+set "CANDIDATE_APPDATA=%LOCALAPPDATA%\HemaFix"
+if not defined LOCALAPPDATA exit /b 0
+if /i "%~1"=="%CANDIDATE_APPDATA%" exit /b 0
+if exist "%~1\node_embedded\node.exe" exit /b 0
+if exist "%~1\webui\dist\server\index.js" exit /b 0
+if exist "%~1\webui\node_modules\hermes-web-ui\dist\server\index.js" exit /b 0
+if not exist "%CANDIDATE_APPDATA%\start_webui.bat" exit /b 0
+if not exist "%CANDIDATE_APPDATA%\node_embedded\node.exe" exit /b 0
+if not exist "%CANDIDATE_APPDATA%\webui\dist\server\index.js" if not exist "%CANDIDATE_APPDATA%\webui\node_modules\hermes-web-ui\dist\server\index.js" exit /b 0
+set "SCRIPT_DIR=%CANDIDATE_APPDATA%"
+set "RESOLVED_FROM_APPDATA=%CANDIDATE_APPDATA%"
 exit /b 0
 
 :start_launcher_page
