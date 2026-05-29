@@ -30,6 +30,7 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 import os
+import platform
 import random
 import re
 import sys
