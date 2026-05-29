@@ -1,12 +1,21 @@
 @echo off
 setlocal enabledelayedexpansion
 
+set "BOOTSTRAP_DIR=%USERPROFILE%\.hermes-web-ui"
+if not exist "%BOOTSTRAP_DIR%" mkdir "%BOOTSTRAP_DIR%" >nul 2>&1
+set "BOOTSTRAP_LOG=%BOOTSTRAP_DIR%\launcher-bootstrap.log"
+> "%BOOTSTRAP_LOG%" echo [%date% %time%] start_webui.bat bootstrap started
+>> "%BOOTSTRAP_LOG%" echo [%date% %time%] cwd=%cd%
+>> "%BOOTSTRAP_LOG%" echo [%date% %time%] script=%~f0
+
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 set "ORIGINAL_SCRIPT_DIR=%SCRIPT_DIR%"
+call :bootstrap_log "initial_script_dir=%SCRIPT_DIR%"
 call :resolve_install_root "%SCRIPT_DIR%"
 if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
     echo [INFO] Resolved install root from "%ORIGINAL_SCRIPT_DIR%" to "%SCRIPT_DIR%"
+    call :bootstrap_log "resolved_install_root=%SCRIPT_DIR%"
 )
 call :resolve_appdata_install_root "%SCRIPT_DIR%"
 if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
@@ -14,6 +23,7 @@ if /i not "%SCRIPT_DIR%"=="%ORIGINAL_SCRIPT_DIR%" (
         rem no-op: preserve the existing resolved-install-root log above
     ) else (
         echo [INFO] Resolved install root from source checkout to installed package "%SCRIPT_DIR%"
+        call :bootstrap_log "resolved_appdata_install_root=%SCRIPT_DIR%"
     )
 )
 set "SCRIPT_DIR=%SCRIPT_DIR%\"
@@ -40,6 +50,7 @@ set "CORRUPT_COUNT=0"
 set "CORRUPT_NAMES_JSON=[]"
 set "CORRUPT_QUARANTINE_DIR="
 set "ACTIVE_PROFILE_RESET=0"
+call :bootstrap_log "runtime_paths node=%NODE_EXE% webui_dir=%WEBUI_DIR%"
 
 if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     set "PATCH_PY=%SCRIPT_DIR%python_embedded\python.exe"
@@ -47,8 +58,14 @@ if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     where python >nul 2>&1
     if not errorlevel 1 set "PATCH_PY=python"
 )
+if defined PATCH_PY (
+    call :bootstrap_log "patch_python=%PATCH_PY%"
+) else (
+    call :bootstrap_log "patch_python=<missing>"
+)
 
 if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\sanitize_profiles.py" (
+    call :bootstrap_log "running sanitize_profiles.py"
     for /f "usebackq tokens=1,* delims==" %%A in (`"%PATCH_PY%" "%SCRIPT_DIR%scripts\sanitize_profiles.py" --home "%USERPROFILE%\.hermes" 2^>nul`) do (
         if /i "%%A"=="CORRUPT_COUNT" set "CORRUPT_COUNT=%%B"
         if /i "%%A"=="ACTIVE_PROFILE_BEFORE" set "ACTIVE_PROFILE_NAME=%%B"
@@ -57,13 +74,16 @@ if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\sanitize_profiles.py" (
         if /i "%%A"=="QUARANTINE_DIR" set "CORRUPT_QUARANTINE_DIR=%%B"
         if /i "%%A"=="CORRUPT_NAMES_JSON" set "CORRUPT_NAMES_JSON=%%B"
     )
+    call :bootstrap_log "sanitize done corrupt_count=%CORRUPT_COUNT% active_profile=%ACTIVE_PROFILE_NAME% reset=%ACTIVE_PROFILE_RESET%"
 )
 
 call :resolve_hermes_home
 call :resolve_gateway_port
+call :bootstrap_log "resolved_home=%HERMES_HOME% gateway_port=%GATEWAY_PORT% source=%GATEWAY_PORT_SOURCE%"
 
 :: Pre-flight checks
 if not exist "%NODE_EXE%" (
+    call :bootstrap_log "FATAL Node.js not found at %NODE_EXE%"
     echo [ERROR] Node.js not found at "%NODE_EXE%"
     echo         Web UI requires the Full version.
     echo         Run: install.bat full
@@ -72,6 +92,7 @@ if not exist "%NODE_EXE%" (
     exit /b 1
 )
 if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
+    call :bootstrap_log "FATAL Web UI server not found dist=%WEBUI_SERVER% npm=%WEBUI_NPM_SERVER%"
     echo [ERROR] Web UI server not found.
     echo         Checked bundle mode: "%WEBUI_SERVER%"
     echo         Checked npm mode:    "%WEBUI_NPM_SERVER%"
@@ -84,10 +105,13 @@ if exist "%WEBUI_NPM_SERVER%" (
     set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
     set "WEBUI_SERVER_MODE=node_modules"
 )
+call :bootstrap_log "webui_server=%WEBUI_SERVER% mode=%WEBUI_SERVER_MODE%"
 
 :: Apply local Web UI compatibility patches even when an existing server is reused.
 if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" (
+    call :bootstrap_log "running patch-webui-persistence.py"
     "%PATCH_PY%" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
+    call :bootstrap_log "patch-webui-persistence.py finished exit=%errorlevel%"
 )
 
 rem Start the gateway FIRST so it has maximum time to initialize while the
@@ -107,10 +131,13 @@ if "%ACTIVE_PROFILE_RESET%"=="1" (
 )
 "%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%GATEWAY_PORT%/health', timeout=1)" >nul 2>&1
 if %errorlevel% equ 0 (
+    call :bootstrap_log "gateway_health_check=already_running"
     echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
 ) else (
+    call :bootstrap_log "gateway_health_check=starting_background"
     echo [INFO] Starting Hermes gateway in background...
     if not exist "%SCRIPT_DIR%start_hermes_gateway.bat" (
+        call :bootstrap_log "FATAL start_hermes_gateway.bat missing"
         echo [ERROR] Gateway launcher not found: "%SCRIPT_DIR%start_hermes_gateway.bat"
         pause
         exit /b 1
@@ -138,13 +165,16 @@ if exist "%WEBUI_PID_FILE%" (
                 if !errorlevel! equ 0 (
                     call :is_webui_gateway_connected
                     if !errorlevel! equ 0 (
+                        call :bootstrap_log "reusing_existing_webui pid=!EXISTING_PID! status=connected"
                         echo [OK] Web UI already running ^(PID: !EXISTING_PID!, port: %WEBUI_PORT%^)
                         goto :open_browser
                     ) else (
+                        call :bootstrap_log "reusing_existing_webui pid=!EXISTING_PID! status=waiting_gateway"
                         echo [INFO] Existing Web UI is running and will keep waiting for the gateway inside the startup page.
                         goto :open_browser
                     )
                 ) else (
+                    call :bootstrap_log "existing_webui_wrong_mode pid=!EXISTING_PID! restarting"
                     echo [WARN] Existing Web UI was started with old settings, restarting it...
                     del "%WEBUI_PID_FILE%" 2>nul
                     del "%WEBUI_MODE_FILE%" 2>nul
@@ -153,6 +183,7 @@ if exist "%WEBUI_PID_FILE%" (
                 )
             )
         ) else (
+            call :bootstrap_log "existing_webui_pid_belongs_to_other_install pid=!EXISTING_PID!"
             echo [WARN] Existing Web UI PID belongs to another install, restarting it...
             del "%WEBUI_PID_FILE%" 2>nul
             start "" /B taskkill /F /PID !EXISTING_PID! >nul 2>&1
@@ -165,6 +196,7 @@ if exist "%WEBUI_PID_FILE%" (
 :: Force-free the port: kill ANY process holding port 8648 (not just node)
 netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
+    call :bootstrap_log "port_%WEBUI_PORT%_occupied attempting_cleanup"
     echo [WARN] Port %WEBUI_PORT% in use, freeing it...
     for /f "tokens=5" %%p in ('netstat -aon 2^>nul ^| findstr ":%WEBUI_PORT% " ^| findstr "LISTENING"') do (
         start "" /B taskkill /F /PID %%p >nul 2>&1
@@ -176,6 +208,7 @@ if %errorlevel% equ 0 (
 :: Verify port is now free
 netstat -aon 2>nul | findstr ":%WEBUI_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
+    call :bootstrap_log "FATAL port_%WEBUI_PORT%_still_in_use_after_cleanup"
     echo [ERROR] Port %WEBUI_PORT% still in use after cleanup. Aborting.
     echo         Run manually: netstat -ano ^| findstr :%WEBUI_PORT%
     echo         Then stop the listed process or reboot Windows.
@@ -217,22 +250,27 @@ set "npm_config_ignore_scripts=true"
 
 if /i "%WEBUI_SERVER%"=="%WEBUI_DIR%\dist\server\index.js" (
     if not exist "%WEBUI_SOCKETIO%" (
+        call :bootstrap_log "webui_dependencies_missing auto_repair_begin"
         echo [INFO] Web UI dependencies missing, attempting auto-repair...
         if exist "%NPM_CMD%" (
             cd /d "%WEBUI_DIR%"
             call "%NPM_CMD%" install --omit=dev --registry https://registry.npmmirror.com --cache "%SCRIPT_DIR%\.npm-cache" --no-fund --no-audit
             if errorlevel 1 (
+                call :bootstrap_log "FATAL auto_repair_failed exit=%errorlevel%"
                 echo [ERROR] Auto-repair failed. Please rerun full install.
                 pause
                 exit /b 1
             )
             if not exist "%WEBUI_SOCKETIO%" (
+                call :bootstrap_log "FATAL auto_repair_missing_socketio_after_install"
                 echo [ERROR] Auto-repair failed. Please rerun full install.
                 pause
                 exit /b 1
             )
+            call :bootstrap_log "webui_dependencies_auto_repair_complete"
             echo [OK] Auto-repair completed, continuing startup...
         ) else (
+            call :bootstrap_log "FATAL npm_unavailable_for_auto_repair"
             echo [ERROR] Web UI dependencies missing and npm is unavailable.
             echo         Please rerun full install.
             pause
@@ -259,6 +297,7 @@ echo [INFO] Web UI server: "%WEBUI_SERVER%"
 echo [INFO] Web UI server mode: "%WEBUI_SERVER_MODE%"
 echo [INFO] Auth mode: disabled for localhost
 echo [INFO] Log file: "%WEBUI_LOG%"
+call :bootstrap_log "launching_webui_wrapper"
 cd /d "%WEBUI_DIR%"
 for /f %%p in ('powershell -NoProfile -Command ^
     "$node=[IO.Path]::GetFullPath('%NODE_EXE%');" ^
@@ -276,6 +315,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
     if not defined WEBUI_WRAPPER_PID set "WEBUI_WRAPPER_PID=%%p"
 )
 if not defined WEBUI_WRAPPER_PID (
+    call :bootstrap_log "FATAL webui_wrapper_process_not_created"
     echo [ERROR] Failed to launch Web UI wrapper process.
     echo         Possible causes:
     echo         - cmd.exe or PowerShell is blocked by policy.
@@ -285,6 +325,7 @@ if not defined WEBUI_WRAPPER_PID (
     pause
     exit /b 1
 )
+call :bootstrap_log "webui_wrapper_pid=%WEBUI_WRAPPER_PID%"
 
 :: Capture PID after a short settle delay
 ping 127.0.0.1 -n 2 >nul 2>&1
@@ -297,6 +338,9 @@ if defined WEBUI_PID (
     echo !WEBUI_PID!>"%WEBUI_PID_FILE%"
     echo auth-disabled:%GATEWAY_PORT%:!WEBUI_PID!>"%WEBUI_MODE_FILE%"
     echo [INFO] Web UI PID: !WEBUI_PID!
+    call :bootstrap_log "node_webui_pid=%WEBUI_PID%"
+) else (
+    call :bootstrap_log "node_webui_pid=<not_found_after_spawn>"
 )
 
 call :start_launcher_page
@@ -310,6 +354,7 @@ if defined WEBUI_LAUNCHER_PORT (
     set "BROWSER_URL=http://localhost:%WEBUI_PORT%/#/hermes/chat"
 )
 echo [INFO] Opening browser: %BROWSER_URL%
+call :bootstrap_log "opening_browser=%BROWSER_URL%"
 start "" "%BROWSER_URL%"
 :after_browser_open
 call :is_webui_gateway_connected
@@ -317,9 +362,14 @@ if errorlevel 1 (
     echo [INFO] Hermes connection will finish inside the startup page.
 )
 echo [OK] Web UI is running at http://localhost:%WEBUI_PORT%
+call :bootstrap_log "startup_complete webui_port=%WEBUI_PORT%"
 echo.
 echo [INFO] Web UI startup will continue in background.
 endlocal
+exit /b 0
+
+:bootstrap_log
+>> "%BOOTSTRAP_LOG%" echo [%date% %time%] %~1
 exit /b 0
 
 :resolve_hermes_home

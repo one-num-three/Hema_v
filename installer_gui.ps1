@@ -540,7 +540,7 @@ function Complete-InstallSuccess {
         Remove-DesktopShortcut -Name 'Hema Gateway'
         $gatewayBat = Join-Path $result.InstallPath 'start_hermes_gateway.bat'
         if (Test-Path -LiteralPath $gatewayBat) {
-            New-DesktopShortcut -Name (Z('5rKz6ams572R5YWz')) -TargetPath $env:ComSpec -Arguments ("/c `"$gatewayBat`"") -WorkingDirectory $result.InstallPath -IconLocation $iconPath
+            New-DesktopShortcut -Name (Z('5rKz6ams572R5YWz')) -TargetPath $gatewayBat -WorkingDirectory $result.InstallPath -IconLocation $iconPath
         }
     }
 
@@ -548,7 +548,7 @@ function Complete-InstallSuccess {
         Remove-DesktopShortcut -Name 'Hema Web UI'
         $webuiBat = Join-Path $result.InstallPath 'start_webui.bat'
         if (Test-Path -LiteralPath $webuiBat) {
-            New-DesktopShortcut -Name (Z('5rKz6amsIFdlYiDnrqHnkIbnlYzpnaI=')) -TargetPath $env:ComSpec -Arguments ("/c `"$webuiBat`"") -WorkingDirectory $result.InstallPath -IconLocation $iconPath
+            New-DesktopShortcut -Name (Z('5rKz6amsIFdlYiDnrqHnkIbnlYzpnaI=')) -TargetPath $webuiBat -WorkingDirectory $result.InstallPath -IconLocation $iconPath
         }
     }
 
