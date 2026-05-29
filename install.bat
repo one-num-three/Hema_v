@@ -361,7 +361,7 @@ echo [OK] Python dependencies installed.
 rem Pre-compile project source to .pyc so the gateway starts ~10s faster on
 rem cold boot (Python no longer needs to parse .py files at import time).
 echo        Pre-compiling Python bytecode...
-"%PYTHON_EXE%" -m compileall -q "%SCRIPT_DIR%\hermes_cli" "%SCRIPT_DIR%\gateway" "%SCRIPT_DIR%\tools" 2>nul
+"%PYTHON_EXE%" -m compileall -qq "%SCRIPT_DIR%\hermes_cli" "%SCRIPT_DIR%\gateway" "%SCRIPT_DIR%\tools" >nul 2>&1
 echo [OK] Python bytecode pre-compiled.
 
 :: ============================================
@@ -411,7 +411,7 @@ rem The gateway needs platforms.api_server.enabled: true to bind the REST API on
 rem Do NOT copy cli-config.yaml.example here — that file is the CLI chat config and has
 rem no platforms section, so the gateway would silently skip creating the HTTP server.
 if not exist "%USERPROFILE%\.hermes\config.yaml" (
-    "%PYTHON_EXE%" -c "import pathlib; p=pathlib.Path(r'%USERPROFILE%\.hermes\config.yaml'); p.write_text('platforms:\n  api_server:\n    enabled: true\n    cors_origins: \'*\'\n    extra:\n      port: 8642\n      host: 127.0.0.1\n', encoding='utf-8')" 2>nul
+    "%PYTHON_EXE%" -c "import pathlib; pathlib.Path(r'%USERPROFILE%\.hermes\config.yaml').write_text('platforms:\n  api_server:\n    enabled: true\n    extra:\n      port: 8642\n      host: 127.0.0.1\n', encoding='utf-8')" 2>nul
     echo [OK] Created ~/.hermes/config.yaml with default API server config.
 )
 
