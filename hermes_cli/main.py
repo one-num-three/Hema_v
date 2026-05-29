@@ -624,6 +624,47 @@ def cmd_gateway(args):
     gateway_command(args)
 
 
+def cmd_logs(args):
+    """Read Hermes log files from HERMES_HOME/logs/."""
+    import datetime
+    from pathlib import Path
+    from hermes_constants import get_hermes_home
+
+    logs_dir = Path(get_hermes_home()) / "logs"
+    subcmd = getattr(args, 'logs_command', None)
+
+    # Canonical name → actual filename on disk (agent log is hermes.log)
+    NAME_MAP = {'agent': 'hermes.log'}
+    REVERSE_MAP = {v: k for k, v in NAME_MAP.items()}
+
+    if subcmd == 'list' or subcmd is None:
+        if not logs_dir.exists():
+            return
+        for f in sorted(logs_dir.glob("*.log")):
+            stat = f.stat()
+            sz = stat.st_size
+            size_str = f"{sz/1024/1024:.1f}MB" if sz > 1024*1024 else f"{sz/1024:.1f}KB"
+            mtime = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M")
+            display_name = REVERSE_MAP.get(f.name, f.name)
+            print(f"  {display_name:<20} {size_str:<10} {mtime}")
+    else:
+        log_name = subcmd
+        n = getattr(args, 'n', 100)
+        filename = NAME_MAP.get(log_name, f"{log_name}.log")
+        log_path = logs_dir / filename
+        if not log_path.exists():
+            log_path = logs_dir / log_name
+        if not log_path.exists():
+            sys.exit(1)
+        level_filter = getattr(args, 'level', None)
+        lines = log_path.read_text(encoding='utf-8', errors='replace').splitlines()
+        tail = lines[-n:] if len(lines) > n else lines
+        for line in tail:
+            if level_filter and level_filter.upper() not in line:
+                continue
+            print(line)
+
+
 def cmd_whatsapp(args):
     """Set up WhatsApp: choose mode, configure, install bridge, pair via QR."""
     import subprocess
@@ -3898,7 +3939,25 @@ For more help on a command:
         help="Run deep checks (may take longer)"
     )
     status_parser.set_defaults(func=cmd_status)
-    
+
+    # =========================================================================
+    # logs command (consumed by hermes-web-ui LogsView)
+    # =========================================================================
+    logs_parser = subparsers.add_parser(
+        "logs",
+        help="Read Hermes log files",
+        description="Read log files from HERMES_HOME/logs/"
+    )
+    logs_subparsers = logs_parser.add_subparsers(dest="logs_command")
+    logs_subparsers.add_parser("list", help="List available log files")
+    for _log_name in ("agent", "gateway", "errors", "weixin", "hermes"):
+        _p = logs_subparsers.add_parser(_log_name, help=f"Read {_log_name}.log")
+        _p.add_argument("-n", type=int, default=100, metavar="N", help="Number of lines (default: 100)")
+        _p.add_argument("--level", metavar="LEVEL", help="Filter by log level")
+        _p.add_argument("--session", metavar="ID", help="Filter by session ID")
+        _p.add_argument("--since", metavar="TIME", help="Show entries since TIME")
+    logs_parser.set_defaults(func=cmd_logs)
+
     # =========================================================================
     # cron command
     # =========================================================================
