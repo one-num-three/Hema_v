@@ -73,29 +73,58 @@ class PatchWebuiPersistenceTests(unittest.TestCase):
 
             self.assertIn('process.env.UPSTREAM?.trim()', patched)
             self.assertIn(
-                'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;',
+                'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;',
                 patched,
             )
             self.assertIn(
-                'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c};',
+                'if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c};',
                 patched,
             )
             self.assertIn(
-                'async start(G){let{port:l,host:c}=await this.resolvePort(G),b=this.profileDir(G),Z=oY(c,l);if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){s.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);return this.waitForReady(G,0,l,c,Z)}',
+                'async start(G){let{port:l,host:c}=await this.resolvePort(G),b=this.profileDir(G),Z=oY(c,l);if(process.env.UPSTREAM?.trim()){s.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);return this.waitForReady(G,0,l,c,Z)}',
                 patched,
             )
             self.assertIn(
-                'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;',
+                'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;',
                 patched,
             )
             self.assertEqual(patched.count("Skipping gateway auto-start"), 1)
+            self.assertEqual(patched.count('if(process.env.UPSTREAM?.trim())return;'), 2)
+
+    def test_patch_webui_upgrades_profile_status_to_pid_plus_health(self):
+        module = load_patch_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bundle = Path(tmpdir) / "index.js"
+            bundle.write_text(
+                (
+                    'W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id});'
+                    'let p=await fetch(`${N}/v1/responses`,{method:"POST",headers:h,body:JSON.stringify(e),signal:t.signal});'
+                    'UI=(0,Jr.promisify)(PY.execFile),BI={windowsHide:!0,env:{...process.env,PYTHONIOENCODING:"utf-8",PYTHONUTF8:"1"}},'
+                    'readProfilePort(G){let l=process.env.UPSTREAM?.trim(),c=Sp==="container"?"hermes-agent":"127.0.0.1";if(l)try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;return{port:Z>0&&Z<=65535?Z:8642,host:W||c}}catch{}return{port:8642,host:c}}'
+                    'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;}'
+                    'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c};return this.allocatedPorts.add(l),{port:l,host:c}}'
+                    'async start(G){let{port:l,host:c}=await this.resolvePort(G),b=this.profileDir(G),Z=oY(c,l);if(process.env.UPSTREAM?.trim()){s.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);return this.waitForReady(G,0,l,c,Z)}return this.waitForReady(G,0,l,c,Z)}'
+                    'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;}'
+                    'async function Ar(){try{return[]}catch(I){return s.error(I,"Direct log file listing failed"),[]}}'
+                    'async function Lr(I="agent",G=100,l,c,b){try{return ""}catch(Z){throw s.error(Z,"Direct log file read failed"),new Error(`Failed to read logs: ${Z.message}`)}}'
+                    'async function kr(){try{let{stdout:I}=await UI(rI,["profile","list"],{timeout:1e4,...BI}),G=I.trim().split(`\\r\\n`).filter(Boolean),l=[];for(let c of G){if(c.startsWith(" Profile")||c.match(/^ ─/))continue;let b=c.match(/^\\s+(◆)?(.+?)\\s+(\\S+)\\s{2,}(\\S+)\\s{2,}(.*)$/);b&&l.push({name:b[2],active:!!b[1],model:b[3],gateway:b[4],alias:b[5].trim()==="\\u2014"?"":b[5].trim()})}return l}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
+                    'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);'
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertTrue(module.patch_webui(str(bundle)))
+            patched = bundle.read_text(encoding="utf-8")
+            self.assertIn('gateway:await N(b)', patched)
+            self.assertIn('F=await fetch(`http://${p}:${e}/health`', patched)
+            self.assertIn('return F.ok?"running":"stopped"', patched)
 
     def test_patch_webui_deduplicates_existing_upstream_guard(self):
         module = load_patch_module()
         with tempfile.TemporaryDirectory() as tmpdir:
             bundle = Path(tmpdir) / "index.js"
             guard = (
-                'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+                'if(process.env.UPSTREAM?.trim()){'
                 's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
                 'return this.waitForReady(G,0,l,c,Z)}'
             )
@@ -104,13 +133,13 @@ class PatchWebuiPersistenceTests(unittest.TestCase):
                     'W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id});'
                     'let p=await fetch(`${N}/v1/responses`,{method:"POST",headers:h,body:JSON.stringify(e),signal:t.signal});'
                     'UI=(0,Jr.promisify)(PY.execFile),BI={windowsHide:!0,env:{...process.env,PYTHONIOENCODING:"utf-8",PYTHONUTF8:"1"}},'
-                    'readProfilePort(G){let l=process.env.UPSTREAM?.trim(),c=Sp==="container"?"hermes-agent":"127.0.0.1";if(l&&(G||"default")===(this.activeProfile||"default"))try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;return{port:Z>0&&Z<=65535?Z:8642,host:W||c}}catch{}return{port:8642,host:c}}'
-                    'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;}'
-                    'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c};return this.allocatedPorts.add(l),{port:l,host:c}}'
+                    'readProfilePort(G){let l=process.env.UPSTREAM?.trim(),c=Sp==="container"?"hermes-agent":"127.0.0.1";if(l)try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;return{port:Z>0&&Z<=65535?Z:8642,host:W||c}}catch{}return{port:8642,host:c}}'
+                    'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;}'
+                    'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c};return this.allocatedPorts.add(l),{port:l,host:c}}'
                     'async start(G){let{port:l,host:c}=await this.resolvePort(G),b=this.profileDir(G),Z=oY(c,l);'
                     + guard + guard +
                     'return this.waitForReady(G,0,l,c,Z)}'
-                    'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;}'
+                    'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;if(process.env.UPSTREAM?.trim())return;}'
                     'async function Ar(){try{return[]}catch(I){return s.error(I,"Direct log file listing failed"),[]}}'
                     'async function Lr(I="agent",G=100,l,c,b){try{return ""}catch(Z){throw s.error(Z,"Direct log file read failed"),new Error(`Failed to read logs: ${Z.message}`)}}'
                     'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);An.post("/__hema/shutdown-all",BgI);'
@@ -121,6 +150,10 @@ class PatchWebuiPersistenceTests(unittest.TestCase):
             self.assertTrue(module.patch_webui(str(bundle)))
             patched = bundle.read_text(encoding="utf-8")
             self.assertEqual(patched.count("Skipping gateway auto-start"), 1)
+            self.assertEqual(
+                patched.count('async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;'),
+                1,
+            )
 
 
 if __name__ == "__main__":

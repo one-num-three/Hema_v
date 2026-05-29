@@ -26,6 +26,7 @@ set "WEBUI_LAUNCHER_PORT="
 set "WEBUI_LAUNCHER_DIR=%WEBUI_DIR%\launcher"
 set "PATCH_PY="
 set "GATEWAY_PORT_SOURCE=default"
+set "ACTIVE_PROFILE_NAME=default"
 
 if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     set "PATCH_PY=%SCRIPT_DIR%python_embedded\python.exe"
@@ -66,6 +67,7 @@ rem Start the gateway FIRST so it has maximum time to initialize while the
 rem browser launcher page is loading. The gateway is the main bottleneck
 rem on cold first-run (Python import + platform adapter setup).
 echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
+echo [INFO] Active profile: %ACTIVE_PROFILE_NAME%
 echo [INFO] HERMES_HOME: %HERMES_HOME%
 echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
 "%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%GATEWAY_PORT%/health', timeout=1)" >nul 2>&1
@@ -159,7 +161,12 @@ set "PATH=%NODE_DIR%;%PATH%"
 set "PORT=%WEBUI_PORT%"
 set "NODE_ENV=production"
 set "UPSTREAM=http://127.0.0.1:%GATEWAY_PORT%"
-set "HERMES_HOME=%USERPROFILE%\.hermes"
+rem Preserve the resolved profile-aware HERMES_HOME. Replacing it with the
+rem default path here makes the Web UI read/write the wrong profile state.
+set "HERMES_HOME=%HERMES_HOME%"
+echo [INFO] Active profile: %ACTIVE_PROFILE_NAME%
+echo [INFO] Web UI HERMES_HOME: %HERMES_HOME%
+echo [INFO] Web UI UPSTREAM: %UPSTREAM%
 
 :: HERMES_BIN: prefer pip-installed hermes.exe.
 :: Node 23 blocks spawning .bat files via execFile due to CVE-2024-27980.
@@ -223,7 +230,9 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "$log=[IO.Path]::GetFullPath('%WEBUI_LOG%');" ^
     "$logDir=[IO.Path]::GetDirectoryName($log);" ^
     "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
-    "$cmd='""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
+    "$prefix=@('[launcher] Active profile: %ACTIVE_PROFILE_NAME%','[launcher] HERMES_HOME: %HERMES_HOME%','[launcher] UPSTREAM: %UPSTREAM%','[launcher] Gateway port source: %GATEWAY_PORT_SOURCE%');" ^
+    "$cmd=($prefix | ForEach-Object { 'echo ' + $_ + '>> ""' + $log + '""' }) -join ' & ';" ^
+    "$cmd += ' & ""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
     "$p=Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
     "Start-Sleep -Milliseconds 300;" ^
     "Write-Output $p.Id"') do (

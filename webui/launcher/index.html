@@ -304,6 +304,7 @@
         jump();
       }
     }
+
     let slowMode = false;
     let slowAttempts = 0;
     let lastRawError = "";
@@ -326,9 +327,6 @@
       el.textContent = txt;
     }
 
-    // True only once we've genuinely waited past the expected startup window.
-    // Connection-refused/timeout to 8648 is normal for the first 60-90s, so a
-    // transient error should stay amber until we cross this threshold.
     function isStuck() {
       return attempts >= MAX_WEBUI_ATTEMPTS || (slowMode && slowAttempts >= MAX_SLOW_GATEWAY);
     }
@@ -367,7 +365,6 @@
 
     function updateDiagnostics(data, errMsg) {
       diagElapsed.textContent = elapsed();
-
       const stuck = isStuck();
 
       if (!data) {
@@ -390,9 +387,6 @@
         }
       }
 
-      // A transient error (refused/timeout/reset) stays amber for the whole
-      // startup window; it only turns red once we're genuinely stuck. A
-      // non-transient error is a real fault, so it escalates immediately.
       if (errMsg) {
         const info = classifyError(errMsg);
         const hard = !info.transient || stuck;
@@ -447,7 +441,7 @@
         } else if (slowMode && slowAttempts >= MAX_SLOW_GATEWAY) {
           paint(...stages.fail);
         } else if (attempts >= MAX_WEBUI_ATTEMPTS) {
-          paint("还没检测到 8648", 42, "Web UI 仍未监听 8648。请检查安装目录、Node 依赖或查看 server.log。");
+          paint("还没检测到 8648", 42, "Web UI 仍未监听 8648。请检查安装目录、Node 依赖，或查看 server.log。");
         } else {
           paint(...(attempts > 3 ? stages.webui : stages.boot));
         }

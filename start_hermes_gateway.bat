@@ -41,6 +41,7 @@ set "HERMES_HOME=%USERPROFILE%\.hermes"
 set "GATEWAY_PID_FILE=%USERPROFILE%\.hermes\gateway.pid"
 set "GATEWAY_LOG=%USERPROFILE%\.hermes\gateway.log"
 set "GATEWAY_ERR_LOG=%USERPROFILE%\.hermes\gateway.err.log"
+set "ACTIVE_PROFILE_NAME=default"
 
 call :resolve_hermes_home
 call :resolve_gateway_port
@@ -81,6 +82,7 @@ set "HERMES_ROOT=%SCRIPT_DIR%"
 if not exist "%USERPROFILE%\.hermes" mkdir "%USERPROFILE%\.hermes"
 
 echo [INFO] HERMES_HOME: %HERMES_HOME%
+echo [INFO] Active profile: %ACTIVE_PROFILE_NAME%
 echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
 echo [INFO] Starting Hermes gateway on %GATEWAY_HOST%:%GATEWAY_PORT%...
 cd /d "%SCRIPT_DIR%"

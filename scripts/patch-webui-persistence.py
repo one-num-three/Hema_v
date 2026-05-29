@@ -283,8 +283,8 @@ def patch_webui(filepath: str) -> bool:
         'async function kr(){try{let I=require("fs"),G=require("path"),l=require("os"),'
         'b=G.resolve(l.homedir(),".hermes"),Z=G.join(b,"active_profile"),W=G.join(b,"profiles"),d=I.existsSync(Z)?I.readFileSync(Z,"utf-8").trim()||"default":"default",'
         'm=a=>{let Y=G.join(a,"config.yaml");if(!I.existsSync(Y))return"";try{let n=I.readFileSync(Y,"utf-8"),V=n.match(/(?:^|\\r?\\n)model:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+default:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);if(V?.[1])return V[1].trim();let e=n.match(/^model:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);return e?.[1]?e[1].trim():""}catch{return""}},'
-        'N=a=>I.existsSync(G.join(a,"gateway.pid"))?"running":"stopped",V=[{name:"default",active:d==="default",model:m(b),gateway:N(b),alias:""}];'
-        'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:N(Y),alias:a.name})}'
+        'N=async a=>{let Y=G.join(a,"gateway.pid"),n=G.join(a,"config.yaml"),V="127.0.0.1",e=8642;if(I.existsSync(n))try{let h=I.readFileSync(n,"utf-8"),t=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+port:\\s*(\\d+)/m),p=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+host:\\s*([^\\r\\n#]+)/m);t?.[1]&&(e=parseInt(t[1],10)||8642),p?.[1]&&(V=p[1].trim().replace(/^["\\\']|["\\\']$/g,"")||V)}catch{}if(!I.existsSync(Y))return"stopped";try{let h=I.readFileSync(Y,"utf-8").trim(),t=null;if(/^\\d+$/.test(h))t=parseInt(h,10);else try{t=JSON.parse(h)?.pid??null}catch{}if(!(typeof t=="number"&&t>0))return"stopped";try{process.kill(t,0)}catch{return"stopped"}let p=V.includes(":")&&!V.startsWith("[")?`[${V}]`:V,F=await fetch(`http://${p}:${e}/health`,{signal:AbortSignal.timeout(1500)});return F.ok?"running":"stopped"}catch{return"stopped"}},V=[{name:"default",active:d==="default",model:m(b),gateway:await N(b),alias:""}];'
+        'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:await N(Y),alias:a.name})}'
         'return V.sort((a,Y)=>a.name==="default"?-1:Y.name==="default"?1:a.name.localeCompare(Y.name))}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
     )
     if old_profile_list_bundle in content:
@@ -349,6 +349,16 @@ def patch_webui(filepath: str) -> bool:
         if replacements:
             changed = True
             print("Normalized shutdown-all handler implementation")
+
+    duplicate_stop_guard = 'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;if(process.env.UPSTREAM?.trim())return;'
+    if duplicate_stop_guard in content:
+        content = content.replace(
+            duplicate_stop_guard,
+            'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;',
+            1,
+        )
+        changed = True
+        print("Removed duplicate gateway stop guard")
 
     if not changed:
         malformed_count = content.count('split(/\n?\n/)')
