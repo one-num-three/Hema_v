@@ -2734,6 +2734,9 @@ class AIAgent:
             if context_files_prompt:
                 prompt_parts.append(context_files_prompt)
 
+        # Host environment diagnostics
+        prompt_parts.append(self._build_env_diagnostics_prompt())
+
         from hermes_time import now as _hermes_now
         now = _hermes_now()
         timestamp_line = f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')}"
@@ -2776,6 +2779,43 @@ class AIAgent:
             prompt_parts.append(PLATFORM_HINTS[platform_key])
 
         return "\n\n".join(prompt_parts)
+
+    def _build_env_diagnostics_prompt(self) -> str:
+        """Build a concise summary of the host environment, paths, and available tools."""
+        import platform
+        import shutil
+        from pathlib import Path
+        from hermes_constants import get_hermes_home
+
+        home = get_hermes_home()
+        project_root = Path(__file__).parent.resolve()
+
+        # Check key commands in PATH (shutil.which is very fast)
+        tools = {
+            "git": shutil.which("git") is not None,
+            "node": shutil.which("node") is not None,
+            "npm": shutil.which("npm") is not None,
+            "docker": shutil.which("docker") is not None,
+            "rg (ripgrep)": shutil.which("rg") is not None,
+        }
+        status_str = ", ".join(f"{k}: {'Available' if v else 'Not Found'}" for k, v in tools.items())
+
+        # Check for embedded Python
+        embedded_python = project_root / "python_embedded"
+        has_embedded = (
+            (embedded_python / "python.exe").is_file()
+            if platform.system() == "Windows"
+            else (embedded_python / "python").is_file()
+        )
+
+        return (
+            "# Host Environment & Installed Tools\n"
+            f"- **OS**: {platform.system()} ({platform.machine()})\n"
+            f"- **Hermes Home**: `{home}`\n"
+            f"- **Workspace Root**: `{project_root}`\n"
+            f"- **Host Tools**: {status_str}\n"
+            f"- **Embedded Python Environment**: {'Present (automatically mapped to PATH for terminal tools)' if has_embedded else 'Not Present'}"
+        )
 
     # =========================================================================
     # Pre/post-call guardrails (inspired by PR #1321 — @alireza78a)
