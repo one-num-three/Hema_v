@@ -113,6 +113,11 @@ if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" (
     "%PATCH_PY%" "%SCRIPT_DIR%scripts\patch-webui-persistence.py" "%WEBUI_DIR%" >nul 2>&1
     call :bootstrap_log "patch-webui-persistence.py finished exit=%errorlevel%"
 )
+if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-gateway-manager.py" (
+    call :bootstrap_log "running patch-gateway-manager.py"
+    "%PATCH_PY%" "%SCRIPT_DIR%scripts\patch-gateway-manager.py" "%WEBUI_DIR%" >nul 2>&1
+    call :bootstrap_log "patch-gateway-manager.py finished exit=%errorlevel%"
+)
 
 rem Start the gateway FIRST so it has maximum time to initialize while the
 rem browser launcher page is loading. The gateway is the main bottleneck

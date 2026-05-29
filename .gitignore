@@ -61,7 +61,8 @@ result
 
 # Portable runtime (downloaded by install.bat, not committed)
 node_embedded/
-webui/
+webui/*
+!webui/launcher/
 python_embedded/
 _tcltk_temp/
 node_tmp/
