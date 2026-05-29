@@ -15,6 +15,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 from hermes_cli.config import get_env_value, get_hermes_home, save_env_value, is_managed, managed_error
+from hermes_cli.console_safe import safe_print
 # display_hermes_home is imported lazily at call sites to avoid ImportError
 # when hermes_constants is cached from a pre-update version during `hermes update`.
 from hermes_cli.setup import (
@@ -2061,11 +2062,11 @@ def gateway_command(args):
         killed = kill_gateway_processes()
         if not service_available:
             if killed:
-                print(f"✓ Stopped {killed} gateway process(es)")
+                safe_print(f"Stopped {killed} gateway process(es)")
             else:
-                print("✗ No gateway processes found")
+                safe_print("No gateway processes found")
         elif killed:
-            print(f"✓ Stopped {killed} additional manual gateway process(es)")
+            safe_print(f"Stopped {killed} additional manual gateway process(es)")
     
     elif subcmd == "restart":
         # Try service first, fall back to killing and restarting
@@ -2095,40 +2096,40 @@ def gateway_command(args):
                 if linger_ok is not True:
                     import getpass
                     _username = getpass.getuser()
-                    print()
-                    print("⚠ Cannot restart gateway as a service — linger is not enabled.")
-                    print("  The gateway user service requires linger to function on headless servers.")
-                    print()
-                    print(f"  Run:  sudo loginctl enable-linger {_username}")
-                    print()
-                    print("  Then restart the gateway:")
-                    print("    hermes gateway restart")
+                    safe_print()
+                    safe_print("Cannot restart gateway as a service - linger is not enabled.")
+                    safe_print("  The gateway user service requires linger to function on headless servers.")
+                    safe_print()
+                    safe_print(f"  Run:  sudo loginctl enable-linger {_username}")
+                    safe_print()
+                    safe_print("  Then restart the gateway:")
+                    safe_print("    hermes gateway restart")
                     return
 
             if service_configured:
-                print()
-                print("✗ Gateway service restart failed.")
-                print("  The service definition exists, but the service manager did not recover it.")
-                print("  Fix the service, then retry: hermes gateway start")
+                safe_print()
+                safe_print("Gateway service restart failed.")
+                safe_print("  The service definition exists, but the service manager did not recover it.")
+                safe_print("  Fix the service, then retry: hermes gateway start")
                 sys.exit(1)
 
             # Manual restart: kill existing processes
             killed = kill_gateway_processes()
             if killed:
-                print(f"✓ Stopped {killed} gateway process(es)")
+                safe_print(f"Stopped {killed} gateway process(es)")
 
             _wait_for_gateway_exit(timeout=10.0, force_after=5.0)
 
             # Start fresh
-            print("Starting gateway...")
+            safe_print("Starting gateway...")
             if is_windows():
                 # Foreground run would block forever; the Web UI calls this via
                 # execFile with a timeout and would kill the child tree (and the
                 # new gateway) on timeout. Spawn detached and return promptly.
                 if _spawn_gateway_detached_windows():
-                    print("✓ Gateway restart triggered (starting in background).")
+                    safe_print("Gateway restart triggered (starting in background).")
                 else:
-                    print("⚠ Failed to spawn background gateway; running in foreground.")
+                    safe_print("Failed to spawn background gateway; running in foreground.")
                     run_gateway(verbose=False)
             else:
                 run_gateway(verbose=False)
@@ -2146,28 +2147,28 @@ def gateway_command(args):
             # Check for manually running processes
             pids = find_gateway_pids()
             if pids:
-                print(f"✓ Gateway is running (PID: {', '.join(map(str, pids))})")
-                print("  (Running manually, not as a system service)")
+                safe_print(f"Gateway is running (PID: {', '.join(map(str, pids))})")
+                safe_print("  (Running manually, not as a system service)")
                 runtime_lines = _runtime_health_lines()
                 if runtime_lines:
-                    print()
-                    print("Recent gateway health:")
+                    safe_print()
+                    safe_print("Recent gateway health:")
                     for line in runtime_lines:
-                        print(f"  {line}")
-                print()
-                print("To install as a service:")
-                print("  hermes gateway install")
-                print("  sudo hermes gateway install --system")
+                        safe_print(f"  {line}")
+                safe_print()
+                safe_print("To install as a service:")
+                safe_print("  hermes gateway install")
+                safe_print("  sudo hermes gateway install --system")
             else:
-                print("✗ Gateway is not running")
+                safe_print("Gateway is not running")
                 runtime_lines = _runtime_health_lines()
                 if runtime_lines:
-                    print()
-                    print("Recent gateway health:")
+                    safe_print()
+                    safe_print("Recent gateway health:")
                     for line in runtime_lines:
-                        print(f"  {line}")
-                print()
-                print("To start:")
-                print("  hermes gateway          # Run in foreground")
-                print("  hermes gateway install  # Install as user service")
-                print("  sudo hermes gateway install --system  # Install as boot-time system service")
+                        safe_print(f"  {line}")
+                safe_print()
+                safe_print("To start:")
+                safe_print("  hermes gateway          # Run in foreground")
+                safe_print("  hermes gateway install  # Install as user service")
+                safe_print("  sudo hermes gateway install --system  # Install as boot-time system service")

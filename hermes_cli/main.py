@@ -131,6 +131,7 @@ import time as _time
 from datetime import datetime
 
 from hermes_cli import __version__, __release_date__
+from hermes_cli.console_safe import safe_print
 from hermes_constants import OPENROUTER_BASE_URL
 
 logger = logging.getLogger(__name__)
@@ -3331,30 +3332,30 @@ def cmd_profile(args):
             return
 
         # Header
-        print(f"\n {'Profile':<16} {'Model':<28} {'Gateway':<12} {'Alias'}")
-        print(f" {'─' * 15}    {'─' * 27}    {'─' * 11}    {'─' * 12}")
+        safe_print(f"\n {'Profile':<16} {'Model':<28} {'Gateway':<12} {'Alias'}")
+        safe_print(f" {'-' * 15}    {'-' * 27}    {'-' * 11}    {'-' * 12}")
 
         for p in profiles:
-            marker = " ◆" if (p.name == active or (active == "default" and p.is_default)) else "  "
+            marker = "* " if (p.name == active or (active == "default" and p.is_default)) else "  "
             name = p.name
-            model = (p.model or "—")[:26]
+            model = (p.model or "-")[:26]
             gw = "running" if p.gateway_running else "stopped"
-            alias = p.name if p.alias_path else "—"
+            alias = p.name if p.alias_path else "-"
             if p.is_default:
-                alias = "—"
-            print(f"{marker}{name:<15} {model:<28} {gw:<12} {alias}")
-        print()
+                alias = "-"
+            safe_print(f"{marker}{name:<15} {model:<28} {gw:<12} {alias}")
+        safe_print()
 
     elif action == "use":
         name = args.profile_name
         try:
             set_active_profile(name)
             if name == "default":
-                print(f"Switched to: default (~/.hermes)")
+                safe_print("Switched to: default (~/.hermes)")
             else:
-                print(f"Switched to: {name}")
+                safe_print(f"Switched to: {name}")
         except (ValueError, FileNotFoundError) as e:
-            print(f"Error: {e}")
+            safe_print(f"Error: {e}")
             sys.exit(1)
 
     elif action == "create":

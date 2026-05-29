@@ -173,6 +173,60 @@ def test_install_linux_gateway_from_setup_system_choice_as_root_installs(monkeyp
     assert calls == [(True, True, "alice")]
 
 
+def test_gateway_stop_uses_console_safe_output(monkeypatch):
+    messages = []
+    monkeypatch.setattr(gateway, "is_linux", lambda: False)
+    monkeypatch.setattr(gateway, "is_macos", lambda: False)
+    monkeypatch.setattr(gateway, "kill_gateway_processes", lambda: 2)
+    monkeypatch.setattr(gateway, "safe_print", lambda *parts, **kwargs: messages.append(" ".join(str(p) for p in parts)))
+
+    gateway.gateway_command(SimpleNamespace(gateway_command="stop", system=False))
+
+    assert messages == ["Stopped 2 gateway process(es)"]
+
+
+def test_gateway_restart_windows_reports_background_start(monkeypatch):
+    messages = []
+    monkeypatch.setattr(gateway, "is_linux", lambda: False)
+    monkeypatch.setattr(gateway, "is_macos", lambda: False)
+    monkeypatch.setattr(gateway, "is_windows", lambda: True)
+    monkeypatch.setattr(gateway, "kill_gateway_processes", lambda: 1)
+    monkeypatch.setattr(gateway, "_wait_for_gateway_exit", lambda timeout=10.0, force_after=5.0: None)
+    monkeypatch.setattr(gateway, "_spawn_gateway_detached_windows", lambda: True)
+    monkeypatch.setattr(gateway, "safe_print", lambda *parts, **kwargs: messages.append(" ".join(str(p) for p in parts)))
+
+    gateway.gateway_command(SimpleNamespace(gateway_command="restart", system=False))
+
+    assert messages == [
+        "Stopped 1 gateway process(es)",
+        "Starting gateway...",
+        "Gateway restart triggered (starting in background).",
+    ]
+
+
+def test_gateway_status_uses_console_safe_output(monkeypatch):
+    messages = []
+    monkeypatch.setattr(gateway, "is_linux", lambda: False)
+    monkeypatch.setattr(gateway, "is_macos", lambda: False)
+    monkeypatch.setattr(gateway, "find_gateway_pids", lambda: [1234])
+    monkeypatch.setattr(gateway, "_runtime_health_lines", lambda: ["ok"])
+    monkeypatch.setattr(gateway, "safe_print", lambda *parts, **kwargs: messages.append(" ".join(str(p) for p in parts)))
+
+    gateway.gateway_command(SimpleNamespace(gateway_command="status", system=False, deep=False))
+
+    assert messages == [
+        "Gateway is running (PID: 1234)",
+        "  (Running manually, not as a system service)",
+        "",
+        "Recent gateway health:",
+        "  ok",
+        "",
+        "To install as a service:",
+        "  hermes gateway install",
+        "  sudo hermes gateway install --system",
+    ]
+
+
 # ---------------------------------------------------------------------------
 # _wait_for_gateway_exit
 # ---------------------------------------------------------------------------

@@ -27,12 +27,28 @@ set "WEBUI_LAUNCHER_DIR=%WEBUI_DIR%\launcher"
 set "PATCH_PY="
 set "GATEWAY_PORT_SOURCE=default"
 set "ACTIVE_PROFILE_NAME=default"
+set "WEBUI_SERVER_MODE=dist"
+set "CORRUPT_COUNT=0"
+set "CORRUPT_NAMES_JSON=[]"
+set "CORRUPT_QUARANTINE_DIR="
+set "ACTIVE_PROFILE_RESET=0"
 
 if exist "%SCRIPT_DIR%python_embedded\python.exe" (
     set "PATCH_PY=%SCRIPT_DIR%python_embedded\python.exe"
 ) else (
     where python >nul 2>&1
     if not errorlevel 1 set "PATCH_PY=python"
+)
+
+if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\sanitize_profiles.py" (
+    for /f "usebackq tokens=1,* delims==" %%A in (`"%PATCH_PY%" "%SCRIPT_DIR%scripts\sanitize_profiles.py" --home "%USERPROFILE%\.hermes" 2^>nul`) do (
+        if /i "%%A"=="CORRUPT_COUNT" set "CORRUPT_COUNT=%%B"
+        if /i "%%A"=="ACTIVE_PROFILE_BEFORE" set "ACTIVE_PROFILE_NAME=%%B"
+        if /i "%%A"=="ACTIVE_PROFILE_AFTER" set "SANITIZED_ACTIVE_PROFILE=%%B"
+        if /i "%%A"=="ACTIVE_PROFILE_RESET" set "ACTIVE_PROFILE_RESET=%%B"
+        if /i "%%A"=="QUARANTINE_DIR" set "CORRUPT_QUARANTINE_DIR=%%B"
+        if /i "%%A"=="CORRUPT_NAMES_JSON" set "CORRUPT_NAMES_JSON=%%B"
+    )
 )
 
 call :resolve_hermes_home
@@ -56,7 +72,10 @@ if not exist "%WEBUI_SERVER%" if not exist "%WEBUI_NPM_SERVER%" (
     pause
     exit /b 1
 )
-if exist "%WEBUI_NPM_SERVER%" set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
+if exist "%WEBUI_NPM_SERVER%" (
+    set "WEBUI_SERVER=%WEBUI_NPM_SERVER%"
+    set "WEBUI_SERVER_MODE=node_modules"
+)
 
 :: Apply local Web UI compatibility patches even when an existing server is reused.
 if defined PATCH_PY if exist "%SCRIPT_DIR%scripts\patch-webui-persistence.py" (
@@ -70,6 +89,14 @@ echo [INFO] Checking Hermes gateway (port %GATEWAY_PORT%)...
 echo [INFO] Active profile: %ACTIVE_PROFILE_NAME%
 echo [INFO] HERMES_HOME: %HERMES_HOME%
 echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
+echo [INFO] Web UI server mode: %WEBUI_SERVER_MODE%
+if not "%CORRUPT_COUNT%"=="0" (
+    echo [WARN] Quarantined %CORRUPT_COUNT% corrupt profile(s): %CORRUPT_NAMES_JSON%
+    if defined CORRUPT_QUARANTINE_DIR echo [INFO] Corrupt profile quarantine: %CORRUPT_QUARANTINE_DIR%
+)
+if "%ACTIVE_PROFILE_RESET%"=="1" (
+    echo [WARN] Active profile was invalid and has been reset to default.
+)
 "%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%GATEWAY_PORT%/health', timeout=1)" >nul 2>&1
 if %errorlevel% equ 0 (
     echo [OK] Hermes gateway already running on port %GATEWAY_PORT%.
@@ -167,6 +194,7 @@ set "HERMES_HOME=%HERMES_HOME%"
 echo [INFO] Active profile: %ACTIVE_PROFILE_NAME%
 echo [INFO] Web UI HERMES_HOME: %HERMES_HOME%
 echo [INFO] Web UI UPSTREAM: %UPSTREAM%
+echo [INFO] Web UI server mode: %WEBUI_SERVER_MODE%
 
 :: HERMES_BIN: prefer pip-installed hermes.exe.
 :: Node 23 blocks spawning .bat files via execFile due to CVE-2024-27980.
@@ -220,6 +248,7 @@ echo [INFO] Starting hermes-web-ui on port %WEBUI_PORT%...
 echo [INFO] Install root: "%SCRIPT_DIR%"
 echo [INFO] Node executable: "%NODE_EXE%"
 echo [INFO] Web UI server: "%WEBUI_SERVER%"
+echo [INFO] Web UI server mode: "%WEBUI_SERVER_MODE%"
 echo [INFO] Auth mode: disabled for localhost
 echo [INFO] Log file: "%WEBUI_LOG%"
 cd /d "%WEBUI_DIR%"
@@ -230,7 +259,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "$log=[IO.Path]::GetFullPath('%WEBUI_LOG%');" ^
     "$logDir=[IO.Path]::GetDirectoryName($log);" ^
     "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
-    "$prefix=@('[launcher] Active profile: %ACTIVE_PROFILE_NAME%','[launcher] HERMES_HOME: %HERMES_HOME%','[launcher] UPSTREAM: %UPSTREAM%','[launcher] Gateway port source: %GATEWAY_PORT_SOURCE%');" ^
+    "$prefix=@('[launcher] Active profile: %ACTIVE_PROFILE_NAME%','[launcher] HERMES_HOME: %HERMES_HOME%','[launcher] UPSTREAM: %UPSTREAM%','[launcher] Gateway port source: %GATEWAY_PORT_SOURCE%','[launcher] Web UI server mode: %WEBUI_SERVER_MODE%','[launcher] Web UI server path: %WEBUI_SERVER%','[launcher] Corrupt profiles quarantined: %CORRUPT_COUNT%','[launcher] Corrupt profile names: %CORRUPT_NAMES_JSON%','[launcher] Corrupt profile quarantine dir: %CORRUPT_QUARANTINE_DIR%','[launcher] Active profile reset: %ACTIVE_PROFILE_RESET%');" ^
     "$cmd=($prefix | ForEach-Object { 'echo ' + $_ + '>> ""' + $log + '""' }) -join ' & ';" ^
     "$cmd += ' & ""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
     "$p=Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^

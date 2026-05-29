@@ -17,6 +17,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_HOME = Path.home() / ".hermes"
 DEFAULT_WEBUI_HOME = Path.home() / ".hermes-web-ui"
 
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from hermes_cli.profiles import validate_profile_name
+
 
 def _read_text(path: Path) -> str:
     try:
@@ -137,10 +142,71 @@ def _collect_bundle_markers(bundle: Path) -> dict[str, bool]:
     }
 
 
+def _is_valid_profile_name(name: str) -> bool:
+    try:
+        validate_profile_name(name)
+        return True
+    except ValueError:
+        return False
+
+
+def _collect_corrupt_profiles(home: Path) -> dict[str, object]:
+    profiles_root = home / "profiles"
+    invalid = []
+    if profiles_root.exists():
+        invalid = sorted(
+            entry.name for entry in profiles_root.iterdir()
+            if entry.is_dir() and not _is_valid_profile_name(entry.name)
+        )
+    quarantine_root = home / "quarantine" / "corrupt_profiles"
+    latest_quarantine = None
+    latest_manifest = None
+    if quarantine_root.exists():
+        dirs = sorted((path for path in quarantine_root.iterdir() if path.is_dir()), key=lambda p: p.name)
+        if dirs:
+            latest_quarantine = dirs[-1]
+            manifest = latest_quarantine / "manifest.json"
+            if manifest.exists():
+                latest_manifest = _read_text(manifest)
+    return {
+        "active_invalid_profiles": invalid,
+        "latest_quarantine_dir": str(latest_quarantine) if latest_quarantine else None,
+        "latest_quarantine_manifest": latest_manifest,
+    }
+
+
+def _detect_actual_webui_server(project_root: Path, webui_home: Path) -> dict[str, str | None]:
+    dist = project_root / "webui" / "dist" / "server" / "index.js"
+    node_modules = project_root / "webui" / "node_modules" / "hermes-web-ui" / "dist" / "server" / "index.js"
+    server_log = webui_home / "server.log"
+    logged_server = None
+    if server_log.exists():
+        for line in reversed(_read_text(server_log).splitlines()):
+            marker = "[launcher] Web UI server path:"
+            if marker in line:
+                logged_server = line.split(marker, 1)[1].strip()
+                break
+    actual = logged_server or (str(node_modules) if node_modules.exists() else str(dist) if dist.exists() else None)
+    mode = None
+    if actual:
+        lower = actual.lower()
+        if "\\node_modules\\" in lower or "/node_modules/" in lower:
+            mode = "node_modules"
+        elif "\\dist\\" in lower or "/dist/" in lower:
+            mode = "dist"
+    return {
+        "actual_server": actual,
+        "actual_server_mode": mode,
+        "dist_server": str(dist),
+        "node_modules_server": str(node_modules),
+    }
+
+
 def build_report(home: Path, webui_home: Path) -> str:
     active_profile, active_home = _resolve_active_profile(home)
     ports = _find_gateway_ports(home)
-    bundle = PROJECT_ROOT / "webui" / "node_modules" / "hermes-web-ui" / "dist" / "server" / "index.js"
+    webui_server = _detect_actual_webui_server(PROJECT_ROOT, webui_home)
+    corrupt_profiles = _collect_corrupt_profiles(home)
     report: list[str] = []
 
     def section(title: str, body: str) -> None:
@@ -158,6 +224,8 @@ def build_report(home: Path, webui_home: Path) -> str:
             active_profile: {active_profile}
             active_profile_home: {active_home}
             cwd: {Path.cwd()}
+            actual_webui_server: {webui_server["actual_server"]}
+            actual_webui_server_mode: {webui_server["actual_server_mode"]}
             """
         ),
     )
@@ -170,6 +238,8 @@ def build_report(home: Path, webui_home: Path) -> str:
             active_profile_file: {home / "active_profile"}
             server_mode: {webui_home / "server.mode"}
             server_pid: {webui_home / "server.pid"}
+            dist_server: {webui_server["dist_server"]}
+            node_modules_server: {webui_server["node_modules_server"]}
             """
         ),
     )
@@ -203,8 +273,19 @@ def build_report(home: Path, webui_home: Path) -> str:
 
     section(
         "Bundle Markers",
-        json.dumps(_collect_bundle_markers(bundle), ensure_ascii=False, indent=2),
+        json.dumps(
+            {
+                "actual_webui_server": webui_server["actual_server"],
+                "actual_webui_server_mode": webui_server["actual_server_mode"],
+                "dist": _collect_bundle_markers(Path(webui_server["dist_server"])),
+                "node_modules": _collect_bundle_markers(Path(webui_server["node_modules_server"])),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
     )
+
+    section("Corrupt Profiles", json.dumps(corrupt_profiles, ensure_ascii=False, indent=2))
 
     powershell = os.environ.get("SystemRoot", r"C:\Windows") + r"\System32\WindowsPowerShell\v1.0\powershell.exe"
     section(

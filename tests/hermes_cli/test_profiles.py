@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
+import hermes_cli.main as hermes_main
 
 from hermes_cli.profiles import (
     validate_profile_name,
@@ -105,6 +106,21 @@ class TestGetProfileDir:
         tmp_path = profile_env
         result = get_profile_dir("coder")
         assert result == tmp_path / ".hermes" / "profiles" / "coder"
+
+
+def test_profile_use_error_is_console_safe(monkeypatch):
+    messages = []
+
+    def _raise_invalid(_name):
+        raise ValueError("Invalid profile name '\\udcffbad'")
+
+    monkeypatch.setattr("hermes_cli.profiles.set_active_profile", _raise_invalid)
+    monkeypatch.setattr(hermes_main, "safe_print", lambda *parts, **kwargs: messages.append(" ".join(str(p) for p in parts)))
+
+    with pytest.raises(SystemExit):
+        hermes_main.cmd_profile(type("Args", (), {"profile_action": "use", "profile_name": "bad"})())
+
+    assert messages == ["Error: Invalid profile name '\\udcffbad'"]
 
 
 # ===================================================================
