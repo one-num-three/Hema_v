@@ -281,19 +281,40 @@ def patch_webui(filepath: str) -> bool:
     )
     profile_list_bundle = (
         'async function kr(){try{let I=require("fs"),G=require("path"),l=require("os"),'
-        'b=G.resolve(l.homedir(),".hermes"),Z=G.join(b,"active_profile"),W=G.join(b,"profiles"),d=I.existsSync(Z)?I.readFileSync(Z,"utf-8").trim()||"default":"default",'
+        'b=G.resolve(l.homedir(),".hermes"),Z=G.join(b,"active_profile"),W=G.join(b,"profiles"),d=I.existsSync(Z)?I.readFileSync(Z,"utf-8").trim()||"default":"default",r=process.env.UPSTREAM?.trim()||"",'
         'm=a=>{let Y=G.join(a,"config.yaml");if(!I.existsSync(Y))return"";try{let n=I.readFileSync(Y,"utf-8"),V=n.match(/(?:^|\\r?\\n)model:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+default:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);if(V?.[1])return V[1].trim();let e=n.match(/^model:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);return e?.[1]?e[1].trim():""}catch{return""}},'
-        'N=async a=>{let Y=G.join(a,"gateway.pid"),n=G.join(a,"config.yaml"),V="127.0.0.1",e=8642;if(I.existsSync(n))try{let h=I.readFileSync(n,"utf-8"),t=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+port:\\s*(\\d+)/m),p=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+host:\\s*([^\\r\\n#]+)/m);t?.[1]&&(e=parseInt(t[1],10)||8642),p?.[1]&&(V=p[1].trim().replace(/^["\\\']|["\\\']$/g,"")||V)}catch{}if(!I.existsSync(Y))return"stopped";try{let h=I.readFileSync(Y,"utf-8").trim(),t=null;if(/^\\d+$/.test(h))t=parseInt(h,10);else try{t=JSON.parse(h)?.pid??null}catch{}if(!(typeof t=="number"&&t>0))return"stopped";try{process.kill(t,0)}catch{return"stopped"}let p=V.includes(":")&&!V.startsWith("[")?`[${V}]`:V,F=await fetch(`http://${p}:${e}/health`,{signal:AbortSignal.timeout(1500)});return F.ok?"running":"stopped"}catch{return"stopped"}},V=[{name:"default",active:d==="default",model:m(b),gateway:await N(b),alias:""}];'
-        'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:await N(Y),alias:a.name})}'
+        'N=async(a,Y)=>{if(r){if(Y!==d)return"stopped";try{return(await fetch(`${r.replace(/\\/$/,"")}/health`,{signal:AbortSignal.timeout(1500)})).ok?"running":"stopped"}catch{return"stopped"}}let n=G.join(a,"gateway.pid"),V=G.join(a,"config.yaml"),e="127.0.0.1",h=8642;if(I.existsSync(V))try{let t=I.readFileSync(V,"utf-8"),p=t.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+port:\\s*(\\d+)/m),F=t.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+host:\\s*([^\\r\\n#]+)/m);p?.[1]&&(h=parseInt(p[1],10)||8642),F?.[1]&&(e=F[1].trim().replace(/^["\\\']|["\\\']$/g,"")||e)}catch{}if(!I.existsSync(n))return"stopped";try{let t=I.readFileSync(n,"utf-8").trim(),p=null;if(/^\\d+$/.test(t))p=parseInt(t,10);else try{p=JSON.parse(t)?.pid??null}catch{}if(!(typeof p=="number"&&p>0))return"stopped";try{process.kill(p,0)}catch{return"stopped"}let F=e.includes(":")&&!e.startsWith("[")?`[${e}]`:e,H=await fetch(`http://${F}:${h}/health`,{signal:AbortSignal.timeout(1500)});return H.ok?"running":"stopped"}catch{return"stopped"}},V=[{name:"default",active:d==="default",model:m(b),gateway:await N(b,"default"),alias:""}];'
+        'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:await N(Y,a.name),alias:a.name})}'
         'return V.sort((a,Y)=>a.name==="default"?-1:Y.name==="default"?1:a.name.localeCompare(Y.name))}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
     )
     if old_profile_list_bundle in content:
         content = content.replace(old_profile_list_bundle, profile_list_bundle, 1)
         changed = True
         print("Patched bundled profile list reader")
-
+    elif 'async function kr(){try{let I=require("fs"),G=require("path"),l=require("os"),' in content and 'gateway:await N(b,"default")' not in content:
+        legacy_profile_list_bundle = (
+            'async function kr(){try{let I=require("fs"),G=require("path"),l=require("os"),'
+            'b=G.resolve(l.homedir(),".hermes"),Z=G.join(b,"active_profile"),W=G.join(b,"profiles"),d=I.existsSync(Z)?I.readFileSync(Z,"utf-8").trim()||"default":"default",'
+            'm=a=>{let Y=G.join(a,"config.yaml");if(!I.existsSync(Y))return"";try{let n=I.readFileSync(Y,"utf-8"),V=n.match(/(?:^|\\r?\\n)model:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+default:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);if(V?.[1])return V[1].trim();let e=n.match(/^model:\\s*["\\\']?([^"\\\'#\\r\\n]+)["\\\']?/m);return e?.[1]?e[1].trim():""}catch{return""}},'
+            'N=async a=>{let Y=G.join(a,"gateway.pid"),n=G.join(a,"config.yaml"),V="127.0.0.1",e=8642;if(I.existsSync(n))try{let h=I.readFileSync(n,"utf-8"),t=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+port:\\s*(\\d+)/m),p=h.match(/(?:^|\\r?\\n)platforms:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+api_server:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+extra:\\s*(?:\\r?\\n(?:[ \\t]+.*)*)?\\r?\\n[ \\t]+host:\\s*([^\\r\\n#]+)/m);t?.[1]&&(e=parseInt(t[1],10)||8642),p?.[1]&&(V=p[1].trim().replace(/^["\\\']|["\\\']$/g,"")||V)}catch{}if(!I.existsSync(Y))return"stopped";try{let h=I.readFileSync(Y,"utf-8").trim(),t=null;if(/^\\d+$/.test(h))t=parseInt(h,10);else try{t=JSON.parse(h)?.pid??null}catch{}if(!(typeof t=="number"&&t>0))return"stopped";try{process.kill(t,0)}catch{return"stopped"}let p=V.includes(":")&&!V.startsWith("[")?`[${V}]`:V,F=await fetch(`http://${p}:${e}/health`,{signal:AbortSignal.timeout(1500)});return F.ok?"running":"stopped"}catch{return"stopped"}},V=[{name:"default",active:d==="default",model:m(b),gateway:await N(b),alias:""}];'
+            'if(I.existsSync(W))for(let a of I.readdirSync(W,{withFileTypes:!0}))if(a.isDirectory()){let Y=G.join(W,a.name);V.push({name:a.name,active:d===a.name,model:m(Y),gateway:await N(Y),alias:a.name})}'
+            'return V.sort((a,Y)=>a.name==="default"?-1:Y.name==="default"?1:a.name.localeCompare(Y.name))}catch(I){throw s.error(I,"Hermes CLI: profile list failed"),new Error(`Failed to list profiles: ${I.message}`)}}'
+        )
+        if legacy_profile_list_bundle in content:
+            content = content.replace(legacy_profile_list_bundle, profile_list_bundle, 1)
+            changed = True
+            print("Upgraded bundled profile list reader for single-UPSTREAM ownership")
+        elif 'r=process.env.UPSTREAM?.trim()||""' not in content:
+            profile_list_pattern = re.compile(
+                r'async function kr\(\)\{try\{let I=require\("fs"\),G=require\("path"\),l=require\("os"\),.*?throw s\.error\(I,"Hermes CLI: profile list failed"\),new Error\(`Failed to list profiles: \$\{I\.message\}`\)\}\}',
+                re.DOTALL,
+            )
+            content, replacements = profile_list_pattern.subn(lambda _m: profile_list_bundle, content, count=1)
+            if replacements:
+                changed = True
+                print("Regex-upgraded bundled profile list reader for single-UPSTREAM ownership")
     gateway_profiles_bundle = (
-        'async listProfiles(){let G=["default"],l=(0,Ml.join)(Op,"profiles");'
+        'async listProfiles(){if(process.env.UPSTREAM?.trim())return[this.activeProfile||"default"];let G=["default"],l=(0,Ml.join)(Op,"profiles");'
         'if((0,yI.existsSync)(l))for(let c of(0,yI.readdirSync)(l,{withFileTypes:!0}))c.isDirectory()&&G.push(c.name);'
         'return Array.from(new Set(G)).sort((c,b)=>c==="default"?-1:b==="default"?1:c.localeCompare(b))}'
     )
@@ -306,6 +327,36 @@ def patch_webui(filepath: str) -> bool:
         if replacements:
             changed = True
             print("Patched bundled GatewayManager profile discovery")
+    elif 'async listProfiles(){let G=["default"],l=(0,Ml.join)(Op,"profiles");' in content and gateway_profiles_bundle not in content:
+        content = content.replace(
+            'async listProfiles(){let G=["default"],l=(0,Ml.join)(Op,"profiles");'
+            'if((0,yI.existsSync)(l))for(let c of(0,yI.readdirSync)(l,{withFileTypes:!0}))c.isDirectory()&&G.push(c.name);'
+            'return Array.from(new Set(G)).sort((c,b)=>c==="default"?-1:b==="default"?1:c.localeCompare(b))}',
+            gateway_profiles_bundle,
+            1,
+        )
+        changed = True
+        print("Upgraded bundled GatewayManager profile discovery")
+
+    old_gateway_detect_status = (
+        'async detectStatus(G){let l=this.readPidFile(G),{port:c,host:b}=this.readProfilePort(G),Z=oY(b,c);'
+        'return l&&this.isProcessAlive(l)&&await this.checkHealth(Z)?'
+        '(this.gateways.set(G,{pid:l,port:c,host:b,url:Z}),{profile:G,port:c,host:b,url:Z,running:!0,pid:l}):'
+        '(this.gateways.delete(G),{profile:G,port:c,host:b,url:Z,running:!1})}'
+    )
+    new_gateway_detect_status = (
+        'async detectStatus(G){let{port:l,host:c}=this.readProfilePort(G),b=oY(c,l),Z=this.activeProfile||"default";'
+        'if(process.env.UPSTREAM?.trim()){if(G!==Z)return this.gateways.delete(G),{profile:G,port:l,host:c,url:b,running:!1};'
+        'return await this.checkHealth(b)?(this.gateways.set(G,{pid:0,port:l,host:c,url:b}),{profile:G,port:l,host:c,url:b,running:!0}):'
+        '(this.gateways.delete(G),{profile:G,port:l,host:c,url:b,running:!1})}'
+        'let W=this.readPidFile(G);return W&&this.isProcessAlive(W)&&await this.checkHealth(b)?'
+        '(this.gateways.set(G,{pid:W,port:l,host:c,url:b}),{profile:G,port:l,host:c,url:b,running:!0,pid:W}):'
+        '(this.gateways.delete(G),{profile:G,port:l,host:c,url:b,running:!1})}'
+    )
+    if old_gateway_detect_status in content:
+        content = content.replace(old_gateway_detect_status, new_gateway_detect_status, 1)
+        changed = True
+        print("Patched bundled GatewayManager detectStatus for single-UPSTREAM ownership")
 
     if '"/__hema/shutdown-all"' in content and "Shutting down Web UI and gateway" in content:
         print("Shutdown-all route patch already applied")

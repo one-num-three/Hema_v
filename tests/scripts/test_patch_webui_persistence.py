@@ -115,9 +115,49 @@ class PatchWebuiPersistenceTests(unittest.TestCase):
 
             self.assertTrue(module.patch_webui(str(bundle)))
             patched = bundle.read_text(encoding="utf-8")
-            self.assertIn('gateway:await N(b)', patched)
-            self.assertIn('F=await fetch(`http://${p}:${e}/health`', patched)
-            self.assertIn('return F.ok?"running":"stopped"', patched)
+            self.assertIn('gateway:await N(b,"default")', patched)
+            self.assertIn('H=await fetch(`http://${F}:${h}/health`', patched)
+            self.assertIn('return H.ok?"running":"stopped"', patched)
+            self.assertIn('if(r){if(Y!==d)return"stopped";', patched)
+            self.assertIn('gateway:await N(Y,a.name)', patched)
+
+    def test_patch_webui_limits_upstream_gateway_manager_to_active_profile(self):
+        module = load_patch_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bundle = Path(tmpdir) / "index.js"
+            bundle.write_text(
+                (
+                    'W&&await this.markCompleted(G,W,{event:w.event,run_id:w.run_id});'
+                    'let p=await fetch(`${N}/v1/responses`,{method:"POST",headers:h,body:JSON.stringify(e),signal:t.signal});'
+                    'UI=(0,Jr.promisify)(PY.execFile),BI={windowsHide:!0,env:{...process.env,PYTHONIOENCODING:"utf-8",PYTHONUTF8:"1"}},'
+                    'readProfilePort(G){let l=(0,Ml.join)(this.profileDir(G),"config.yaml"),c=Sp==="container"?"hermes-agent":"127.0.0.1";if(!(0,yI.existsSync)(l))return{port:8642,host:c};try{let b=(0,yI.readFileSync)(l,"utf-8"),W=(_I.load(b)||{})?.platforms?.api_server?.extra,d=W?.port||8642,m=typeof d=="number"?d:parseInt(d,10)||8642,N=W?.host||c;return{port:m>0&&m<=65535?m:8642,host:N}}catch{return{port:8642,host:c}}}'
+                    'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;}'
+                    'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c};return this.allocatedPorts.add(l),{port:l,host:c}}'
+                    'async listProfiles(){let G=["default"],l=(0,Ml.join)(Op,"profiles");if((0,yI.existsSync)(l))for(let c of(0,yI.readdirSync)(l,{withFileTypes:!0}))c.isDirectory()&&G.push(c.name);return Array.from(new Set(G)).sort((c,b)=>c==="default"?-1:b==="default"?1:c.localeCompare(b))}'
+                    'async detectStatus(G){let l=this.readPidFile(G),{port:c,host:b}=this.readProfilePort(G),Z=oY(b,c);return l&&this.isProcessAlive(l)&&await this.checkHealth(Z)?(this.gateways.set(G,{pid:l,port:c,host:b,url:Z}),{profile:G,port:c,host:b,url:Z,running:!0,pid:l}):(this.gateways.delete(G),{profile:G,port:c,host:b,url:Z,running:!1})}'
+                    'async start(G){let{port:l,host:c}=await this.resolvePort(G),b=this.profileDir(G),Z=oY(c,l);if(process.env.UPSTREAM?.trim()){s.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);return this.waitForReady(G,0,l,c,Z)}return this.waitForReady(G,0,l,c,Z)}'
+                    'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;}'
+                    'async function Ar(){try{return[]}catch(I){return s.error(I,"Direct log file listing failed"),[]}}'
+                    'async function Lr(I="agent",G=100,l,c,b){try{return ""}catch(Z){throw s.error(Z,"Direct log file read failed"),new Error(`Failed to read logs: ${Z.message}`)}}'
+                    'var An=new O;An.get("/api/hermes/logs",xg);An.get("/api/hermes/logs/:name",Ug);'
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertTrue(module.patch_webui(str(bundle)))
+            patched = bundle.read_text(encoding="utf-8")
+            self.assertIn(
+                'async listProfiles(){if(process.env.UPSTREAM?.trim())return[this.activeProfile||"default"];',
+                patched,
+            )
+            self.assertIn(
+                'if(process.env.UPSTREAM?.trim()){if(G!==Z)return this.gateways.delete(G),{profile:G,port:l,host:c,url:b,running:!1};',
+                patched,
+            )
+            self.assertIn(
+                'return await this.checkHealth(b)?(this.gateways.set(G,{pid:0,port:l,host:c,url:b}),{profile:G,port:l,host:c,url:b,running:!0}):',
+                patched,
+            )
 
     def test_patch_webui_deduplicates_existing_upstream_guard(self):
         module = load_patch_module()
