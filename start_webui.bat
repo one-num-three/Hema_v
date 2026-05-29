@@ -123,7 +123,7 @@ echo [INFO] HERMES_HOME: %HERMES_HOME%
 echo [INFO] Gateway port source: %GATEWAY_PORT_SOURCE%
 echo [INFO] Web UI server mode: %WEBUI_SERVER_MODE%
 if not "%CORRUPT_COUNT%"=="0" (
-    echo [WARN] Quarantined %CORRUPT_COUNT% corrupt profile(s): %CORRUPT_NAMES_JSON%
+    echo [WARN] Quarantined %CORRUPT_COUNT% corrupt profile^(s^): %CORRUPT_NAMES_JSON%
     if defined CORRUPT_QUARANTINE_DIR echo [INFO] Corrupt profile quarantine: %CORRUPT_QUARANTINE_DIR%
 )
 if "%ACTIVE_PROFILE_RESET%"=="1" (

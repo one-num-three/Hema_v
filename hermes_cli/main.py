@@ -54,6 +54,14 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# Reconfigure stdout/stderr encoding error handler on Windows to prevent UnicodeEncodeError
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(errors="replace")
+        sys.stderr.reconfigure(errors="replace")
+    except AttributeError:
+        pass
+
 # ---------------------------------------------------------------------------
 # Profile override — MUST happen before any hermes module import.
 #
