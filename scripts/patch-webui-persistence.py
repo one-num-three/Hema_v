@@ -90,16 +90,29 @@ def patch_webui(filepath: str) -> bool:
             print("ERROR: Could not find child process exec options")
             return False
 
-    upstream_read_patch = 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content and 'this.activeProfile||"default"' in content
-    upstream_resolve_patch = 'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c}' in content
-    upstream_write_patch = 'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;' in content
+    # Upgrade pass: older builds guarded the UPSTREAM short-circuit with the
+    # active profile only (".. && (G||'default')===(this.activeProfile||'default')").
+    # That let *non-active* profiles fall through to findFreePort, so the WebUI
+    # auto-start loop still spawned a second gateway for every other local
+    # profile and drifted the port (8642 -> 8643/8665/...). Strip the condition
+    # so EVERY profile short-circuits to the external UPSTREAM gateway -
+    # start_webui.bat is the single gateway owner; no profile may spawn its own.
+    legacy_active_guard = '&&(G||"default")===(this.activeProfile' + '||"default")'
+    if legacy_active_guard in content:
+        content = content.replace(legacy_active_guard, "")
+        changed = True
+        print("Broadened UPSTREAM guard from active-profile-only to all profiles")
+
+    upstream_read_patch = 'process.env.UPSTREAM?.trim()' in content and 'new URL(l)' in content
+    upstream_resolve_patch = 'if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c}' in content
+    upstream_write_patch = 'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;' in content
     upstream_start_patch = "Skipping gateway auto-start" in content
-    upstream_stop_patch = 'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;' in content
+    upstream_stop_patch = 'async stop(G,l=1e4){if(process.env.UPSTREAM?.trim())return;' in content
     duplicate_start_guard = (
-        'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+        'if(process.env.UPSTREAM?.trim()){'
         's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
         'return this.waitForReady(G,0,l,c,Z)}'
-        'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+        'if(process.env.UPSTREAM?.trim()){'
         's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
         'return this.waitForReady(G,0,l,c,Z)}'
     )
@@ -115,7 +128,7 @@ def patch_webui(filepath: str) -> bool:
         )
         new_gateway_port_logic = (
             'readProfilePort(G){let l=process.env.UPSTREAM?.trim(),c=Sp==="container"?"hermes-agent":"127.0.0.1";'
-            'if(l&&(G||"default")===(this.activeProfile||"default"))try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;'
+            'if(l)try{let b=new URL(l),Z=parseInt(b.port,10)||8642,W=b.hostname||c;'
             'return{port:Z>0&&Z<=65535?Z:8642,host:W||c}}catch{}'
             'let b=(0,Ml.join)(this.profileDir(G),"config.yaml");if(!(0,yI.existsSync)(b))return{port:8642,host:c};'
             'try{let Z=(0,yI.readFileSync)(b,"utf-8"),W=(_I.load(Z)||{})?.platforms?.api_server?.extra,d=W?.port||8642,'
@@ -142,7 +155,7 @@ def patch_webui(filepath: str) -> bool:
             'catch(Z){s.error(Z,\'Failed to write config for profile "%s"\',G)}}'
         )
         new_write_profile_port = (
-            'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;'
+            'writeProfilePort(G,l,c){if(process.env.UPSTREAM?.trim())return;'
             'let b=(0,Ml.join)(this.profileDir(G),"config.yaml");'
             'try{let Z=(0,yI.existsSync)(b)?(0,yI.readFileSync)(b,"utf-8"):"",W=_I.load(Z)||{};'
             'W.platforms||(W.platforms={}),W.platforms.api_server||(W.platforms.api_server={}),'
@@ -171,7 +184,7 @@ def patch_webui(filepath: str) -> bool:
         )
         new_resolve_port = (
             'async resolvePort(G){let{port:l,host:c}=this.readProfilePort(G);'
-            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return this.allocatedPorts.add(l),{port:l,host:c};'
+            'if(process.env.UPSTREAM?.trim())return this.allocatedPorts.add(l),{port:l,host:c};'
             'let b=new Set(this.allocatedPorts);'
             'for(let Z of Array.from(this.gateways.values()))Z.host===c&&this.isProcessAlive(Z.pid)&&b.add(Z.port);'
             'if(b.has(l)){let Z=await this.findFreePort(l,c,b);s.info(\'Port %d is in use for profile "%s", reassigning to %d\',l,G,Z),this.writeProfilePort(G,Z,c),l=Z}'
@@ -187,12 +200,14 @@ def patch_webui(filepath: str) -> bool:
             content = content.replace(old_resolve_port, new_resolve_port, 1)
             changed = True
 
-        # start() must also become a no-op under UPSTREAM + active profile.
+        # start() must also become a no-op under UPSTREAM for ANY profile.
         # resolvePort() no longer drifts the port, but start() would still
         # spawn its own gateway ("gateway run --replace" / "gateway start"),
-        # replacing the one start_webui.bat already owns. We keep only the
-        # readiness wait (pid=0) so the WebUI tracks the external gateway
-        # without ever spawning a second owner.
+        # replacing the one start_webui.bat already owns. The auto-start loop
+        # calls start() for every local profile, so the guard must not be
+        # restricted to the active profile. We keep only the readiness wait
+        # (pid=0) so the WebUI tracks the external gateway without ever
+        # spawning a second owner.
         old_start_prefix = (
             'async start(G){let{port:l,host:c}=await this.resolvePort(G),'
             'b=this.profileDir(G),Z=oY(c,l);'
@@ -200,7 +215,7 @@ def patch_webui(filepath: str) -> bool:
         new_start_prefix = (
             'async start(G){let{port:l,host:c}=await this.resolvePort(G),'
             'b=this.profileDir(G),Z=oY(c,l);'
-            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+            'if(process.env.UPSTREAM?.trim()){'
             's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
             'return this.waitForReady(G,0,l,c,Z)}'
         )
@@ -213,7 +228,7 @@ def patch_webui(filepath: str) -> bool:
             changed = True
 
         start_guard = (
-            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default")){'
+            'if(process.env.UPSTREAM?.trim()){'
             's.info(\'Skipping gateway auto-start for profile "%s" (external UPSTREAM on %s:%d)\',G,c,l);'
             'return this.waitForReady(G,0,l,c,Z)}'
         )
@@ -225,7 +240,7 @@ def patch_webui(filepath: str) -> bool:
         old_stop_prefix = 'async stop(G,l=1e4){'
         new_stop_prefix = (
             'async stop(G,l=1e4){'
-            'if(process.env.UPSTREAM?.trim()&&(G||"default")===(this.activeProfile||"default"))return;'
+            'if(process.env.UPSTREAM?.trim())return;'
         )
         if old_stop_prefix not in content:
             if not upstream_stop_patch:
