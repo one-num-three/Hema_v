@@ -94,8 +94,7 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "$err=[IO.Path]::GetFullPath('%GATEWAY_ERR_LOG%');" ^
     "$logDir=[IO.Path]::GetDirectoryName($log);" ^
     "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
-    "$cmd='""' + $python + '"" -m hermes_cli.main gateway >> ""' + $log + '"" 2>> ""' + $err + '""';" ^
-    "$p = Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
+    "$p = Start-Process -FilePath $python -ArgumentList @('-m','hermes_cli.main','gateway') -WorkingDirectory $work -RedirectStandardOutput $log -RedirectStandardError $err -WindowStyle Hidden -PassThru;" ^
     "Start-Sleep -Seconds 1;" ^
     "Write-Output $p.Id"') do (
     if not defined GATEWAY_PID set "GATEWAY_PID=%%p"

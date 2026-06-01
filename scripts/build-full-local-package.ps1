@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "v0.5.16-hema.local"
+    [string]$Version = "v1.0-hema.local-20260530-offline"
 )
 
 $ErrorActionPreference = "Stop"

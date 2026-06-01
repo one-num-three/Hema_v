@@ -16,6 +16,7 @@ import logging
 import os
 import random
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -29,6 +30,8 @@ from hermes_constants import get_hermes_home
 logger = logging.getLogger(__name__)
 
 _VERIFY_CODE_RE = re.compile(r"(?<!\d)(\d{4,8})(?!\d)")
+DEDUP_WINDOW_SECONDS = 300  # seconds to remember seen message IDs
+DEDUP_MAX_SIZE = 500        # max entries before pruning
 
 
 def _utc_now_iso() -> str:
@@ -80,6 +83,7 @@ class WeixinAdapter(BasePlatformAdapter):
         self._client: Optional[httpx.AsyncClient] = None
         self._poll_task: Optional[asyncio.Task] = None
         self._context_tokens: Dict[str, str] = {}
+        self._seen_messages: Dict[str, float] = {}
         self._cursor: Optional[str] = None
         home = get_hermes_home()
         self._status_path = home / "weixin_status.json"
@@ -232,6 +236,16 @@ class WeixinAdapter(BasePlatformAdapter):
                     self._cursor = str(value)
                     return
 
+    def _is_duplicate(self, msg_id: str) -> bool:
+        now = time.time()
+        if len(self._seen_messages) > DEDUP_MAX_SIZE:
+            cutoff = now - DEDUP_WINDOW_SECONDS
+            self._seen_messages = {k: v for k, v in self._seen_messages.items() if v > cutoff}
+        if msg_id in self._seen_messages:
+            return True
+        self._seen_messages[msg_id] = now
+        return False
+
     def _unwrap_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         msg = payload.get("msg")
         if isinstance(msg, dict):
@@ -243,6 +257,10 @@ class WeixinAdapter(BasePlatformAdapter):
     async def handle_inbound_payload(self, payload: Dict[str, Any]) -> Optional[MessageEvent]:
         raw_keys = list(payload.keys())
         payload = self._unwrap_payload(payload)
+        msg_id = self._extract_message_id(payload)
+        if msg_id and self._is_duplicate(msg_id):
+            self._append_log(f"dedup_skipped msg_id={msg_id}")
+            return None
         from_user_id = (
             payload.get("from_user_id")
             or payload.get("from", {}).get("user_id")

@@ -1,0 +1,4 @@
+# Windows batch files MUST use CRLF line endings or cmd.exe will fail
+# to find batch labels (call :label / goto :label).
+*.bat text eol=crlf
+*.cmd text eol=crlf

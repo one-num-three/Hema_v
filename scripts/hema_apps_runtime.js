@@ -5,20 +5,21 @@
     const PROMPT_KEY = "hema.pendingAppPrompt";
     const MODE_KEY = "hema.activeAppMode";
     const SHUTDOWN_MODAL_ID = "hema-shutdown-modal";
+    const THEME_KEY = "hema.theme";
 
     const apps = [
-      { name: "制作/修改PPT", desc: "调用 ppt-master skill，强调叙事结构、设计系统和可编辑高质量页面。", accent: "#2563eb", action: "ppt" },
-      { name: "Nature 科研套件", desc: "论文阅读、润色、引文、科研绘图、审稿回复和 paper-to-PPT。", accent: "#0f766e", action: "nature" },
-      { name: "PDF 排版", desc: "调用 minimax-pdf，创建、填写或重排可打印 PDF 文档。", accent: "#dc2626", action: "minimax-pdf" },
-      { name: "表格处理", desc: "调用 minimax-xlsx，读取、分析、编辑和验证 Excel 表格。", accent: "#ca8a04", action: "minimax-xlsx" },
-      { name: "Word 文档", desc: "调用 minimax-docx，创建、编辑、套模板和规范化排版 DOCX。", accent: "#9333ea", action: "minimax-docx" },
-      { name: "代码助手", desc: "解释、修改和排查代码问题。", accent: "#334155", action: "placeholder" },
-      { name: "工作计划", desc: "把目标拆成任务清单和执行顺序。", accent: "#16a34a", action: "placeholder" },
-      { name: "日报周报", desc: "根据素材生成简洁汇报文本。", accent: "#ea580c", action: "placeholder" },
-      { name: "合同检查", desc: "提取风险点和待确认条款。", accent: "#7c3aed", action: "placeholder" },
-      { name: "知识库问答", desc: "围绕已有资料做检索和问答。", accent: "#0891b2", action: "placeholder" },
-      { name: "邮件润色", desc: "改写语气、结构和表达方式。", accent: "#be123c", action: "placeholder" },
-      { name: "更多应用", desc: "占位功能，后续按你的业务继续补。", accent: "#64748b", action: "placeholder" }
+      { name: "制作/修改PPT", desc: "调用 ppt-master skill，强调叙事结构、设计系统和可编辑高质量页面。", accent: "#2563eb", action: "ppt", image: "/hema-app-backgrounds/ppt.png" },
+      { name: "Nature 科研套件", desc: "论文阅读、润色、引文、科研绘图、审稿回复和 paper-to-PPT。", accent: "#0f766e", action: "nature", image: "/hema-app-backgrounds/nature.png" },
+      { name: "PDF 排版", desc: "调用 minimax-pdf，创建、填写或重排可打印 PDF 文档。", accent: "#dc2626", action: "minimax-pdf", image: "/hema-app-backgrounds/pdf.png" },
+      { name: "表格处理", desc: "调用 minimax-xlsx，读取、分析、编辑和验证 Excel 表格。", accent: "#ca8a04", action: "minimax-xlsx", image: "/hema-app-backgrounds/excel.png" },
+      { name: "Word 文档", desc: "调用 minimax-docx，创建、编辑、套模板和规范化排版 DOCX。", accent: "#9333ea", action: "minimax-docx", image: "/hema-app-backgrounds/word.png" },
+      { name: "代码助手", desc: "解释、修改和排查代码问题。", accent: "#334155", action: "placeholder", image: "/hema-app-backgrounds/code.png" },
+      { name: "工作计划", desc: "把目标拆成任务清单和执行顺序。", accent: "#16a34a", action: "placeholder", image: "/hema-app-backgrounds/plan.png" },
+      { name: "日报周报", desc: "根据素材生成简洁汇报文本。", accent: "#ea580c", action: "placeholder", image: "/hema-app-backgrounds/weekly_report.png" },
+      { name: "合同检查", desc: "提取风险点和待确认条款。", accent: "#7c3aed", action: "placeholder", image: "/hema-app-backgrounds/contract.png" },
+      { name: "知识库问答", desc: "围绕已有资料做检索和问答。", accent: "#0891b2", action: "placeholder", image: "/hema-app-backgrounds/learning_ans.png" },
+      { name: "邮件润色", desc: "改写语气、结构和表达方式。", accent: "#be123c", action: "placeholder", image: "/hema-app-backgrounds/email.png" },
+      { name: "更多应用", desc: "占位功能，后续按你的业务继续补。", accent: "#64748b", action: "placeholder", image: "/hema-app-backgrounds/more.png" }
     ];
 
     const minimaxApps = {
@@ -59,28 +60,60 @@
       const style = document.createElement("style");
       style.id = "hema-apps-style";
       style.textContent = `
-        .hema-app-link,.hema-more-link{display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;margin:0!important;padding:12px!important;border-radius:8px!important;color:var(--text-secondary)!important;text-decoration:none!important;font-size:14px!important;font-weight:400!important;line-height:1.6!important;box-sizing:border-box!important}
+        .hema-app-link,.hema-more-link{display:flex!important;align-items:center!important;gap:10px!important;width:100%!important;margin:0!important;padding:12px!important;border-radius:8px!important;color:var(--text-secondary)!important;text-decoration:none!important;font-size:14px!important;font-weight:400!important;line-height:1.6!important;box-sizing:border-box!important;background:transparent!important;border:0!important;outline:none!important;box-shadow:none!important;appearance:none!important;-webkit-appearance:none!important;font-family:inherit!important;text-align:left!important}
         .hema-app-link:hover,.hema-more-link:hover{background-color:rgba(var(--accent-primary-rgb), .06)!important;color:var(--text-primary)!important}
         .hema-app-link.active,.hema-more-link.active{background-color:rgba(var(--accent-primary-rgb), .12)!important;color:var(--accent-primary)!important}
         .hema-app-link .nav-icon,.hema-more-link .nav-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;color:inherit;flex:0 0 18px}
+        .hema-more-link:focus,.hema-more-link:focus-visible{outline:none!important;box-shadow:none!important}
+        html:not(.dark) aside .profile-selector .n-base-selection-label,
+        html:not(.dark) aside .status-row .n-base-selection-label,
+        html:not(.dark) aside .model-trigger,
+        html:not(.dark) aside .n-select .n-base-selection-label{background:#fff!important;color:#1f2937!important;border-color:rgba(148,163,184,.28)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.82)!important}
+        html:not(.dark) aside .profile-selector .n-base-selection-input,
+        html:not(.dark) aside .profile-selector .n-base-selection-input__content,
+        html:not(.dark) aside .status-row .n-base-selection-input,
+        html:not(.dark) aside .status-row .n-base-selection-input__content,
+        html:not(.dark) aside .n-select .n-base-selection-input,
+        html:not(.dark) aside .n-select .n-base-selection-input__content{color:#374151!important}
+        html:not(.dark) aside .n-base-selection .n-base-suffix,
+        html:not(.dark) aside .model-trigger svg{color:#64748b!important}
         .hema-apps-view{position:fixed;top:16px;right:16px;bottom:16px;left:296px;background:
-          radial-gradient(circle at 12% 8%, rgba(37,99,235,.08), transparent 28%),
-          radial-gradient(circle at 84% 12%, rgba(15,118,110,.07), transparent 22%),
-          linear-gradient(180deg,rgba(255,255,255,.985),rgba(248,250,252,.965));
-          padding:32px 30px 26px;overflow:auto;z-index:40;display:none;border:1px solid rgba(148,163,184,.16);
-          border-radius:28px;box-shadow:0 24px 80px rgba(15,23,42,.10)}
-        .dark .hema-apps-view{background:linear-gradient(180deg,rgba(24,24,27,.98),rgba(17,24,39,.96))}
+          radial-gradient(circle at 12% 0%, rgba(59,130,246,.10), transparent 24%),
+          radial-gradient(circle at 88% 8%, rgba(20,184,166,.08), transparent 20%),
+          linear-gradient(180deg,#f8fafc 0%,#eef4fb 46%,#e8eef7 100%);
+          padding:34px 32px 28px;overflow:auto;z-index:40;display:none;border:1px solid rgba(148,163,184,.20);
+          border-radius:28px;box-shadow:0 24px 70px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.72)}
+        .dark .hema-apps-view{background:
+          radial-gradient(circle at 12% 0%, rgba(59,130,246,.14), transparent 24%),
+          radial-gradient(circle at 88% 8%, rgba(20,184,166,.12), transparent 20%),
+          linear-gradient(180deg,#12141d 0%,#101521 46%,#0d1627 100%);
+          border-color:rgba(96,165,250,.10);box-shadow:0 30px 90px rgba(2,6,23,.42), inset 0 1px 0 rgba(255,255,255,.04)}
         .hema-apps-view.is-open{display:block}
-        .hema-apps-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px}
-        .hema-apps-title{font-size:30px;font-weight:800;letter-spacing:-.04em;color:var(--text-primary)}
-        .hema-apps-sub{margin-top:8px;color:var(--text-secondary);font-size:14px;line-height:1.75;max-width:760px}
-        .hema-app-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
-        .hema-app-card{position:relative;border:1px solid rgba(var(--accent-primary-rgb),.08);border-radius:22px;padding:20px 18px 18px;background:linear-gradient(180deg,var(--bg-card),rgba(255,255,255,.88));box-shadow:0 18px 44px rgba(15,23,42,.07);cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
-        .hema-app-card:hover{transform:translateY(-3px);box-shadow:0 24px 48px rgba(15,23,42,.11);border-color:rgba(var(--accent-primary-rgb),.18)}
-        .hema-app-dot{width:12px;height:12px;border-radius:999px;margin-bottom:14px;box-shadow:0 0 0 7px rgba(148,163,184,.08)}
-        .hema-app-card h3{margin:0;color:var(--text-primary);font-size:16px;font-weight:700}
-        .hema-app-card p{margin:10px 0 0;color:var(--text-secondary);font-size:13px;line-height:1.75}
-        .hema-apps-kicker{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#5b7aa3}
+        .hema-apps-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:28px}
+        .hema-apps-title{font-size:34px;font-weight:800;letter-spacing:-.05em;color:#10233a}
+        .dark .hema-apps-title{color:#f8fafc}
+        .hema-apps-sub{margin-top:10px;color:#51657e;font-size:14px;line-height:1.9;max-width:820px}
+        .dark .hema-apps-sub{color:rgba(226,232,240,.82)}
+        .hema-app-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:22px}
+        .hema-app-card{position:relative;border:1px solid rgba(148,163,184,.24);border-radius:28px;padding:0;background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(248,250,252,.98));box-shadow:0 18px 46px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.78);cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;overflow:hidden;text-align:left;min-height:320px}
+        .dark .hema-app-card{border-color:var(--hema-accent-soft,rgba(255,255,255,.12));background:linear-gradient(180deg,rgba(15,23,42,.92),rgba(10,15,26,.98));box-shadow:0 22px 54px rgba(2,6,23,.36), inset 0 1px 0 rgba(255,255,255,.04)}
+        .hema-app-card:hover{transform:translateY(-4px);box-shadow:0 24px 56px rgba(15,23,42,.14), 0 0 0 1px var(--hema-accent-glow,rgba(255,255,255,.06));border-color:var(--hema-accent-line,rgba(255,255,255,.2))}
+        .dark .hema-app-card:hover{box-shadow:0 28px 70px rgba(2,6,23,.48), 0 0 0 1px var(--hema-accent-glow,rgba(255,255,255,.06))}
+        .hema-app-card:before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:linear-gradient(180deg,var(--hema-accent-line,#60a5fa),transparent 82%);opacity:.95}
+        .hema-app-poster{position:relative;height:192px;background:var(--hema-poster-bg);background-size:115% auto;background-position:center;border-bottom:1px solid rgba(255,255,255,.06);overflow:hidden}
+        .hema-app-poster:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent 58%,rgba(2,6,23,.18) 100%)}
+        .hema-app-poster:after{content:"";position:absolute;inset:0;border:1px solid rgba(255,255,255,.10);pointer-events:none}
+        .dark .hema-app-poster:before{background:linear-gradient(180deg,rgba(2,6,23,.28),rgba(2,6,23,.34) 58%,rgba(2,6,23,.52) 100%)}
+        .hema-app-poster-badge{position:absolute;top:16px;left:16px;display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.46);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);color:#e2e8f0;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;z-index:1}
+        .hema-app-dot{width:10px;height:10px;border-radius:999px;box-shadow:0 0 0 6px rgba(255,255,255,.08)}
+        .hema-app-poster-mark{position:absolute;right:18px;bottom:16px;font-size:42px;font-weight:800;letter-spacing:-.06em;color:rgba(255,255,255,.18);z-index:1}
+        .hema-app-body{padding:18px 18px 20px}
+        .hema-app-card h3{margin:0;color:#10233a;font-size:17px;font-weight:800;letter-spacing:-.03em}
+        .dark .hema-app-card h3{color:#f8fafc}
+        .hema-app-card p{margin:10px 0 0;color:#5f7188;font-size:13px;line-height:1.75;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .dark .hema-app-card p{color:rgba(226,232,240,.70)}
+        .hema-apps-kicker{font-size:12px;font-weight:700;letter-spacing:.20em;text-transform:uppercase;color:#4d78ad}
+        .dark .hema-apps-kicker{color:#7aa2d8}
         .hema-app-modal-mask,.hema-shutdown-modal-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:9998;padding:16px}
         .hema-app-modal-mask.is-open,.hema-shutdown-modal-mask.is-open{display:flex}
         .hema-app-modal,.hema-shutdown-modal{width:min(720px,calc(100vw - 32px));background:var(--bg-card);border-radius:24px;padding:24px;border:1px solid rgba(var(--accent-primary-rgb),.12);box-shadow:0 28px 80px rgba(15,23,42,.24)}
@@ -104,6 +137,14 @@
         .hema-mode-tag strong{font-weight:700}
         .hema-mode-tag-close{width:20px;height:20px;border:0;border-radius:999px;background:rgba(var(--accent-primary-rgb), .10);color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:13px;line-height:1;padding:0}
         .hema-mode-tag-close:hover{background:rgba(var(--accent-primary-rgb), .16);color:var(--text-primary)}
+        .hema-theme-toggle{position:fixed;right:28px;bottom:128px;width:40px;height:40px;border:1px solid rgba(148,163,184,.20);border-radius:999px;background:rgba(255,255,255,.72);box-shadow:0 10px 24px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.68);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2147483647;transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease}
+        .hema-theme-toggle:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(15,23,42,.16), inset 0 1px 0 rgba(255,255,255,.70)}
+        .hema-theme-toggle:focus-visible{outline:3px solid rgba(37,99,235,.42);outline-offset:3px}
+        .hema-theme-moon{position:relative;width:22px;height:22px;border-radius:999px;background:#111827;box-shadow:inset -7px 0 0 #f8fafc}
+        .hema-theme-moon:before{content:"";position:absolute;left:4px;top:5px;width:3px;height:3px;border-radius:999px;background:#f8fafc;box-shadow:7px 8px 0 -1px #f8fafc}
+        .dark .hema-theme-toggle,.hema-theme-toggle.is-dark{background:rgba(15,23,42,.58);border-color:rgba(148,163,184,.22);box-shadow:0 10px 24px rgba(2,6,23,.28), inset 0 1px 0 rgba(255,255,255,.08)}
+        .dark .hema-theme-moon,.hema-theme-toggle.is-dark .hema-theme-moon{background:#f8fafc;box-shadow:inset -7px 0 0 #111827}
+        .dark .hema-theme-moon:before,.hema-theme-toggle.is-dark .hema-theme-moon:before{background:#111827;box-shadow:7px 8px 0 -1px #111827}
         .hema-shutdown-kicker{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--text-muted);text-transform:uppercase}
         .hema-shutdown-card{margin-top:16px;padding:16px;border-radius:18px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.12)}
         .hema-shutdown-card-title{font-size:16px;font-weight:700;color:var(--text-primary)}
@@ -116,7 +157,14 @@
         @keyframes hema-spin{to{transform:rotate(360deg)}}
         @media (max-width: 980px){
           .hema-apps-view{left:88px;top:10px;right:10px;bottom:10px;padding:24px 18px 20px;border-radius:22px}
-          .hema-app-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+          .hema-app-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+          .hema-app-poster{height:170px}
+        }
+        @media (max-width: 1440px){
+          .hema-app-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+        }
+        @media (max-width: 720px){
+          .hema-app-grid{grid-template-columns:minmax(0,1fr)}
         }
       `;
       document.head.appendChild(style);
@@ -136,6 +184,69 @@
         return;
       }
       localStorage.setItem(MODE_KEY, JSON.stringify(value));
+    }
+
+    function currentTheme() {
+      const saved = localStorage.getItem(THEME_KEY) || localStorage.getItem("theme") || localStorage.getItem("vueuse-color-scheme");
+      if (saved === "dark" || saved === "light") return saved;
+      if (document.documentElement.classList.contains("dark") || document.body.classList.contains("dark")) return "dark";
+      return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+    }
+
+    function applyTheme(theme) {
+      const next = theme === "dark" ? "dark" : "light";
+      const root = document.documentElement;
+      const body = document.body;
+      root.classList.toggle("dark", next === "dark");
+      body?.classList.toggle("dark", next === "dark");
+      root.classList.remove("light");
+      body?.classList.remove("light");
+      if (next === "dark") {
+        root.dataset.theme = "dark";
+        if (body) body.dataset.theme = "dark";
+      } else {
+        delete root.dataset.theme;
+        if (body) delete body.dataset.theme;
+      }
+      localStorage.setItem(THEME_KEY, next);
+      localStorage.setItem("theme", next);
+      localStorage.setItem("vueuse-color-scheme", next);
+      const button = document.querySelector(".hema-theme-toggle");
+      if (button) {
+        button.classList.toggle("is-dark", next === "dark");
+        button.setAttribute("aria-pressed", next === "dark" ? "true" : "false");
+        button.title = next === "dark" ? "切换到亮色模式" : "切换到暗色模式";
+      }
+    }
+
+    function ensureThemeToggle() {
+      let button = document.querySelector(".hema-theme-toggle");
+      if (!button) {
+        button = document.createElement("button");
+        button.type = "button";
+        button.className = "hema-theme-toggle";
+        button.setAttribute("aria-label", "切换亮色和暗色模式");
+        button.innerHTML = '<span class="hema-theme-moon" aria-hidden="true"></span>';
+        button.addEventListener("click", () => {
+          applyTheme(currentTheme() === "dark" ? "light" : "dark");
+        });
+        document.body.appendChild(button);
+      }
+      applyTheme(currentTheme());
+    }
+
+    function getPosterBackground(accent, index) {
+      const palettes = [
+        `radial-gradient(circle at 18% 18%, rgba(255,255,255,.18), transparent 18%), linear-gradient(135deg, ${accent} 0%, rgba(15,23,42,.92) 54%, rgba(2,6,23,.98) 100%)`,
+        `radial-gradient(circle at 76% 22%, rgba(255,255,255,.16), transparent 20%), linear-gradient(145deg, rgba(15,23,42,.72) 0%, ${accent} 38%, rgba(3,7,18,.98) 100%)`,
+        `linear-gradient(155deg, rgba(2,6,23,.92) 0%, ${accent} 34%, rgba(30,41,59,.96) 100%), radial-gradient(circle at 82% 84%, rgba(255,255,255,.12), transparent 16%)`,
+        `radial-gradient(circle at 20% 80%, rgba(255,255,255,.12), transparent 18%), linear-gradient(135deg, rgba(15,23,42,.78) 0%, ${accent} 42%, rgba(2,6,23,.98) 100%)`
+      ];
+      return palettes[index % palettes.length];
+    }
+
+    function getPosterMark(name) {
+      return (String(name || "").trim().charAt(0) || "A").toUpperCase();
     }
 
     function toast(message) {
@@ -245,14 +356,23 @@
       `;
       host.appendChild(view);
       const grid = view.querySelector(".hema-app-grid");
-      apps.forEach((app) => {
+      apps.forEach((app, index) => {
         const card = document.createElement("button");
         card.type = "button";
         card.className = "hema-app-card";
+        card.style.setProperty("--hema-accent-line", app.accent);
+        card.style.setProperty("--hema-accent-soft", `${app.accent}55`);
+        card.style.setProperty("--hema-accent-glow", `${app.accent}33`);
+        card.style.setProperty("--hema-poster-bg", app.image ? `url("${app.image}")` : getPosterBackground(app.accent, index));
         card.innerHTML = `
-          <div class="hema-app-dot" style="background:${app.accent}"></div>
-          <h3>${app.name}</h3>
-          <p>${app.desc}</p>
+          <div class="hema-app-poster">
+            <div class="hema-app-poster-badge"><span class="hema-app-dot" style="background:${app.accent}"></span><span>APP ${String(index + 1).padStart(2, "0")}</span></div>
+            ${app.image ? "" : `<div class="hema-app-poster-mark">${getPosterMark(app.name)}</div>`}
+          </div>
+          <div class="hema-app-body">
+            <h3>${app.name}</h3>
+            <p>${app.desc}</p>
+          </div>
         `;
         card.addEventListener("click", () => {
           if (app.action === "ppt") {
@@ -602,12 +722,34 @@
       view.style.left = `${left}px`;
     }
 
+    function pruneSidebarFooter() {
+      const aside = document.querySelector("aside");
+      if (!aside) return;
+      const hidePattern = /(退出登录|logout|abmelden|升级版本|update to v|aktualisieren auf v|web ui v|changelog|变更日志|github)/i;
+      const keepPattern = /(已连接|未连接|connected|disconnected|verbunden|getrennt|中文|english|theme|hell|dark|system|亮|暗)/i;
+      const nodes = Array.from(aside.querySelectorAll("a, button, div, span"));
+      for (const node of nodes) {
+        if (node.closest(".hema-app-link, .hema-more-link")) continue;
+        const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text) continue;
+        if (keepPattern.test(text)) continue;
+        if (!hidePattern.test(text)) continue;
+        const row = node.closest("a, button, .n-button, .n-base-selection, .n-select, .n-space, .n-flex, div");
+        const target = row || node;
+        if (target instanceof HTMLElement) {
+          target.style.display = "none";
+        }
+      }
+    }
+
     function render() {
       ensureStyle();
       ensureSidebarLink();
       ensureMoreLink();
       ensureAppModeTag();
+      ensureThemeToggle();
       updateViewFrame();
+      pruneSidebarFooter();
       const open = location.hash === APPS_HASH;
       if (!open) {
         closeAppsView();
@@ -652,7 +794,9 @@
       ensureSidebarLink();
       ensureMoreLink();
       ensureAppModeTag();
+      ensureThemeToggle();
       updateViewFrame();
+      pruneSidebarFooter();
     }, 2500);
     renderSoon();
   } catch (error) {

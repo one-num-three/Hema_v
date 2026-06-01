@@ -74,8 +74,12 @@ set "PYTHON_EXE=%PYTHON_DIR%\python.exe"
 set "WHEELS_DIR=%SCRIPT_DIR%\wheels"
 set "PIP_MIRRORS=-i https://pypi.tuna.tsinghua.edu.cn/simple --extra-index-url https://mirrors.aliyun.com/pypi/simple/ --extra-index-url https://mirrors.ustc.edu.cn/pypi/simple/ --extra-index-url https://pypi.org/simple/"
 if exist "%WHEELS_DIR%" (
-    set "PIP_MIRROR=--find-links %WHEELS_DIR% %PIP_MIRRORS%"
+    set "WHEELS_URL=file:///%WHEELS_DIR:\=/%"
+    set "WHEELS_URL=!WHEELS_URL: =%%20!"
+    set "PIP_FIND_LINKS=!WHEELS_URL!"
+    set "PIP_MIRROR=%PIP_MIRRORS%"
 ) else (
+    set "PIP_FIND_LINKS="
     set "PIP_MIRROR=%PIP_MIRRORS%"
 )
 

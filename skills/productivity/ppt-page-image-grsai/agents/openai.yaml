@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Page Image Grsai"
+  short_description: "Generate unified PPT page visuals with Grsai."
+  default_prompt: "Use $ppt-page-image-grsai to generate a unified 16:9 PPT page visual with Grsai."

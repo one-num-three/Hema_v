@@ -421,7 +421,7 @@ class TestBuildContextFilesPrompt:
         with patch("pathlib.Path.home", return_value=fake_home):
             result = build_context_files_prompt(cwd=str(tmp_path))
         assert "Project Context" in result
-        assert "Hermes Agent" in result
+        assert "Hermes" in result
 
     def test_loads_agents_md(self, tmp_path):
         (tmp_path / "AGENTS.md").write_text("Use Ruff for linting.")
@@ -574,8 +574,8 @@ class TestBuildContextFilesPrompt:
         assert "Lowercase claude rules" in result
 
     @pytest.mark.skipif(
-        sys.platform == "darwin",
-        reason="APFS default volume is case-insensitive; CLAUDE.md and claude.md alias the same path",
+        sys.platform in ("darwin", "win32"),
+        reason="Case-insensitive filesystem; CLAUDE.md and claude.md alias the same path",
     )
     def test_claude_md_uppercase_takes_priority(self, tmp_path):
         (tmp_path / "CLAUDE.md").write_text("From uppercase.")

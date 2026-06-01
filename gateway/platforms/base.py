@@ -1293,6 +1293,7 @@ class BasePlatformAdapter(ABC):
                 if next_event is None:
                     if session_key in self._active_sessions:
                         del self._active_sessions[session_key]
+                event = next_event
     
     async def cancel_background_tasks(self) -> None:
         """Cancel any in-flight background message-processing tasks.

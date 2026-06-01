@@ -12,6 +12,29 @@ from urllib.request import urlopen
 PROBE_TIMEOUT = 1.5
 
 
+def _int_query_value(query: dict[str, list[str]], name: str, default: int) -> int:
+    raw = (query.get(name) or [str(default)])[0]
+    if name not in query and "targetPort" in query:
+        # start_webui.bat uses semicolon separators to avoid cmd.exe eating
+        # literal ampersands inside parenthesized IF blocks.
+        target_raw = (query.get("targetPort") or [""])[0]
+        marker = f"{name}="
+        if marker in target_raw:
+            raw = target_raw.split(marker, 1)[1].split(";", 1)[0]
+    digits = []
+    for char in str(raw).strip():
+        if char.isdigit():
+            digits.append(char)
+        elif digits:
+            break
+    if not digits:
+        return default
+    try:
+        return int("".join(digits))
+    except ValueError:
+        return default
+
+
 def _json_response(handler: BaseHTTPRequestHandler, payload: dict, status: int = 200) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -56,14 +79,8 @@ def make_handler(root: Path):
             from urllib.parse import parse_qs, urlsplit
 
             query = parse_qs(urlsplit(self.path).query)
-            try:
-                port = int((query.get("targetPort") or ["8648"])[0])
-            except ValueError:
-                port = 8648
-            try:
-                gateway_port = int((query.get("gatewayPort") or ["8642"])[0])
-            except ValueError:
-                gateway_port = 8642
+            port = _int_query_value(query, "targetPort", 8648)
+            gateway_port = _int_query_value(query, "gatewayPort", 8642)
 
             health_url = f"http://127.0.0.1:{port}/health"
             root_url = f"http://127.0.0.1:{port}/"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Image Deck Assembler"
+  short_description: "Assemble ordered generated images into a PPTX package."
+  default_prompt: "Use $ppt-image-deck-assembler to turn my ordered slide images into a PPTX folder package."

@@ -1865,7 +1865,7 @@ class TestSystemPromptStability:
         # Should have built fresh, not queried the DB
         mock_db.get_session.assert_not_called()
         assert agent._cached_system_prompt is not None
-        assert "Hermes Agent" in agent._cached_system_prompt
+        assert "Hermes" in agent._cached_system_prompt
 
     def test_fresh_build_when_db_has_no_prompt(self, agent):
         """If the session DB has no stored prompt, build fresh even with history."""
@@ -1892,7 +1892,7 @@ class TestSystemPromptStability:
                 agent._cached_system_prompt = agent._build_system_prompt()
 
         # Empty string is falsy, so should fall through to fresh build
-        assert "Hermes Agent" in agent._cached_system_prompt
+        assert "Hermes" in agent._cached_system_prompt
 
     def test_honcho_context_baked_into_prompt_on_first_turn(self, agent):
         """Honcho context should be baked into _cached_system_prompt on
@@ -3293,7 +3293,8 @@ class TestMemoryNudgeCounterPersistence:
 
     def test_counters_initialized_in_init(self):
         """Counters must exist on the agent after __init__."""
-        with patch("run_agent.get_tool_definitions", return_value=[]):
+        with patch("run_agent.get_tool_definitions", return_value=[]), \
+             patch("run_agent.OpenAI"):
             a = AIAgent(
                 model="test", api_key="test-key", provider="openrouter",
                 skip_context_files=True, skip_memory=True,

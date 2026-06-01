@@ -1,13 +1,18 @@
 """Tests for gateway/platforms/base.py — MessageEvent, media extraction, message truncation."""
 
+import asyncio
 import os
 from unittest.mock import patch
 
+import pytest
+
+from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import (
     BasePlatformAdapter,
     GATEWAY_SECRET_CAPTURE_UNSUPPORTED_MESSAGE,
     MessageEvent,
     MessageType,
+    SendResult,
 )
 
 
@@ -16,6 +21,59 @@ class TestSecretCaptureGuidance:
         message = GATEWAY_SECRET_CAPTURE_UNSUPPORTED_MESSAGE
         assert "local cli" in message.lower()
         assert "~/.hermes/.env" in message
+
+
+class TestBackgroundMessageLoop:
+    @pytest.mark.asyncio
+    async def test_single_message_without_pending_event_is_processed_once(self):
+        class StubAdapter(BasePlatformAdapter):
+            def __init__(self):
+                super().__init__(
+                    config=PlatformConfig(enabled=True, token="test", extra={}),
+                    platform=Platform.WEIXIN,
+                )
+                self.sent = []
+
+            async def connect(self):
+                return True
+
+            async def disconnect(self):
+                pass
+
+            async def send(self, chat_id, content, reply_to=None, metadata=None):
+                await asyncio.sleep(0)
+                self.sent.append((chat_id, content))
+                return SendResult(success=True)
+
+            async def send_typing(self, chat_id, metadata=None):
+                return None
+
+            async def get_chat_info(self, chat_id):
+                return {}
+
+        adapter = StubAdapter()
+        source = adapter.build_source(
+            chat_id="wx-user-1@im.wechat",
+            user_id="wx-user-1@im.wechat",
+            chat_type="dm",
+        )
+        event = MessageEvent(text="你好", source=source, message_id="msg-1")
+        calls = []
+
+        async def handler(received_event):
+            await asyncio.sleep(0)
+            calls.append(received_event.message_id)
+            return "你好"
+
+        adapter.set_message_handler(handler)
+
+        await asyncio.wait_for(
+            adapter._process_message_background(event, "session-1"),
+            timeout=0.5,
+        )
+
+        assert calls == ["msg-1"]
+        assert adapter.sent == [("wx-user-1@im.wechat", "你好")]
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,4 @@
+interface:
+  display_name: "FreeDomain Guide"
+  short_description: "Guide users through DigitalPlat FreeDomain checks and setup."
+  default_prompt: "Use $freedomain to check whether DigitalPlat FreeDomain fits my project and outline the setup steps."

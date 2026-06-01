@@ -44,40 +44,40 @@ description: >
 
 | Script | Purpose |
 |--------|---------|
-| `${SKILL_DIR}/scripts/source_to_md/pdf_to_md.py` | PDF to Markdown |
-| `${SKILL_DIR}/scripts/source_to_md/doc_to_md.py` | Documents to Markdown — native Python for DOCX/HTML/EPUB/IPYNB, pandoc fallback for legacy formats (.doc/.odt/.rtf/.tex/.rst/.org/.typ) |
-| `${SKILL_DIR}/scripts/source_to_md/excel_to_md.py` | Excel workbooks to Markdown — supports .xlsx/.xlsm; legacy .xls should be resaved as .xlsx |
-| `${SKILL_DIR}/scripts/source_to_md/ppt_to_md.py` | PowerPoint to Markdown |
-| `${SKILL_DIR}/scripts/source_to_md/web_to_md.py` | Web page to Markdown (supports WeChat via `curl_cffi`) |
-| `${SKILL_DIR}/scripts/project_manager.py` | Project init / validate / manage |
-| `${SKILL_DIR}/scripts/analyze_images.py` | Image analysis |
-| `${SKILL_DIR}/scripts/image_gen.py` | AI image generation (multi-provider) |
-| `${SKILL_DIR}/scripts/svg_quality_checker.py` | SVG quality check |
-| `${SKILL_DIR}/scripts/total_md_split.py` | Speaker notes splitting |
-| `${SKILL_DIR}/scripts/finalize_svg.py` | SVG post-processing (unified entry) |
-| `${SKILL_DIR}/scripts/svg_to_pptx.py` | Export to PPTX |
-| `${SKILL_DIR}/scripts/update_spec.py` | Propagate a `spec_lock.md` color / font_family change across all generated SVGs |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/pdf_to_md.py` | PDF to Markdown |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/doc_to_md.py` | Documents to Markdown — native Python for DOCX/HTML/EPUB/IPYNB, pandoc fallback for legacy formats (.doc/.odt/.rtf/.tex/.rst/.org/.typ) |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/excel_to_md.py` | Excel workbooks to Markdown — supports .xlsx/.xlsm; legacy .xls should be resaved as .xlsx |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/ppt_to_md.py` | PowerPoint to Markdown |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/web_to_md.py` | Web page to Markdown (supports WeChat via `curl_cffi`) |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/project_manager.py` | Project init / validate / manage |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/analyze_images.py` | Image analysis |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/image_gen.py` | AI image generation (multi-provider) |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/svg_quality_checker.py` | SVG quality check |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/total_md_split.py` | Speaker notes splitting |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/finalize_svg.py` | SVG post-processing (unified entry) |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py` | Export to PPTX |
+| `/f/hema-fix/ppt-master/skills/ppt-master/scripts/update_spec.py` | Propagate a `spec_lock.md` color / font_family change across all generated SVGs |
 
-For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
+For complete tool documentation, see `/f/hema-fix/ppt-master/skills/ppt-master/scripts/README.md`.
 
 ## Template Index
 
 | Index | Path | Purpose |
 |-------|------|---------|
-| Layout templates | `${SKILL_DIR}/templates/layouts/layouts_index.json` | Query available page layout templates |
-| Visualization templates | `${SKILL_DIR}/templates/charts/charts_index.json` | Query available visualization SVG templates (charts, infographics, diagrams, frameworks) |
-| Icon library | `${SKILL_DIR}/templates/icons/` | See `${SKILL_DIR}/templates/icons/README.md`; search icons on demand with `ls templates/icons/<library>/ \| grep <keyword>` |
+| Layout templates | `/f/hema-fix/ppt-master/skills/ppt-master/templates/layouts/layouts_index.json` | Query available page layout templates |
+| Visualization templates | `/f/hema-fix/ppt-master/skills/ppt-master/templates/charts/charts_index.json` | Query available visualization SVG templates (charts, infographics, diagrams, frameworks) |
+| Icon library | `/f/hema-fix/ppt-master/skills/ppt-master/templates/icons/` | See `/f/hema-fix/ppt-master/skills/ppt-master/templates/icons/README.md`; search icons on demand with `ls templates/icons/<library>/ \| grep <keyword>` |
 
 ## Standalone Workflows
 
 | Workflow | Path | Purpose |
 |----------|------|---------|
-| `topic-research` | `workflows/topic-research.md` | Pre-pipeline — gather web sources when the user supplies only a topic with no source files |
-| `create-template` | `workflows/create-template.md` | Standalone template creation workflow |
-| `resume-execute` | `workflows/resume-execute.md` | Phase B entry — resume execution in a fresh chat after Phase A (Step 1–5) completed in another session (split mode) |
-| `verify-charts` | `workflows/verify-charts.md` | Chart coordinate calibration — run after SVG generation if the deck contains data charts |
-| `customize-animations` | `workflows/customize-animations.md` | Object-level PPTX animation customization — run only when the user explicitly asks to tune animation order/effects/timing |
-| `visual-edit` | `workflows/visual-edit.md` | Browser-based visual editor for fine-grained edits — run only when the user explicitly requests it after export |
+| `topic-research` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/topic-research.md` | Pre-pipeline — gather web sources when the user supplies only a topic with no source files |
+| `create-template` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/create-template.md` | Standalone template creation workflow |
+| `resume-execute` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/resume-execute.md` | Phase B entry — resume execution in a fresh chat after Phase A (Step 1–5) completed in another session (split mode) |
+| `verify-charts` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/verify-charts.md` | Chart coordinate calibration — run after SVG generation if the deck contains data charts |
+| `customize-animations` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/customize-animations.md` | Object-level PPTX animation customization — run only when the user explicitly asks to tune animation order/effects/timing |
+| `visual-edit` | `/f/hema-fix/ppt-master/skills/ppt-master/workflows/visual-edit.md` | Browser-based visual editor for fine-grained edits — run only when the user explicitly requests it after export |
 
 ---
 
@@ -87,20 +87,20 @@ For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
 
 🚧 **GATE**: User has provided source material (PDF / DOCX / EPUB / URL / Markdown file / text description / conversation content — any form is acceptable).
 
-> **No source content?** When the user supplies only a topic name or requirements without any file or substantive description, run the [`topic-research`](workflows/topic-research.md) workflow first, then return here with its products as input.
+> **No source content?** When the user supplies only a topic name or requirements without any file or substantive description, run the [`topic-research`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/topic-research.md) workflow first, then return here with its products as input.
 
 When the user provides non-Markdown content, convert immediately:
 
 | User Provides | Command |
 |---------------|---------|
-| PDF file | `python3 ${SKILL_DIR}/scripts/source_to_md/pdf_to_md.py <file>` |
-| DOCX / Word / Office document | `python3 ${SKILL_DIR}/scripts/source_to_md/doc_to_md.py <file>` |
-| XLSX / XLSM / Excel workbook | `python3 ${SKILL_DIR}/scripts/source_to_md/excel_to_md.py <file>` |
+| PDF file | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/pdf_to_md.py <file>` |
+| DOCX / Word / Office document | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/doc_to_md.py <file>` |
+| XLSX / XLSM / Excel workbook | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/excel_to_md.py <file>` |
 | CSV / TSV | Read directly as plain-text table source |
-| PPTX / PowerPoint deck | `python3 ${SKILL_DIR}/scripts/source_to_md/ppt_to_md.py <file>` |
-| EPUB / HTML / LaTeX / RST / other | `python3 ${SKILL_DIR}/scripts/source_to_md/doc_to_md.py <file>` |
-| Web link | `python3 ${SKILL_DIR}/scripts/source_to_md/web_to_md.py <URL>` |
-| WeChat / high-security site | `python3 ${SKILL_DIR}/scripts/source_to_md/web_to_md.py <URL>` (requires `curl_cffi`, included in `requirements.txt`) |
+| PPTX / PowerPoint deck | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/ppt_to_md.py <file>` |
+| EPUB / HTML / LaTeX / RST / other | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/doc_to_md.py <file>` |
+| Web link | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/web_to_md.py <URL>` |
+| WeChat / high-security site | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/source_to_md/web_to_md.py <URL>` (requires `curl_cffi`, included in `requirements.txt`) |
 | Markdown | Read directly |
 
 **✅ Checkpoint — Confirm source content is ready, proceed to Step 2.**
@@ -112,16 +112,16 @@ When the user provides non-Markdown content, convert immediately:
 🚧 **GATE**: Step 1 complete; source content is ready (Markdown file, user-provided text, or requirements described in conversation are all valid).
 
 ```bash
-python3 ${SKILL_DIR}/scripts/project_manager.py init <project_name> --format <format>
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/project_manager.py init <project_name> --format <format>
 ```
 
-Format options: `ppt169` (default), `ppt43`, `xhs`, `story`, etc. For the full format list, see `references/canvas-formats.md`.
+Format options: `ppt169` (default), `ppt43`, `xhs`, `story`, etc. For the full format list, see `/f/hema-fix/ppt-master/skills/ppt-master/references/canvas-formats.md`.
 
 Import source content (choose based on the situation):
 
 | Situation | Action |
 |-----------|--------|
-| Has source files (PDF/MD/etc.) | `python3 ${SKILL_DIR}/scripts/project_manager.py import-sources <project_path> <source_files...> --move` |
+| Has source files (PDF/MD/etc.) | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/project_manager.py import-sources <project_path> <source_files...> --move` |
 | User provided text directly in conversation | No import needed — content is already in conversation context; subsequent steps can reference it directly |
 
 > ⚠️ **MUST use `--move`** (not copy): all source files — Step 1's generated Markdown, original PDFs / MDs / images — go into `sources/` via `import-sources --move`. After execution they no longer exist at the original location. Intermediate artifacts (e.g., `_files/`) are handled automatically.
@@ -161,7 +161,7 @@ cp ${TEMPLATE_DIR}/*.jpg <project_path>/images/ 2>/dev/null || true
 
 > "What templates exist?" is out-of-band Q&A — answer by listing entries from `layouts_index.json` together with their paths. Listing alone does not advance the pipeline; the user still has to send a path to trigger the Step 3 copy.
 
-> To create a new template, read `workflows/create-template.md`.
+> To create a new template, read `/f/hema-fix/ppt-master/skills/ppt-master/workflows/create-template.md`.
 
 **✅ Checkpoint — Default path proceeds to Step 4 without user interaction. If the user's input contains an explicit template directory path, that directory is copied before advancing.**
 
@@ -173,12 +173,12 @@ cp ${TEMPLATE_DIR}/*.jpg <project_path>/images/ 2>/dev/null || true
 
 First, read the role definition:
 ```
-Read references/strategist.md
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/strategist.md
 ```
 
-> ⚠️ **Mandatory gate**: before writing `design_spec.md`, Strategist MUST `read_file templates/design_spec_reference.md` and follow its full I–XI section structure. See `strategist.md` Section 1.
+> ⚠️ **Mandatory gate**: before writing `design_spec.md`, Strategist MUST `read_file /f/hema-fix/ppt-master/skills/ppt-master/templates/design_spec_reference.md` and follow its full I–XI section structure. See `strategist.md` Section 1.
 
-**Eight Confirmations** (full template: `templates/design_spec_reference.md`):
+**Eight Confirmations** (full template: `/f/hema-fix/ppt-master/skills/ppt-master/templates/design_spec_reference.md`):
 
 ⛔ **BLOCKING**: present the Eight Confirmations as a single bundled recommendation set and **wait for explicit user confirmation or modification** before outputting Design Specification & Content Outline. This is the single core confirmation point — once confirmed, all subsequent steps proceed automatically.
 
@@ -195,21 +195,21 @@ Read references/strategist.md
 
 | Signal read | Line content |
 |---|---|
-| Heavy (long page count / bulky sources / heavy web-fetch accumulation) | State estimated page count and large source size; recommend switching to [split mode](workflows/resume-execute.md) after Step 5 — stop this chat, open a fresh window and input `继续生成 projects/<project_name>` to enter Phase B (SVG generation + export); no response or "continue" = default continuous mode. |
-| Normal (default) | State scale is moderate, default continuous mode generates in one go; if mid-way window switch is desired, input `继续生成 projects/<project_name>` after Step 5 to switch to [split mode](workflows/resume-execute.md). |
+| Heavy (long page count / bulky sources / heavy web-fetch accumulation) | State estimated page count and large source size; recommend switching to [split mode](/f/hema-fix/ppt-master/skills/ppt-master/workflows/resume-execute.md) after Step 5 — stop this chat, open a fresh window and input `继续生成 projects/<project_name>` to enter Phase B (SVG generation + export); no response or "continue" = default continuous mode. |
+| Normal (default) | State scale is moderate, default continuous mode generates in one go; if mid-way window switch is desired, input `继续生成 projects/<project_name>` after Step 5 to switch to [split mode](/f/hema-fix/ppt-master/skills/ppt-master/workflows/resume-execute.md). |
 
 This line is required output every run — the user must always see the mode choice exists. Whether to act on it is the user's call.
 
 If the user provided images, run analysis **before outputting the design spec**:
 ```bash
-python3 ${SKILL_DIR}/scripts/analyze_images.py <project_path>/images
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/analyze_images.py <project_path>/images
 ```
 
 > ⚠️ **Image handling**: NEVER directly read / open / view image files (`.jpg`, `.png`, etc.). All image info comes from `analyze_images.py` output or the Design Spec's Image Resource List.
 
 **Output**:
 - `<project_path>/design_spec.md` — human-readable design narrative
-- `<project_path>/spec_lock.md` — machine-readable execution contract (skeleton: `templates/spec_lock_reference.md`); Executor re-reads before every page
+- `<project_path>/spec_lock.md` — machine-readable execution contract (skeleton: `/f/hema-fix/ppt-master/skills/ppt-master/templates/spec_lock_reference.md`); Executor re-reads before every page
 
 **✅ Checkpoint — Phase deliverables complete, auto-proceed to next step**:
 ```markdown
@@ -232,15 +232,15 @@ python3 ${SKILL_DIR}/scripts/analyze_images.py <project_path>/images
 **Always load the common framework**:
 
 ```
-Read references/image-base.md
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/image-base.md
 ```
 
 Then **lazy-load the path-specific reference** for each row that actually needs it:
 
 | Acquire Via | Load reference (only if any such row exists) | Run |
 |---|---|---|
-| `ai` | `references/image-generator.md` | `python3 ${SKILL_DIR}/scripts/image_gen.py ...` |
-| `web` | `references/image-searcher.md` | `python3 ${SKILL_DIR}/scripts/image_search.py ...` |
+| `ai` | `/f/hema-fix/ppt-master/skills/ppt-master/references/image-generator.md` | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/image_gen.py ...` |
+| `web` | `/f/hema-fix/ppt-master/skills/ppt-master/references/image-searcher.md` | `python /f/hema-fix/ppt-master/skills/ppt-master/scripts/image_search.py ...` |
 | `user` / `placeholder` | (skip) | (skip) |
 
 A deck with only `ai` rows never loads `image-searcher.md`; a deck with only `web` rows never loads `image-generator.md`. A mixed deck loads both, processes each row through its own path, and writes both `image_prompts.md` and `image_sources.json`.
@@ -248,7 +248,7 @@ A deck with only `ai` rows never loads `image-searcher.md`; a deck with only `we
 Workflow:
 
 1. Extract all rows with `Status: Pending` and `Acquire Via ∈ {ai, web}` from the design spec
-2. Generate prompts (ai rows) and/or run search (web rows) per [image-base.md](references/image-base.md) §2 dispatch table
+2. Generate prompts (ai rows) and/or run search (web rows) per [image-base.md](/f/hema-fix/ppt-master/skills/ppt-master/references/image-base.md) §2 dispatch table
 3. Verify every row reaches a terminal status: `Generated` (ai success), `Sourced` (web success), or `Needs-Manual`
 
 **✅ Checkpoint — Confirm acquisition attempted for every row**:
@@ -264,11 +264,11 @@ Workflow:
   ```markdown
   ## ✅ Phase A Complete
   - [x] Spec: `design_spec.md`, `spec_lock.md`
-  - [x] Resources: `sources/`, `images/`, `templates/`
-  - [ ] **Next**: open a fresh chat window and input `继续生成 projects/<project_name>` to enter Phase B via the [`resume-execute`](workflows/resume-execute.md) workflow.
+  - [x] Resources: `sources/`, `images/`, `/f/hema-fix/ppt-master/skills/ppt-master/templates/`
+  - [ ] **Next**: open a fresh chat window and input `继续生成 projects/<project_name>` to enter Phase B via the [`resume-execute`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/resume-execute.md) workflow.
   ```
 
-> On acquisition failure, do NOT halt — follow the Failure Handling rule in [image-base.md](references/image-base.md) §5: retry once, then mark the row `Needs-Manual`, report to user, and continue to the checkpoint above.
+> On acquisition failure, do NOT halt — follow the Failure Handling rule in [image-base.md](/f/hema-fix/ppt-master/skills/ppt-master/references/image-base.md) §5: retry once, then mark the row `Needs-Manual`, report to user, and continue to the checkpoint above.
 
 ---
 
@@ -278,11 +278,11 @@ Workflow:
 
 Read the role definition based on the selected style:
 ```
-Read references/executor-base.md          # REQUIRED: common guidelines
-Read references/shared-standards.md       # REQUIRED: SVG/PPT technical constraints
-Read references/executor-general.md       # General flexible style
-Read references/executor-consultant.md    # Consulting style
-Read references/executor-consultant-top.md # Top consulting style (MBB level)
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/executor-base.md          # REQUIRED: common guidelines
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/shared-standards.md       # REQUIRED: SVG/PPT technical constraints
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/executor-general.md       # General flexible style
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/executor-consultant.md    # Consulting style
+Read /f/hema-fix/ppt-master/skills/ppt-master/references/executor-consultant-top.md # Top consulting style (MBB level)
 ```
 
 > Only read executor-base + shared-standards + one style file.
@@ -300,7 +300,7 @@ Read references/executor-consultant-top.md # Top consulting style (MBB level)
 
 **Quality Check Gate (Mandatory)** — after all SVGs, BEFORE speaker notes:
 ```bash
-python3 ${SKILL_DIR}/scripts/svg_quality_checker.py <project_path>
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/svg_quality_checker.py <project_path>
 ```
 - Any `error` (banned SVG features, viewBox mismatch, spec_lock drift, etc.) MUST be fixed before proceeding — return to Visual Construction, regenerate that page, re-run check.
 - `warning` entries (low-res image, non-PPT-safe font tail, etc.): fix when straightforward, otherwise acknowledge and release.
@@ -316,7 +316,7 @@ python3 ${SKILL_DIR}/scripts/svg_quality_checker.py <project_path>
 - [x] Speaker notes generated at notes/total.md
 ```
 
-> **Chart pages?** If this deck contains data charts (bar / line / pie / radar / etc.), run the standalone [`verify-charts`](workflows/verify-charts.md) workflow before Step 7 to calibrate coordinates. AI models routinely introduce 10–50 px errors when mapping data to pixel positions; verify-charts eliminates that class of error. Skip if no chart pages.
+> **Chart pages?** If this deck contains data charts (bar / line / pie / radar / etc.), run the standalone [`verify-charts`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/verify-charts.md) workflow before Step 7 to calibrate coordinates. AI models routinely introduce 10–50 px errors when mapping data to pixel positions; verify-charts eliminates that class of error. Skip if no chart pages.
 
 ---
 
@@ -331,21 +331,21 @@ python3 ${SKILL_DIR}/scripts/svg_quality_checker.py <project_path>
 > ⚠️ Run the three sub-steps **one at a time** — each must complete successfully before the next.
 > ❌ **NEVER** combine them into a single code block or shell invocation.
 
-Canonical three-command pipeline (mirrors `references/shared-standards.md` §5):
+Canonical three-command pipeline (mirrors `/f/hema-fix/ppt-master/skills/ppt-master/references/shared-standards.md` §5):
 
 **Step 7.1** — Split speaker notes:
 ```bash
-python3 ${SKILL_DIR}/scripts/total_md_split.py <project_path>
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/total_md_split.py <project_path>
 ```
 
 **Step 7.2** — SVG post-processing (icon embedding / image crop & embed / text flattening / rounded rect to path):
 ```bash
-python3 ${SKILL_DIR}/scripts/finalize_svg.py <project_path>
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/finalize_svg.py <project_path>
 ```
 
 **Step 7.3** — Export PPTX (embeds speaker notes by default):
 ```bash
-python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
+python /f/hema-fix/ppt-master/skills/ppt-master/scripts/svg_to_pptx.py <project_path>
 # Output:
 #   exports/<project_name>_<timestamp>.pptx           ← main native pptx (reads svg_output/, high fidelity)
 #   backup/<timestamp>/<project_name>_svg.pptx        ← SVG preview pptx (reads svg_final/)
@@ -369,21 +369,21 @@ python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
 
 **Optional custom animations** (only when the user asks to tune animation order/effects/timing for specific objects):
 
-Run the standalone [`customize-animations`](workflows/customize-animations.md) workflow. Default export already has global entrance animation; do not create `animations.json` unless object-level customization was requested.
+Run the standalone [`customize-animations`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/customize-animations.md) workflow. Default export already has global entrance animation; do not create `animations.json` unless object-level customization was requested.
 
 **Optional recorded narration** (only when the user asks for narrated/video export):
 
-Run the standalone [`generate-audio`](workflows/generate-audio.md) workflow. The AI picks a narration backend (`edge` by default, or a configured cloud provider such as ElevenLabs / MiniMax / Qwen / CosyVoice for high-quality or cloned voices), asks the user once (backend + voice + rate/settings + embed-or-not, all with recommended values), then executes `notes_to_audio.py` and (if chosen) re-exports the PPTX with `--recorded-narration audio`.
+Run the standalone [`generate-audio`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/generate-audio.md) workflow. The AI picks a narration backend (`edge` by default, or a configured cloud provider such as ElevenLabs / MiniMax / Qwen / CosyVoice for high-quality or cloned voices), asks the user once (backend + voice + rate/settings + embed-or-not, all with recommended values), then executes `notes_to_audio.py` and (if chosen) re-exports the PPTX with `--recorded-narration audio`.
 
 Do NOT call `notes_to_audio.py` directly without going through the workflow — `--voice` / `--voice-id` is required and the workflow produces the locale/provider-aware recommendation that makes the choice meaningful.
 
-Full effect list, anchor logic, and limits: [`references/animations.md`](references/animations.md).
+Full effect list, anchor logic, and limits: [`/f/hema-fix/ppt-master/skills/ppt-master/references/animations.md`](/f/hema-fix/ppt-master/skills/ppt-master/references/animations.md).
 
 > ❌ **NEVER** substitute `cp` for `finalize_svg.py` — finalize performs multiple critical processing steps
 > ❌ **NEVER** force `-s output` for the legacy/preview pptx (PowerPoint's internal SVG parser drops icons and rounded corners). The default auto-split already gives native the high-fidelity source it needs without touching legacy.
 > ❌ **NEVER** use `--only` (it suppresses one of the two output files)
 
-> Post-export iteration: whenever the user asks to change anything on a generated slide ("改一下", "调字号", "那里看着不对", "把图片换大点"), the [`visual-edit`](workflows/visual-edit.md) workflow is available — surface it as an option. If the user describes the change with enough specificity to apply directly ("第 3 页副标题字号改 32"), edit the SVG directly instead; if they're vaguely pointing at "somewhere" on the deck, run the workflow.
+> Post-export iteration: whenever the user asks to change anything on a generated slide ("改一下", "调字号", "那里看着不对", "把图片换大点"), the [`visual-edit`](/f/hema-fix/ppt-master/skills/ppt-master/workflows/visual-edit.md) workflow is available — surface it as an option. If the user describes the change with enough specificity to apply directly ("第 3 页副标题字号改 32"), edit the SVG directly instead; if they're vaguely pointing at "somewhere" on the deck, run the workflow.
 
 ---
 
@@ -403,15 +403,15 @@ Before switching roles, **MUST first read** the corresponding reference file. Ou
 
 | Resource | Path |
 |----------|------|
-| Shared technical constraints | `references/shared-standards.md` |
-| Canvas format specification | `references/canvas-formats.md` |
-| Image layout specification | `references/image-layout-spec.md` |
-| SVG image embedding | `references/svg-image-embedding.md` |
-| Icon library | `templates/icons/README.md` |
+| Shared technical constraints | `/f/hema-fix/ppt-master/skills/ppt-master/references/shared-standards.md` |
+| Canvas format specification | `/f/hema-fix/ppt-master/skills/ppt-master/references/canvas-formats.md` |
+| Image layout specification | `/f/hema-fix/ppt-master/skills/ppt-master/references/image-layout-spec.md` |
+| SVG image embedding | `/f/hema-fix/ppt-master/skills/ppt-master/references/svg-image-embedding.md` |
+| Icon library | `/f/hema-fix/ppt-master/skills/ppt-master/templates/icons/README.md` |
 
 ---
 
 ## Notes
 
-- Local preview: `python3 -m http.server -d <project_path>/svg_final 8000`
-- **Troubleshooting**: on generation issues (layout overflow, export errors, blank images, etc.), check `docs/faq.md` for known solutions
+- Local preview: `python -m http.server -d <project_path>/svg_final 8000`
+- **Troubleshooting**: on generation issues (layout overflow, export errors, blank images, etc.), check `/f/hema-fix/ppt-master/skills/ppt-master/docs/faq.md` for known solutions

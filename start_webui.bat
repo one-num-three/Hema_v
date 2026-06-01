@@ -40,6 +40,7 @@ set "HERMES_HOME=%USERPROFILE%\.hermes"
 set "WEBUI_PID_FILE=%USERPROFILE%\.hermes-web-ui\server.pid"
 set "WEBUI_MODE_FILE=%USERPROFILE%\.hermes-web-ui\server.mode"
 set "WEBUI_LOG=%USERPROFILE%\.hermes-web-ui\server.log"
+set "WEBUI_ERR_LOG=%USERPROFILE%\.hermes-web-ui\server.err.log"
 set "WEBUI_LAUNCHER_PORT="
 set "WEBUI_LAUNCHER_DIR=%WEBUI_DIR%\launcher"
 set "PATCH_PY="
@@ -148,9 +149,10 @@ if %errorlevel% equ 0 (
         exit /b 1
     )
     powershell -NoProfile -Command ^
-        "$cmd='call ""' + [IO.Path]::GetFullPath('%SCRIPT_DIR%start_hermes_gateway.bat') + '""';" ^
+        "$gateway=[IO.Path]::GetFullPath('%SCRIPT_DIR%start_hermes_gateway.bat');" ^
         "$work=[IO.Path]::GetFullPath('%SCRIPT_DIR%');" ^
-        "Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
+        "Start-Process -FilePath $env:ComSpec -ArgumentList @('/d','/c',('call ""' + $gateway + '""')) -WorkingDirectory $work -WindowStyle Hidden | Out-Null" >nul 2>&1
+    call :wait_gateway_health 30
 )
 
 :: Local desktop launcher: Web UI binds to localhost, so auth is disabled by default.
@@ -302,6 +304,7 @@ echo [INFO] Web UI server: "%WEBUI_SERVER%"
 echo [INFO] Web UI server mode: "%WEBUI_SERVER_MODE%"
 echo [INFO] Auth mode: disabled for localhost
 echo [INFO] Log file: "%WEBUI_LOG%"
+echo [INFO] Error log: "%WEBUI_ERR_LOG%"
 call :bootstrap_log "launching_webui_wrapper"
 cd /d "%WEBUI_DIR%"
 for /f %%p in ('powershell -NoProfile -Command ^
@@ -309,12 +312,13 @@ for /f %%p in ('powershell -NoProfile -Command ^
     "$server=[IO.Path]::GetFullPath('%WEBUI_SERVER%');" ^
     "$work=[IO.Path]::GetFullPath('%WEBUI_DIR%');" ^
     "$log=[IO.Path]::GetFullPath('%WEBUI_LOG%');" ^
+    "$err=[IO.Path]::GetFullPath('%WEBUI_ERR_LOG%');" ^
     "$logDir=[IO.Path]::GetDirectoryName($log);" ^
     "New-Item -ItemType Directory -Force -Path $logDir | Out-Null;" ^
     "$prefix=@('[launcher] Active profile: %ACTIVE_PROFILE_NAME%','[launcher] HERMES_HOME: %HERMES_HOME%','[launcher] UPSTREAM: %UPSTREAM%','[launcher] Gateway port source: %GATEWAY_PORT_SOURCE%','[launcher] Web UI server mode: %WEBUI_SERVER_MODE%','[launcher] Web UI server path: %WEBUI_SERVER%','[launcher] Corrupt profiles quarantined: %CORRUPT_COUNT%','[launcher] Corrupt profile names: %CORRUPT_NAMES_JSON%','[launcher] Corrupt profile quarantine dir: %CORRUPT_QUARANTINE_DIR%','[launcher] Active profile reset: %ACTIVE_PROFILE_RESET%');" ^
-    "$cmd=($prefix | ForEach-Object { 'echo ' + $_ + '>> ""' + $log + '""' }) -join ' & ';" ^
-    "$cmd += ' & ""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>>&1';" ^
-    "$p=Start-Process -FilePath $env:ComSpec -ArgumentList '/d','/s','/c',$cmd -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
+    "$prefix | Set-Content -LiteralPath $log -Encoding UTF8;" ^
+    "$cmd='call ""' + $node + '"" ""' + $server + '"" >> ""' + $log + '"" 2>> ""' + $err + '""';" ^
+    "$p=Start-Process -FilePath $env:ComSpec -ArgumentList @('/d','/c',$cmd) -WorkingDirectory $work -WindowStyle Hidden -PassThru;" ^
     "Start-Sleep -Milliseconds 300;" ^
     "Write-Output $p.Id"') do (
     if not defined WEBUI_WRAPPER_PID set "WEBUI_WRAPPER_PID=%%p"
@@ -360,7 +364,7 @@ if defined WEBUI_LAUNCHER_PORT (
 )
 echo [INFO] Opening browser: %BROWSER_URL%
 call :bootstrap_log "opening_browser=%BROWSER_URL%"
-start "" "%BROWSER_URL%"
+call :open_modern_browser "%BROWSER_URL%"
 :after_browser_open
 call :is_webui_gateway_connected
 if errorlevel 1 (
@@ -376,6 +380,48 @@ exit /b 0
 :bootstrap_log
 >> "%BOOTSTRAP_LOG%" echo [%date% %time%] %~1
 exit /b 0
+
+:open_modern_browser
+set "OPEN_URL=%~1"
+set "BROWSER_EXE="
+for %%B in (
+    "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
+    "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+    "%LocalAppData%\Microsoft\Edge\Application\msedge.exe"
+    "%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+    "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
+    "%LocalAppData%\Google\Chrome\Application\chrome.exe"
+) do (
+    if not defined BROWSER_EXE if exist "%%~B" set "BROWSER_EXE=%%~B"
+)
+if defined BROWSER_EXE (
+    call :bootstrap_log "open_browser_exe=%BROWSER_EXE%"
+    start "" "%BROWSER_EXE%" "%OPEN_URL%"
+) else (
+    call :bootstrap_log "open_browser_exe=default"
+    start "" "%OPEN_URL%"
+)
+exit /b 0
+
+:wait_gateway_health
+set "WAIT_GATEWAY_MAX=%~1"
+if not defined WAIT_GATEWAY_MAX set "WAIT_GATEWAY_MAX=30"
+set "WAIT_GATEWAY_ELAPSED=0"
+:wait_gateway_health_loop
+"%PATCH_PY%" -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:%GATEWAY_PORT%/health', timeout=1)" >nul 2>&1
+if %errorlevel% equ 0 (
+    call :bootstrap_log "gateway_health_check=ready_after_%WAIT_GATEWAY_ELAPSED%s"
+    echo [OK] Hermes gateway ready on port %GATEWAY_PORT%.
+    exit /b 0
+)
+if %WAIT_GATEWAY_ELAPSED% GEQ %WAIT_GATEWAY_MAX% (
+    call :bootstrap_log "gateway_health_check=still_starting_after_%WAIT_GATEWAY_MAX%s"
+    echo [INFO] Hermes gateway is still starting; the startup page will keep waiting.
+    exit /b 1
+)
+ping 127.0.0.1 -n 2 >nul 2>&1
+set /a WAIT_GATEWAY_ELAPSED+=1
+goto :wait_gateway_health_loop
 
 :resolve_hermes_home
 set "ACTIVE_PROFILE_FILE=%USERPROFILE%\.hermes\active_profile"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PPT Content Breakdown"
+  short_description: "Break complex themes into narrative PPT page outlines."
+  default_prompt: "Use $ppt-content-breakdown to turn my topic into a clear PPT page-by-page outline."

@@ -164,7 +164,8 @@
       color: #7a2f2f;
     }
     .actions { margin-top: 22px; display: flex; gap: 14px; justify-content: flex-end; }
-    .actions button {
+    .actions button,
+    .actions a {
       border: 0;
       border-radius: 999px;
       padding: 14px 26px;
@@ -174,8 +175,13 @@
       background: rgba(37,99,235,.10);
       color: #143a66;
       box-shadow: 0 8px 20px rgba(15,23,42,.08);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .actions button.primary {
+    .actions button.primary,
+    .actions a.primary {
       background: linear-gradient(90deg, #2563eb, #0f766e);
       color: #fff;
     }
@@ -239,11 +245,20 @@
   </div>
   <script>
     const params = new URLSearchParams(location.search);
-    const targetPort = Number(params.get("targetPort") || "8648");
-    const gatewayPort = Number(params.get("gatewayPort") || "8642");
+    function intParam(name, fallback) {
+      const search = String(location.search || "");
+      const direct = params.get(name);
+      const raw = direct || ((search.match(new RegExp(`${name}=([0-9]+)`)) || [])[1]);
+      const match = String(raw || "").match(/\d+/);
+      const value = match ? Number(match[0]) : fallback;
+      return Number.isFinite(value) && value > 0 ? value : fallback;
+    }
+    const targetPort = intParam("targetPort", 8648);
+    const gatewayPort = intParam("gatewayPort", 8642);
     const targetHost = (location.hostname && location.hostname !== "localhost")
       ? location.hostname
       : "127.0.0.1";
+    const targetRootUrl = `http://${targetHost}:${targetPort}/`;
     const targetUrl = `http://${targetHost}:${targetPort}/#/hermes/chat`;
     const origin = (location.origin && location.origin !== "null") ? location.origin : null;
     const probeUrl = origin
@@ -279,21 +294,29 @@
     let attempts = 0;
     let redirected = false;
 
-    function goTarget(delayMs = 0) {
+    function goTarget(delayMs = 0, preferredUrl = targetRootUrl) {
       if (redirected) return;
       redirected = true;
+      const candidates = [];
+      const pushCandidate = (value) => {
+        const next = String(value || "").trim();
+        if (next && !candidates.includes(next)) candidates.push(next);
+      };
+      pushCandidate(preferredUrl);
+      pushCandidate(targetRootUrl);
+      pushCandidate(targetUrl);
       const jump = () => {
-        try {
-          location.replace(targetUrl);
-        } catch (_) {
+        for (const nextUrl of candidates) {
           try {
-            location.href = targetUrl;
+            window.open(nextUrl, "_self");
+            break;
           } catch (_) {}
         }
         setTimeout(() => {
-          if (location.href !== targetUrl) {
+          if (!candidates.includes(location.href)) {
+            const fallbackUrl = candidates[candidates.length - 1] || targetRootUrl;
             try {
-              location.href = targetUrl;
+              location.href = fallbackUrl;
             } catch (_) {}
           }
         }, 220);
@@ -431,7 +454,7 @@
             ? stages.ready
             : (attempts > 2 ? stages.restore : stages.connect);
           paint(...nextStage);
-          goTarget(data.gateway_running ? 120 : 220);
+          goTarget(data.gateway_running ? 120 : 220, targetRootUrl);
           return;
         }
 
@@ -463,7 +486,7 @@
 
     enterBtn.addEventListener("click", () => {
       redirected = false;
-      goTarget(0);
+      goTarget(0, targetRootUrl);
     });
 
     retryBtn.addEventListener("click", () => {

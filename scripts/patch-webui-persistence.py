@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+import shutil
 import sys
 
 
@@ -24,7 +25,8 @@ OLD_RELAY_URLS = (
     "https://apikey.fun/register?aff=LIBAPI",
 )
 HEMA_APPS_SCRIPT_NAME = "hema-apps.js"
-HEMA_APPS_SCRIPT_VERSION = "20260528-apps-sidebar-gradient"
+HEMA_APPS_SCRIPT_VERSION = "20260529-app-backgrounds-v3"
+HEMA_APPS_ASSET_DIR = Path(__file__).resolve().parents[1] / "assets" / "hema-app-backgrounds"
 ENABLE_HEMA_APPS = True
 
 
@@ -549,6 +551,18 @@ def patch_router_bundle(filepath: str) -> bool:
 def patch_hema_apps(client_root: Path) -> bool:
     script_path = client_root / HEMA_APPS_SCRIPT_NAME
     index_path = client_root / "index.html"
+    asset_target_dir = client_root / "hema-app-backgrounds"
+
+    if HEMA_APPS_ASSET_DIR.exists():
+        asset_target_dir.mkdir(parents=True, exist_ok=True)
+        for source in HEMA_APPS_ASSET_DIR.glob("*.png"):
+            target = asset_target_dir / source.name
+            if not target.exists() or source.read_bytes() != target.read_bytes():
+                shutil.copy2(source, target)
+                print(f"Patched Hema app background: {target}")
+    else:
+        print(f"ERROR: Hema app background assets not found: {HEMA_APPS_ASSET_DIR}")
+        return False
 
     current_script = script_path.read_text(encoding="utf-8", errors="replace") if script_path.exists() else ""
     if current_script != HEMA_APPS_SCRIPT.strip() + "\n":
